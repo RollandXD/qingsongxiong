@@ -1,4 +1,5 @@
 import AIUsageData
+import AIUsageAuth
 import AIUsageFeature
 import AIUsageDomain
 import BearDesignSystem
@@ -51,17 +52,21 @@ private final class AppComposition {
             values = try shared.vault(service: "io.github.rollandxd.qingsongxiong.ai-usage")
             #endif
             let credentials = SecureUsageCredentialStore(values: values)
+            let client = URLSessionHTTPClient()
+            let tokenClient = OAuthTokenClient(client: client)
             let repository = LiveAIUsageRepository(credentials: credentials, states: states,
-                fetchers: [.deepseek: DeepSeekAdapter(client: URLSessionHTTPClient())])
-            model = AIUsageModel(repository: repository, connector: repository)
+                fetchers: UsageAdapterRegistry.make(client: client), renewer: tokenClient)
+            let connector = MobileAccountConnector(repository: repository, tokenClient: tokenClient,
+                                                    browser: SystemOAuthBrowser())
+            model = AIUsageModel(repository: repository, connector: connector,
+                                 onDataChange: { WidgetCenter.shared.reloadAllTimelines() })
         } catch {
             model = AIUsageModel(repository: VerificationGatedRepository(), connector: nil)
             model.message = "共享存储不可用，请在设置中检查 App 与小组件共享能力。"
         }
         var entries = [AppFeatureEntry(
             descriptor: FeatureDescriptor(id: "ai-usage", title: "AI 额度", systemImage: "sparkles"),
-            home: AnyView(AIUsageHome(model: model, navigation: navigation,
-                                     onDataChange: { WidgetCenter.shared.reloadAllTimelines() })),
+            home: AnyView(AIUsageHome(model: model, navigation: navigation)),
             settings: AnyView(AIUsageAccountSettings(model: model)),
             handle: { navigation.handle(components: $0) }
         )]
@@ -142,7 +147,7 @@ private struct SettingsScreen: View {
                     ForEach(entries, id: \.descriptor.id) { entry in entry.settings }
                 }
                 Section("关于") {
-                    LabeledContent("轻松熊", value: "0.1 · 接入预览")
+                    LabeledContent("轻松熊", value: version)
                     Text("个人工具箱 · 原生 SwiftUI 与 WidgetKit")
                     Text("凭据仅用于对应平台官方请求，保存在手机钥匙串；不发送模型请求。")
                         .font(.footnote).foregroundStyle(.secondary)
@@ -152,6 +157,12 @@ private struct SettingsScreen: View {
             .background(BearTheme.background(scheme))
             .navigationTitle("设置")
         }
+    }
+
+    private var version: String {
+        let marketing = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+        return marketing + " (" + build + ") · 接入预览"
     }
 }
 

@@ -28,11 +28,11 @@ public struct DeepSeekAdapter: Sendable {
     }
 }
 
-enum HTTPUsagePolicy {
-    static func validate(_ response: HTTPResponse, now: Date) throws {
+public enum HTTPUsagePolicy {
+    public static func validate(_ response: HTTPResponse, now: Date) throws {
         switch response.statusCode {
         case 200...299: return
-        case 401, 403: throw UsageFailure.reconnectRequired
+        case 401: throw UsageFailure.reconnectRequired
         case 429:
             var retryAt: Date?
             if let raw = response.headers["retry-after"] {
@@ -47,7 +47,7 @@ enum HTTPUsagePolicy {
                 }
             }
             throw UsageFailure.rateLimited(retryAt: retryAt)
-        default: throw UsageFailure.unavailable
+        default: throw UsageFailure.serviceHTTP(status: response.statusCode)
         }
     }
 }

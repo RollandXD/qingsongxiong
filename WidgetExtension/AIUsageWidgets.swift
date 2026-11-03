@@ -29,7 +29,7 @@ private enum WidgetDependencies {
               let vault = try? shared.vault(service: "io.github.rollandxd.qingsongxiong.ai-usage") else { return nil }
         return WidgetUsageReader(credentials: SecureUsageCredentialStore(values: vault),
                                  states: FileUsageStateStore(container: container),
-                                 fetchers: [.deepseek: DeepSeekAdapter(client: URLSessionHTTPClient())])
+                                 fetchers: UsageAdapterRegistry.make(client: URLSessionHTTPClient()))
     }()
 }
 

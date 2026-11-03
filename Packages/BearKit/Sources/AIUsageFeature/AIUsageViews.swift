@@ -20,13 +20,10 @@ public struct AIUsageHome: View {
     @Bindable private var navigation: AIUsageNavigation
     @Environment(\.colorScheme) private var scheme
     @Environment(\.scenePhase) private var scenePhase
-    private let onDataChange: @MainActor () -> Void
 
-    public init(model: AIUsageModel, navigation: AIUsageNavigation,
-                onDataChange: @escaping @MainActor () -> Void = {}) {
+    public init(model: AIUsageModel, navigation: AIUsageNavigation) {
         self.model = model
         self.navigation = navigation
-        self.onDataChange = onDataChange
     }
 
     public var body: some View {
@@ -78,7 +75,6 @@ public struct AIUsageHome: View {
                 await model.refreshIfNeeded()
             }
         }
-        .onChange(of: model.dataRevision) { _, _ in onDataChange() }
         .alert("暂未完成", isPresented: Binding(get: { model.message != nil }, set: { if !$0 { model.message = nil } })) {
             Button("好") { model.message = nil }
         } message: { Text(model.message ?? "") }
@@ -183,6 +179,9 @@ private struct ProviderDetail: View {
                     }
                     .disabled(model.connecting.contains(provider))
                     .accessibilityIdentifier("connect-" + provider.rawValue)
+                    if model.connecting.contains(provider) {
+                        ProgressView(provider == .deepseek ? "正在读取余额…" : "正在等待官方授权…")
+                    }
                 } else {
                     Text("此平台的账户连接将在后续版本提供。").foregroundStyle(.secondary)
                 }
@@ -194,6 +193,11 @@ private struct ProviderDetail: View {
             }
             if provider == .deepseek {
                 Section { Text("连接的是 DeepSeek 官方 API 余额，与聊天 App 的会员或次数分开计算。").font(.footnote).foregroundStyle(.secondary) }
+            } else {
+                Section {
+                    Text("通过平台的订阅授权页连接，请在官方页面核对授权内容。轻松熊只读取额度，不创建 API 密钥或发送模型请求。")
+                    Text("订阅额度接口可能随服务更新调整；暂不可用时会保留已有读数及时间。")
+                }.font(.footnote).foregroundStyle(.secondary)
             }
         }
         .scrollContentBackground(.hidden)

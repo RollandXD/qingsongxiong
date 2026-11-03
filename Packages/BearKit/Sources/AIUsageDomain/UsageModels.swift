@@ -72,6 +72,9 @@ public enum UsageFailure: Error, Codable, Equatable, Sendable {
     case invalidCredential
     case network
     case appRefreshRequired
+    case authorizationTimedOut
+    case authorizationRejected
+    case serviceHTTP(status: Int)
     case rateLimited(retryAt: Date?)
 }
 
@@ -85,6 +88,7 @@ public protocol AIUsageRepository: Sendable {
 public protocol AIUsageAccountConnecting: Sendable {
     func supports(_ provider: ProviderID) -> Bool
     func connect(_ provider: ProviderID, apiKey: String?) async throws
+    func cancel(_ provider: ProviderID) async
 }
 
 public enum AIUsageRoute {

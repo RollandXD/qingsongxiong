@@ -69,6 +69,7 @@ public actor LiveAIUsageRepository: AIUsageRepository, AIUsageAccountConnecting 
     }
 
     public nonisolated func supports(_ provider: ProviderID) -> Bool { provider == .deepseek }
+    public func cancel(_ provider: ProviderID) async { _ = invalidate(provider) }
 
     /// 先验证新账户，失败时原账户仍保留；提交前再次检查退出/替换代次。
     public func replaceCredential(_ credential: ProviderCredential, for provider: ProviderID) async throws {

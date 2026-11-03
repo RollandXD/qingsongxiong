@@ -33,6 +33,11 @@ if shutil.which("swift"):
                     errors.append(f"Package.swift：{target['name']} 非法依赖 {dependency}")
 
 gate = json.loads((ROOT / "device-gate.json").read_text())
+for path in (ROOT / "WidgetExtension").rglob("*.swift"):
+    imports = re.findall(r"^\s*import\s+(\w+)", path.read_text(), re.M)
+    for forbidden in {"AIUsageAuth", "AIUsageFeature", "AuthenticationServices", "WebKit"}:
+        if forbidden in imports:
+            errors.append(f"Widget 不得链接交互式授权或主 App 页面：{path.relative_to(ROOT)} -> {forbidden}")
 if gate["status"] != "verified":
     forbidden = re.compile(r"backend-api/wham|api\.anthropic\.com|api\.deepseek\.com")
     for path in sources.rglob("*.swift"):
