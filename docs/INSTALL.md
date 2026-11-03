@@ -20,7 +20,7 @@ Arch 需要官方 `usbmuxd` 包。首次安装后重新插入手机，让 udev �
 
 ## 2. 安装验证包
 
-1. 完成 SideStore 登录与首次刷新后，用手机 Safari 打开[验证版发布列表](https://github.com/RollandXD/qingsongxiong/releases)，下载名称兼容修正版的 `QingSongXiong-needs-signing.ipa`；校验文件与来源提交见该页。首个 `verification.1` 包有中文 App ID 注册兼容问题，请勿重复安装。也可从对应 Actions 产物解压获得 IPA 与 SHA256SUMS。
+1. 完成 SideStore 登录与首次刷新后，用手机 Safari 打开[名称兼容修正版 verification.2](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.1.0-verification.2)，下载 `QingSongXiong-needs-signing.ipa`；校验文件与来源提交见该页。首个 `verification.1` 包有中文 App ID 注册兼容问题，请勿重复安装。也可从对应 Actions 产物解压获得 IPA 与 SHA256SUMS。
 2. 在 SideStore 导入 IPA，**保留 Widget 扩展**，使用自己的免费账户重新签名。
 3. 该 IPA 的临时 ad-hoc 签名只携带权限声明，没有 Apple 开发者签名；请以 SideStore 的签名/安装结果判断。
 4. 若签名提示共享组或权限错误，记录错误文本并停止；不要移除 Widget 或共享权限来让安装“看起来成功”。
