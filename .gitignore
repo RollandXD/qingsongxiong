@@ -20,3 +20,4 @@ Signing.local.*
 verification.local.*
 __pycache__/
 *.pyc
+.local-tools/

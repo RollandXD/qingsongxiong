@@ -12,7 +12,7 @@ patterns = [
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
 ]
 for path in root.rglob("*"):
-    if not path.is_file() or any(part in {".git", ".build", ".swiftpm", "output", "DerivedData"} or part.endswith(".xcodeproj") for part in path.parts):
+    if not path.is_file() or any(part in {".git", ".build", ".swiftpm", ".local-tools", "output", "DerivedData"} or part.endswith(".xcodeproj") for part in path.parts):
         continue
     if path.suffix.lower() in {".p12", ".p8", ".mobileprovision", ".pem"}:
         errors.append(f"禁止提交签名或凭据文件：{path.relative_to(root)}")

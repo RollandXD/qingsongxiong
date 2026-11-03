@@ -1,6 +1,7 @@
 import XCTest
 
 final class BootstrapUITests: XCTestCase {
+    override func setUpWithError() throws { continueAfterFailure = false }
     @MainActor
     func testWarmLightHomeAndProviderNavigation() {
         let app = XCUIApplication()
@@ -18,7 +19,9 @@ final class BootstrapUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-AppleInterfaceStyle", "Dark"]
         app.launch()
-        app.tabBars.buttons["设置"].tap()
+        let settings = app.buttons["设置"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 10))
+        settings.tap()
         app.buttons["open-signing-verification"].tap()
         XCTAssertTrue(app.buttons["write-probe"].waitForExistence(timeout: 5))
         attach(app, name: "signing-dark")

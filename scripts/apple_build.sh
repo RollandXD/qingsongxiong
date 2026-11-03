@@ -29,8 +29,13 @@ for runtime,devices in data.items():
 sys.exit("iOS 27.1 iPhone simulator unavailable")
 ')"
   local result=0
+  if ! xcrun simctl list devices booted --json | grep -q "$simulator_id"; then
+    xcrun simctl boot "$simulator_id"
+  fi
+  xcrun simctl bootstatus "$simulator_id" -b
   xcodebuild test -project QingSongXiong.xcodeproj -scheme QingSongXiong \
   -configuration Debug -destination "platform=iOS Simulator,id=$simulator_id" \
+  -parallel-testing-enabled NO \
   -derivedDataPath output/DerivedData -resultBundlePath output/UITests.xcresult \
     CODE_SIGNING_ALLOWED=NO || result=$?
   if [[ -d output/UITests.xcresult ]]; then

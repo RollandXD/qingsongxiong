@@ -8,6 +8,8 @@
 
 电脑首次通过数据线连接 iPhone，保持手机解锁，由用户在手机上选择信任、在工具中直接完成 Apple 登录与验证码。配对资料保留在本机工具私有目录，不上传本仓库或聊天。
 
+Arch 需要官方 `usbmuxd` 包。首次安装后重新插入手机，让 udev 为该节点应用官方权限规则。安装器可用 `python3 scripts/download_iloader.py` 下载到忽略目录 `.local-tools/`，脚本会核验官方发布包的 SHA-256，不运行登录流程。
+
 ## 2. 安装验证包
 
 1. 在 GitHub Actions 的成功构建中下载 `QingSongXiong-verification-…` 产物，解压得到 `QingSongXiong-needs-signing.ipa` 与 SHA256SUMS。
