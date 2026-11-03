@@ -68,6 +68,9 @@ public enum UsageFailure: Error, Equatable, Sendable {
     case disconnected
     case reconnectRequired
     case unavailable
+    case invalidResponse
+    case invalidCredential
+    case network
     case rateLimited(retryAt: Date?)
 }
 

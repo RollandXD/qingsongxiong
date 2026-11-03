@@ -17,11 +17,11 @@ let package = Package(
         .target(name: "BearDesignSystem", dependencies: ["BearFoundation"]),
         .target(name: "BearPlatform", dependencies: ["BearFoundation"]),
         .target(name: "AIUsageDomain", dependencies: ["BearFoundation"]),
-        .target(name: "AIUsageData", dependencies: ["AIUsageDomain", "BearPlatform"]),
+        .target(name: "AIUsageData", dependencies: ["AIUsageDomain", "BearFoundation", "BearPlatform"]),
         .target(name: "AIUsageFeature", dependencies: ["AIUsageDomain", "BearDesignSystem"]),
         .testTarget(name: "BearFoundationTests", dependencies: ["BearFoundation"]),
         .testTarget(name: "BearPlatformTests", dependencies: ["BearPlatform", "BearFoundation"]),
         .testTarget(name: "AIUsageDomainTests", dependencies: ["AIUsageDomain"]),
-        .testTarget(name: "AIUsageDataTests", dependencies: ["AIUsageData", "AIUsageDomain"]),
+        .testTarget(name: "AIUsageDataTests", dependencies: ["AIUsageData", "AIUsageDomain", "BearFoundation", "BearPlatform"]),
     ]
 )

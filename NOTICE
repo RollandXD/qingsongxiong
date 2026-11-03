@@ -6,4 +6,6 @@ Copyright 2026 Rolland
 https://github.com/stavrop/ai-usage-limits
 参考提交：ae59404d1f2af6795e5412b2773420a4d4c485e7
 其原始 NOTICE 保留于 docs/UPSTREAM-NOTICE.txt。
-本阶段未接入真实厂商授权或额度接口。
+平台响应字段与授权协议继续参考上述来源，并按本仓库的分层边界独立实现。
+DeepSeek 官方余额接口依据：https://api-docs.deepseek.com/api/get-user-balance/
+真实账户授权与读取结果以 docs/STATUS.md 中的实测状态为准。
