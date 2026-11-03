@@ -20,9 +20,15 @@
 
 先验证动作，再安排触发时间。手动连接 LocalDevVPN、打开一次 SideStore，然后在「快捷指令」中添加 SideStore 的 `Refresh All Apps` 动作并手动执行。成功标准是 SideStore 与轻松熊的到期时间实际更新，不能只看通知。
 
+2026-11-03 用户已确认上述单次快捷指令动作成功，两款 App 到期时间实际更新。
+
 SideStore 0.7.0 的不同构建存在 [快捷指令参数错误 #1613](https://github.com/SideStore/SideStore/issues/1613) 和 [进程未驻留时登录状态错误 #1584](https://github.com/SideStore/SideStore/issues/1584)。这些是上游问题报告，不代表本设备必然失败。若发生，记录完整错误与构建号，保留可用的手动路径，不改装未知分支或撤销证书。
 
-只有单次动作通过后，才在手机选择适合自己的触发条件，并逐步加入 LocalDevVPN 连接和 Shadowrocket 恢复。锁屏、网络断开、SideStore 被清理后的运行，以及真正超过七天的有效性，都需要实际观察；当前状态 UNKNOWN。
+用户采用每日触发。2026-11-03 已确认整条快捷指令试跑成功：停止 Shadowrocket → 启用 LocalDevVPN → 等待连接建立 → Refresh All Apps → 停用 LocalDevVPN → 恢复 Shadowrocket。
+
+LocalDevVPN 的启停动作见其 [官方商店更新说明](https://apps.apple.com/us/app/localdevvpn/id6755608044)，Shadowrocket 的启停 Intent 见其 [官方版本说明](https://apps.apple.com/us/app/shadowrocket/id932747118)。使用安装版本提供的动作，不导入未知来源的远程快捷指令。
+
+个人自动化可按 [Apple 的说明](https://support.apple.com/guide/shortcuts/enable-or-disable-a-personal-automation-apd602971e63/ios) 配置无需确认运行。实际每日定时触发、锁屏、网络断开、SideStore 被清理后的运行，以及真正超过七天的有效性，都需要实际观察；当前这些项目仍 UNKNOWN。中途失败时先手动停用 LocalDevVPN 并恢复 Shadowrocket，再检查错误。
 
 ## 读取与授权恢复
 

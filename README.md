@@ -35,6 +35,7 @@ swift test --package-path Packages/BearKit
 
 - [交付状态](docs/STATUS.md)
 - [架构与增加新功能](docs/ARCHITECTURE.md)
+- [模块开发说明](docs/MODULES.md)
 - [免费安装与实机验收](docs/INSTALL.md)
 - [测试说明](docs/TESTING.md)
 - [更新、续签与恢复](docs/MAINTENANCE.md)

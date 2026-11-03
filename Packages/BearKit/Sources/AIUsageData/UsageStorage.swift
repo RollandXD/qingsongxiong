@@ -23,8 +23,11 @@ public struct ProviderCredential: Codable, Sendable {
     }
 }
 
-public protocol UsageCredentialStore: Sendable {
+public protocol UsageCredentialReading: Sendable {
     func load(_ provider: ProviderID) throws -> ProviderCredential?
+}
+
+public protocol UsageCredentialStore: UsageCredentialReading {
     func save(_ credential: ProviderCredential, for provider: ProviderID) throws
     func remove(_ provider: ProviderID) throws
 }
@@ -42,8 +45,11 @@ public struct SecureUsageCredentialStore: UsageCredentialStore {
     public func remove(_ provider: ProviderID) throws { try values.remove(key: "ai-usage." + provider.rawValue) }
 }
 
-public protocol UsageStateStore: Sendable {
+public protocol UsageStateReading: Sendable {
     func load(_ provider: ProviderID) throws -> ProviderState?
+}
+
+public protocol UsageStateStore: UsageStateReading {
     func save(_ state: ProviderState) throws
     func remove(_ provider: ProviderID) throws
 }

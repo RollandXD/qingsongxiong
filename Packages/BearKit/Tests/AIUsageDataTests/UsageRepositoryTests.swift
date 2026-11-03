@@ -27,6 +27,35 @@ private func snapshot(_ provider: ProviderID, at date: Date = repositoryTime) ->
     UsageSnapshot(provider: provider, windows: [], balances: [], isAvailable: nil, fetchedAt: date)
 }
 
+private struct RejectingStateWrites: UsageStateStore {
+    let previous: ProviderState?
+    func load(_ provider: ProviderID) throws -> ProviderState? { previous?.provider == provider ? previous : nil }
+    func save(_ state: ProviderState) throws { throw UsageFailure.unavailable }
+    func remove(_ provider: ProviderID) throws {}
+}
+
+@Test func replacementRestoresTheOriginalCredentialWhenSnapshotPersistenceFails() async throws {
+    let credentials = MemoryCredentials()
+    let old = ProviderCredential(accessToken: "old-key")
+    try credentials.save(old, for: .deepseek)
+    let previous = ProviderState(provider: .deepseek, sessionID: old.sessionID, connection: .connected,
+                                 snapshot: snapshot(.deepseek), failure: nil, updatedAt: repositoryTime)
+    let repository = LiveAIUsageRepository(credentials: credentials, states: RejectingStateWrites(previous: previous),
+        fetchers: [.deepseek: OutcomeFetcher(.success(snapshot(.deepseek)))])
+    await #expect(throws: UsageFailure.unavailable) { try await repository.connect(.deepseek, apiKey: "next-key") }
+    #expect(try credentials.load(.deepseek)?.sessionID == old.sessionID)
+    #expect(try await repository.state(for: .deepseek).snapshot == previous.snapshot)
+}
+
+@Test func firstConnectionDoesNotLeaveAnOrphanedCredentialWhenSnapshotPersistenceFails() async throws {
+    let credentials = MemoryCredentials()
+    let repository = LiveAIUsageRepository(credentials: credentials, states: RejectingStateWrites(previous: nil),
+        fetchers: [.deepseek: OutcomeFetcher(.success(snapshot(.deepseek)))])
+    await #expect(throws: UsageFailure.unavailable) { try await repository.connect(.deepseek, apiKey: "unit-key") }
+    #expect(try credentials.load(.deepseek) == nil)
+    #expect(try await repository.state(for: .deepseek).connection == .disconnected)
+}
+
 private actor OutcomeFetcher: UsageFetching {
     let result: Result<UsageSnapshot, UsageFailure>
     let delay: Duration
@@ -210,4 +239,23 @@ private actor RotatingRenewer: UsageCredentialRenewing {
     #expect(await fetcher.calls() == 1)
     #expect(try states.load(.deepseek)?.snapshot == old)
     #expect(try credentials.load(.deepseek)?.sessionID == credential.sessionID)
+}
+
+@Test func widgetKeepsTheServerRetryDeadlineEvenWhenItsMemorySnapshotIsNewer() async throws {
+    let credentials = MemoryCredentials()
+    let states = MemoryStates()
+    let credential = ProviderCredential(accessToken: "unit-key")
+    try credentials.save(credential, for: .deepseek)
+    let old = snapshot(.deepseek, at: repositoryTime.addingTimeInterval(-600))
+    let fetcher = OutcomeFetcher(.success(snapshot(.deepseek)))
+    let reader = WidgetUsageReader(credentials: credentials, states: states,
+                                   fetchers: [.deepseek: fetcher], clock: RepositoryClock())
+    _ = await reader.state(for: .deepseek, refresh: true)
+    let deadline = repositoryTime.addingTimeInterval(120)
+    try states.save(ProviderState(provider: .deepseek, sessionID: credential.sessionID, connection: .connected,
+        snapshot: old, failure: .rateLimited(retryAt: deadline), updatedAt: repositoryTime))
+    let value = await reader.state(for: .deepseek, refresh: true)
+    #expect(value.snapshot?.fetchedAt == repositoryTime)
+    #expect(value.failure == .rateLimited(retryAt: deadline))
+    #expect(await fetcher.calls() == 1)
 }

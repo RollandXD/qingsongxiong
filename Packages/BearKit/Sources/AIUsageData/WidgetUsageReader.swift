@@ -4,14 +4,14 @@ import Foundation
 
 /// Widget 的受限取数路径：可以使用未过期 token，只读凭据，绝不轮换或写入共享快照。
 public actor WidgetUsageReader {
-    private let credentials: any UsageCredentialStore
-    private let states: any UsageStateStore
+    private let credentials: any UsageCredentialReading
+    private let states: any UsageStateReading
     private let fetchers: [ProviderID: any UsageFetching]
     private let clock: any BearClock
     private var memory: [ProviderID: ProviderState] = [:]
     private var requests: [ProviderID: Task<ProviderState, Never>] = [:]
 
-    public init(credentials: any UsageCredentialStore, states: any UsageStateStore,
+    public init(credentials: any UsageCredentialReading, states: any UsageStateReading,
                 fetchers: [ProviderID: any UsageFetching], clock: any BearClock = SystemBearClock()) {
         self.credentials = credentials
         self.states = states
@@ -30,10 +30,19 @@ public actor WidgetUsageReader {
             if let stored, stored.connection == .reconnectRequired { return stored }
             let cached = latest(memory[provider], stored, sessionID: credential.sessionID)
             if !refresh { return cached ?? empty(provider, credential: credential) }
+            // 选择更新读数时不能丢掉另一份状态里仍有效的服务端限流期限。
+            let retryAt = [memory[provider], stored].compactMap { value -> Date? in
+                guard let value, value.sessionID == credential.sessionID,
+                      case .rateLimited(let date) = value.failure, let date, date > clock.now() else { return nil }
+                return date
+            }.max()
+            if let retryAt {
+                return result(provider, credential: credential, snapshot: cached?.snapshot,
+                              failure: .rateLimited(retryAt: retryAt))
+            }
             if let cached, let snapshot = cached.snapshot, clock.now().timeIntervalSince(snapshot.fetchedAt) < 300 {
                 return cached
             }
-            if let cached, case .rateLimited(let date) = cached.failure, let date, date > clock.now() { return cached }
             if let expiration = credential.expiresAt, expiration <= clock.now() {
                 return result(provider, credential: credential, snapshot: cached?.snapshot, failure: .appRefreshRequired)
             }

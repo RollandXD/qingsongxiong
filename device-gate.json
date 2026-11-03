@@ -4,6 +4,14 @@
   "verificationScope": "manual-free-signing-and-sharing",
   "targetOS": "iOS 27.0.1",
   "networkTool": "Shadowrocket",
+  "automaticRenewal": {
+    "trigger": "daily",
+    "configured": true,
+    "manualFullRunVerified": true,
+    "scheduledExecutionVerified": null,
+    "lockedDeviceVerified": null,
+    "sevenDayStabilityVerified": null
+  },
   "checks": {
     "appLaunch": true,
     "overviewWidget": true,

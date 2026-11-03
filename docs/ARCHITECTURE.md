@@ -19,6 +19,8 @@ AppShell 是组合根：将仓储注入功能页面，创建功能注册表与�
 
 Widget 依赖领域、AIUsagePresentation、平台与数据层的受限读取能力和通用设计资源。`WidgetUsageReader` 使用未过期凭据独立取数，不轮换 refresh token、不写共享快照；凭据过期时提示打开 App。读取完成后再次检查账户 sessionID，防止退出后的迟到结果重新显示。
 
+Widget 读取器仅持有 `UsageCredentialReading`、`UsageStateReading`，这两个协议没有保存或删除能力；主 App 仓储持有扩展了写入能力的 Store 协议。选择较新的组件读数时，仍保留同一账户另一份状态中的有效 Retry-After 期限。
+
 `AIUsageAuth` 仅链接到主 App，Widget 禁止导入授权模块或浏览器框架。系统浏览器桥接由 AppShell 装配，不包含厂商协议。授权回调只监听手机 IPv4 回环地址，使用独立随机 state 与 PKCE；拒绝错误路径、来源和重复 state，退出时取消等待与网络任务。授权码与 refresh token 请求不自动重试，避免重复消费。
 
 Codex、Claude 订阅额度读取参考上游手机端实现，部分接口不属于公开稳定 API，必须单独实机验证。Claude 的授权请求包含上游所需的 `org:create_api_key user:profile`，不调用创建密钥或模型接口；续期仅重放服务实际授予的 scope。未验证的 JWT 内容仅用于额度请求的账户头，不据此判定身份或权限。
@@ -26,6 +28,8 @@ Codex、Claude 订阅额度读取参考上游手机端实现，部分接口不�
 `LiveAIUsageRepository` 是主 App 唯一的快照与令牌写入者。每个平台独立的代次与请求任务用于合并并发刷新、取消退出请求、拒绝旧账户结果。轮换出的 refresh token 在后续额度请求之前保存，失败保留原快照及其真实时间；限流按服务端 Retry-After 阻止过早请求。`UsageCredentialStore`、`UsageStateStore`、`HTTPClient`、`BearClock` 可分别替换。
 
 ## 新增功能
+
+具体注册字段、数据隔离与验收步骤见 [模块开发说明](MODULES.md)。
 
 1. 新建自己的 Domain / Data / Feature 模块，声明最小依赖与测试。
 2. 在 `AppComposition` 注册稳定功能 ID、入口及路由处理；不修改 AI 核心。

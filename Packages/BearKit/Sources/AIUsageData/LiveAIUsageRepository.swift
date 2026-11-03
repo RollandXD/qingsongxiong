@@ -79,9 +79,19 @@ public actor LiveAIUsageRepository: AIUsageRepository, AIUsageAccountConnecting 
         let snapshot = try await fetcher.fetch(credential: credential)
         try ensureCurrent(provider, generation)
         guard snapshot.provider == provider else { throw UsageFailure.invalidResponse }
+        let previousCredential = try credentials.load(provider)
         try credentials.save(credential, for: provider)
-        try states.save(ProviderState(provider: provider, sessionID: credential.sessionID, connection: .connected,
-                                      snapshot: snapshot, failure: nil, updatedAt: clock.now()))
+        do {
+            try states.save(ProviderState(provider: provider, sessionID: credential.sessionID, connection: .connected,
+                                          snapshot: snapshot, failure: nil, updatedAt: clock.now()))
+        } catch {
+            // Keychain 与文件无法跨存储事务；缓存写入失败时恢复旧账户，避免显示连接失败却偷偷更换账户。
+            do {
+                if let previousCredential { try credentials.save(previousCredential, for: provider) }
+                else { try credentials.remove(provider) }
+            } catch { throw UsageFailure.unavailable }
+            throw error
+        }
     }
 
     public func refresh(_ provider: ProviderID) async throws -> UsageSnapshot {

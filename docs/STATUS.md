@@ -14,7 +14,9 @@
 - 第三阶段进行中：三家独立响应解析、DeepSeek 官方只读余额请求、可注入时钟和 HTTP 客户端；21 项包测试与原生构建在 CI `6b3a890` 通过。
 - 账户仓储、DeepSeek 安全输入与余额页面、受限 Widget 读取路径、并发/退出/轮换测试在 `6f26d2e` 通过原生 CI。
 - Codex/Claude 系统浏览器授权、手机回环回调、PKCE、令牌续期和订阅适配器已实现。preview.2 用户确认两家的手机授权与额度读取均成功。
+- preview.2 `d85a3b6` 原生 CI：43 项包测试、4 项 UI 测试、Release iPhone 构建与 IPA 校验全部 PASS（[CI 41627496760](https://github.com/RollandXD/qingsongxiong/actions/runs/41627496760)）。浅色授权入口和实际深色截图已检查。
 - 新增功能数据清除、开源许可页面、中号总览三列布局及大字体截图测试；本增量尚待原生 CI 和新包验收。
+- 复核补充账户更换时缓存写入失败的凭据恢复，以及组件保留有效 Retry-After 的测试；组件存储依赖缩窄为只读协议。本补丁尚待原生 CI。
 
 ## 验证证据
 
@@ -35,6 +37,8 @@
 - DeepSeek 官方余额：PASS（2026-11-03 用户确认 preview.1 的 App 与 DeepSeek 组件均正确显示；不收集实际金额或密钥）。
 - Codex、Claude 手机授权与真实额度：PASS（2026-11-03 用户确认 preview.2 两家均成功）。两家的组件真实读数、更新时间与点击跳转：PASS（同日用户确认均正常）。令牌实际过期后的续期仍待实测。
 - 自动续签及跨七天稳定性：UNKNOWN。
+- SideStore `Refresh All Apps` 快捷指令手动执行：PASS（2026-11-03 用户确认 SideStore 和轻松熊到期时间已更新）。
+- 每日自动化配置与完整流程试跑：PASS（2026-11-03 用户确认改用每日触发，整条续签、停用 LocalDevVPN、恢复 Shadowrocket 流程已试跑成功）。没有采用充电触发；实际定时触发、锁屏和跨七天观察仍 UNKNOWN。
 
 ## 下一步
 
