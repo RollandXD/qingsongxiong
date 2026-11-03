@@ -1,0 +1,9 @@
+轻松熊 / QingSongXiong
+Copyright 2026 Rolland
+
+本项目的模块化骨架、安装验证与原创熊形视觉资源在本仓库维护。
+设计与协议研究参考 AI Usage Limits：
+https://github.com/stavrop/ai-usage-limits
+参考提交：ae59404d1f2af6795e5412b2773420a4d4c485e7
+其原始 NOTICE 保留于 docs/UPSTREAM-NOTICE.txt。
+本阶段未接入真实厂商授权或额度接口。

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "status": "unverified",
+  "targetOS": "iOS 27.0.1",
+  "networkTool": "Shadowrocket",
+  "checks": {
+    "appLaunch": null,
+    "overviewWidget": null,
+    "providerWidget": null,
+    "sharedSnapshot": null,
+    "sharedKeychain": null,
+    "resignPreservesData": null,
+    "proxyRestored": null,
+    "automaticRefresh": null
+  }
+}

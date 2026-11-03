@@ -1,0 +1,111 @@
+name: QingSongXiong
+options:
+  minimumXcodeGenVersion: 2.46.0
+  bundleIdPrefix: io.github.rollandxd.qingsongxiong
+  developmentLanguage: zh-Hans
+  deploymentTarget:
+    iOS: "27.0"
+  createIntermediateGroups: true
+packages:
+  BearKit:
+    path: Packages/BearKit
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    TARGETED_DEVICE_FAMILY: "1"
+    BEAR_APP_GROUP: group.io.github.rollandxd.qingsongxiong
+    BEAR_KEYCHAIN_SUFFIX: io.github.rollandxd.qingsongxiong.shared
+targets:
+  QingSongXiong:
+    type: application
+    platform: iOS
+    sources:
+      - AppShell
+      - path: Resources/Assets.xcassets
+    info:
+      path: Configuration/App-Info.plist
+      properties:
+        CFBundleDisplayName: 轻松熊
+        CFBundleURLTypes:
+          - CFBundleURLName: io.github.rollandxd.qingsongxiong
+            CFBundleURLSchemes: [qingsongxiong]
+        BearAppGroupIdentifier: $(BEAR_APP_GROUP)
+        BearKeychainGroupSuffix: $(BEAR_KEYCHAIN_SUFFIX)
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.rollandxd.qingsongxiong
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_ENTITLEMENTS: Configuration/Shared.entitlements
+    dependencies:
+      - package: BearKit
+        product: BearFoundation
+      - package: BearKit
+        product: BearPlatform
+      - package: BearKit
+        product: BearDesignSystem
+      - package: BearKit
+        product: AIUsageData
+      - package: BearKit
+        product: AIUsageFeature
+      - target: QingSongXiongWidgets
+        embed: true
+  QingSongXiongWidgets:
+    type: app-extension
+    platform: iOS
+    sources: [WidgetExtension]
+    info:
+      path: Configuration/Widget-Info.plist
+      properties:
+        CFBundleDisplayName: 轻松熊小组件
+        BearAppGroupIdentifier: $(BEAR_APP_GROUP)
+        BearKeychainGroupSuffix: $(BEAR_KEYCHAIN_SUFFIX)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.rollandxd.qingsongxiong.widgets
+        CODE_SIGN_ENTITLEMENTS: Configuration/Shared.entitlements
+        APPLICATION_EXTENSION_API_ONLY: YES
+    dependencies:
+      - package: BearKit
+        product: BearFoundation
+      - package: BearKit
+        product: BearPlatform
+      - package: BearKit
+        product: BearDesignSystem
+      - package: BearKit
+        product: AIUsageDomain
+  QingSongXiongUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.rollandxd.qingsongxiong.uitests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: QingSongXiong
+schemes:
+  QingSongXiong:
+    build:
+      targets:
+        QingSongXiong: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets: [QingSongXiongUITests]
+    archive:
+      config: Release

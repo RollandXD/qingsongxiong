@@ -1,0 +1,8 @@
+{
+  "BearFoundation": ["Foundation"],
+  "BearDesignSystem": ["SwiftUI", "BearFoundation"],
+  "BearPlatform": ["Foundation", "Security", "Darwin", "Glibc", "BearFoundation"],
+  "AIUsageDomain": ["Foundation", "BearFoundation"],
+  "AIUsageData": ["Foundation", "AIUsageDomain", "BearPlatform"],
+  "AIUsageFeature": ["Foundation", "SwiftUI", "Observation", "AIUsageDomain", "BearDesignSystem"]
+}
