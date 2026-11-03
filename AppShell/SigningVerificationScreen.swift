@@ -7,6 +7,7 @@ struct SigningVerificationScreen: View {
     @State private var report = SigningProbe.configured().inspect()
     @State private var message: String?
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         List {
@@ -55,6 +56,8 @@ struct SigningVerificationScreen: View {
                 #endif
             }.font(.footnote)
         }
+        .scrollContentBackground(.hidden)
+        .background(BearTheme.background(scheme))
         .navigationTitle("安装验证")
         .onChange(of: scenePhase) { _, phase in if phase == .active { refresh() } }
     }

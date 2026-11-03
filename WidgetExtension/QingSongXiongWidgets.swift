@@ -57,7 +57,7 @@ struct ProbeWidgetView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        VStack(alignment: .leading, spacing: family == .systemSmall ? 8 : 12) {
+        VStack(alignment: .leading, spacing: family == .systemSmall ? 6 : 12) {
             HStack {
                 BearMark().frame(width: 30, height: 30).widgetAccentable()
                 Text(entry.provider?.title ?? "轻松熊").font(.headline)
@@ -66,7 +66,9 @@ struct ProbeWidgetView: View {
             Text(entry.preview ? "组件预览" : "安装验证")
                 .font(.caption).foregroundStyle(.secondary)
             if let record = entry.report.record {
-                Text("#\(record.revision)").font(.system(.largeTitle, design: .rounded).bold()).monospacedDigit()
+                Text("#\(record.revision)")
+                    .font(.system(family == .systemSmall ? .title2 : .largeTitle, design: .rounded).bold())
+                    .monospacedDigit()
                 Label(entry.report.sharedKeychainReadable ? "钥匙串可读" : "钥匙串待验证",
                       systemImage: entry.report.sharedKeychainReadable ? "checkmark.shield" : "key")
                     .font(.caption)

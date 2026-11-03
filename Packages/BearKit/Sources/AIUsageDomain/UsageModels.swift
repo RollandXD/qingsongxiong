@@ -21,6 +21,15 @@ public struct QuotaWindow: Codable, Equatable, Sendable {
     }
 
     public var remainingPercent: Double { max(0, 100 - usedPercent) }
+
+    private enum CodingKeys: String, CodingKey { case id, label, usedPercent, resetsAt }
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        try self.init(id: values.decode(String.self, forKey: .id),
+                      label: values.decode(String.self, forKey: .label),
+                      usedPercent: values.decode(Double.self, forKey: .usedPercent),
+                      resetsAt: values.decodeIfPresent(Date.self, forKey: .resetsAt))
+    }
 }
 
 public struct CurrencyBalance: Codable, Equatable, Sendable {

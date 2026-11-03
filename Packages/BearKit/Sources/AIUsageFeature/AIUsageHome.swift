@@ -25,6 +25,7 @@ public final class AIUsageNavigation {
 public struct AIUsageHome: View {
     private let repository: any AIUsageRepository
     @Bindable private var navigation: AIUsageNavigation
+    @Environment(\.colorScheme) private var scheme
 
     public init(repository: any AIUsageRepository, navigation: AIUsageNavigation) {
         self.repository = repository
@@ -61,6 +62,8 @@ public struct AIUsageHome: View {
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(BearTheme.background(scheme))
             .navigationTitle("轻松熊")
             .navigationDestination(for: ProviderID.self) { provider in
                 ProviderVerificationDetail(provider: provider, repository: repository)
@@ -73,6 +76,7 @@ private struct ProviderVerificationDetail: View {
     let provider: ProviderID
     let repository: any AIUsageRepository
     @State private var message: String?
+    @Environment(\.colorScheme) private var scheme
     var body: some View {
         List {
             Section {
@@ -87,6 +91,9 @@ private struct ProviderVerificationDetail: View {
                 }
                 if let message { Text(message).font(.footnote).foregroundStyle(.secondary) }
             }
-        }.navigationTitle(ProviderPresentation.name(provider))
+        }
+        .scrollContentBackground(.hidden)
+        .background(BearTheme.background(scheme))
+        .navigationTitle(ProviderPresentation.name(provider))
     }
 }

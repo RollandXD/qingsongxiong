@@ -14,23 +14,31 @@ public struct SigningProbe: Sendable {
     private let groupIdentifiers: [String]
     private let keychainSuffix: String
     private let simulator: Bool
+    private let identifierPrefix: String?
 
-    public init(groupIdentifiers: [String], keychainSuffix: String, simulator: Bool = false) {
+    public init(groupIdentifiers: [String], keychainSuffix: String, simulator: Bool = false,
+                identifierPrefix: String? = nil) {
         self.groupIdentifiers = groupIdentifiers
         self.keychainSuffix = keychainSuffix
         self.simulator = simulator
+        self.identifierPrefix = identifierPrefix
     }
 
     public static func configured(bundle: Bundle = .main) -> SigningProbe {
         let primary = bundle.object(forInfoDictionaryKey: "BearAppGroupIdentifier") as? String ?? ""
         let rewritten = bundle.object(forInfoDictionaryKey: "ALTAppGroups") as? [String] ?? []
         let suffix = bundle.object(forInfoDictionaryKey: "BearKeychainGroupSuffix") as? String ?? ""
+        let capabilities = bundle.url(forResource: "embedded", withExtension: "mobileprovision")
+            .flatMap { try? Data(contentsOf: $0) }
+            .flatMap { try? ProfileCapabilities.decode($0) }
         #if targetEnvironment(simulator)
         let isSimulator = true
         #else
         let isSimulator = false
         #endif
-        return SigningProbe(groupIdentifiers: rewritten + [primary], keychainSuffix: suffix, simulator: isSimulator)
+        return SigningProbe(groupIdentifiers: (capabilities?.matchingGroups(original: primary) ?? []) + rewritten + [primary],
+                            keychainSuffix: suffix, simulator: isSimulator,
+                            identifierPrefix: capabilities?.identifierPrefixes.first)
     }
 
     private func store() throws -> AtomicRecordStore<SigningProbeRecord>? {
@@ -46,7 +54,7 @@ public struct SigningProbe: Sendable {
 
     private func vault() throws -> KeychainVault {
         if simulator { return KeychainVault(service: Self.service, accessGroup: nil) }
-        let prefix = try KeychainVault.defaultTeamPrefix(service: Self.service)
+        let prefix = try identifierPrefix ?? KeychainVault.defaultTeamPrefix(service: Self.service)
         return KeychainVault(service: Self.service, accessGroup: prefix + "." + keychainSuffix)
     }
 

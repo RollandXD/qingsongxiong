@@ -10,6 +10,10 @@ import Testing
     let window = try QuotaWindow(id: "weekly", label: "周额度", usedPercent: 83, resetsAt: past)
     #expect(window.usedPercent == 83)
     #expect(window.remainingPercent == 17)
+    let invalid = Data(#"{"id":"x","label":"x","usedPercent":-2}"#.utf8)
+    #expect(throws: QuotaWindow.ValidationError.invalidPercentage) {
+        try JSONDecoder().decode(QuotaWindow.self, from: invalid)
+    }
 }
 
 @Test func balanceRoundTripKeepsDecimalAndCurrency() throws {

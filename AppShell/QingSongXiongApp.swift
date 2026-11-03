@@ -84,6 +84,7 @@ private struct AppRoot: View {
 
 private struct SettingsScreen: View {
     @Binding var appearance: String
+    @Environment(\.colorScheme) private var scheme
     var body: some View {
         NavigationStack {
             Form {
@@ -106,7 +107,10 @@ private struct SettingsScreen: View {
                     Text("不上传账户信息，不包含模型调用。")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
-            }.navigationTitle("设置")
+            }
+            .scrollContentBackground(.hidden)
+            .background(BearTheme.background(scheme))
+            .navigationTitle("设置")
         }
     }
 }

@@ -21,8 +21,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: 固定版本生成 Xcode 工程
         run: bash scripts/install_xcodegen.sh
-      - name: 架构、单元测试、原生 UI 与真机包构建
-        run: bash scripts/apple_build.sh
+      - name: 架构与 Swift 单元测试
+        run: bash scripts/apple_build.sh checks
+      - name: 真机目标构建与待重签 IPA
+        run: bash scripts/apple_build.sh device
+      - name: 原生 UI 测试与截图
+        timeout-minutes: 15
+        run: bash scripts/apple_build.sh ui
       - name: 保存测试与安装产物
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
