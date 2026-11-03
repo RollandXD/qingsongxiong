@@ -1,16 +1,18 @@
 {
   "schemaVersion": 1,
-  "status": "unverified",
+  "status": "verified",
+  "verificationScope": "manual-free-signing-and-sharing",
   "targetOS": "iOS 27.0.1",
   "networkTool": "Shadowrocket",
   "checks": {
-    "appLaunch": null,
-    "overviewWidget": null,
-    "providerWidget": null,
-    "sharedSnapshot": null,
-    "sharedKeychain": null,
-    "resignPreservesData": null,
-    "proxyRestored": null,
+    "appLaunch": true,
+    "overviewWidget": true,
+    "providerWidget": true,
+    "sharedSnapshot": true,
+    "sharedKeychain": true,
+    "providerDeepLink": true,
+    "resignPreservesData": true,
+    "proxyRestored": true,
     "automaticRefresh": null
   }
 }
