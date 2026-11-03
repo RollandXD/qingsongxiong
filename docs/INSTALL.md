@@ -1,6 +1,6 @@
 # 免费安装与实机验收
 
-目标设备：用户的 iOS 27.0.1 iPhone，日常使用 Shadowrocket，尚未安装 SideStore。
+目标设备：iOS 27.0.1 iPhone，日常使用 Shadowrocket。
 
 ## 1. 首次准备
 
@@ -8,7 +8,15 @@
 
 电脑首次通过数据线连接 iPhone，保持手机解锁，由用户在手机上选择信任、在工具中直接完成 Apple 登录与验证码。配对资料保留在本机工具私有目录，不上传本仓库或聊天。
 
-Arch 需要官方 `usbmuxd` 包。首次安装后重新插入手机，让 udev 为该节点应用官方权限规则。安装器可用 `python3 scripts/download_iloader.py` 下载到忽略目录 `.local-tools/`，脚本会核验官方发布包的 SHA-256，不运行登录流程。
+Arch 需要官方 `usbmuxd` 包。首次安装后重新插入手机，让 udev 为该节点应用官方权限规则。
+
+在自己的图形终端运行 `bash scripts/run_iloader.sh`。启动器校验并提取官方同版本原生包到忽略目录 `.local-tools/`，使用系统 GTK/Wayland 库，并仅为该进程启用 WebKitGTK 兼容设置。不会安装 Debian 包或修改全局图形配置。`bash scripts/run_iloader.sh --check` 可只验证文件及依赖。
+
+这条路径用于处理 AppImage 显示窗口但无法点击等兼容问题；AppImageLauncher 可能自动移动原 AppImage，后续无需再运行旧路径。相关上游说明：[Tauri Linux 图形问题](https://v2.tauri.app/develop/debug/linux-graphics/)、[iloader AppImage 问题](https://github.com/nab138/iloader/issues/576)。
+
+手机首次打开提示“不受信任的开发者”时，前往“设置 → 通用 → VPN 与设备管理”，选择用于签名的 Apple 账号并允许信任/重新启动。再按系统提示开启“设置 → 隐私与安全性 → 开发者模式”。
+
+手机连接 Wi-Fi，按官方前置条件安装 [LocalDevVPN](https://apps.apple.com/app/localdevvpn/id6755608044)，点 Connect 并允许添加 VPN 配置。打开 SideStore，使用 iloader 中的同一个 Apple 账号登录；进入 My Apps，点击 SideStore 旁的剩余天数完成首次刷新。按官方流程，刷新成功可能暂时回到桌面，几秒后可重新打开。若 Shadowrocket 抢回 VPN 连接，续签期间暂停其自动连接，完成后恢复；网络配合仍以实机结果为准。
 
 ## 2. 安装验证包
 
