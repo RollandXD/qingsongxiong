@@ -26,8 +26,11 @@ jobs:
       - name: 真机目标构建与待重签 IPA
         run: bash scripts/apple_build.sh device
       - name: 原生 UI 测试与截图
-        timeout-minutes: 15
+        timeout-minutes: 25
         run: bash scripts/apple_build.sh ui
+      - name: 导出原生截图
+        if: always()
+        run: bash scripts/apple_build.sh screenshots
       - name: 保存测试与安装产物
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

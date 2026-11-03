@@ -38,17 +38,23 @@ sys.exit("iOS 27.1 iPhone simulator unavailable")
   -parallel-testing-enabled NO \
   -derivedDataPath output/DerivedData -resultBundlePath output/UITests.xcresult \
     CODE_SIGNING_ALLOWED=NO || result=$?
-  if [[ -d output/UITests.xcresult ]]; then
-    xcrun xcresulttool export attachments --help
-    xcrun xcresulttool export attachments --path output/UITests.xcresult --output-path output/screenshots
-  fi
   return "$result"
+}
+
+screenshots() {
+  if [[ ! -d output/UITests.xcresult ]]; then
+    printf '%s\n' 'No native UI result bundle available; screenshots remain unverified.'
+    return 0
+  fi
+  xcrun xcresulttool export attachments --help
+  xcrun xcresulttool export attachments --path output/UITests.xcresult --output-path output/screenshots
 }
 
 case "${1:-all}" in
   checks) checks ;;
   device) device_package ;;
   ui) ui_tests ;;
-  all) checks; device_package; ui_tests ;;
-  *) printf '%s\n' 'Usage: apple_build.sh [checks|device|ui|all]' >&2; exit 2 ;;
+  screenshots) screenshots ;;
+  all) checks; device_package; ui_tests; screenshots ;;
+  *) printf '%s\n' 'Usage: apple_build.sh [checks|device|ui|screenshots|all]' >&2; exit 2 ;;
 esac
