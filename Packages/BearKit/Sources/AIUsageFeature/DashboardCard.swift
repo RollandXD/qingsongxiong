@@ -155,7 +155,7 @@ struct DashboardProviderCard: View {
     let navigationNamespace: Namespace.ID
     let onNavigate: () -> Void
     let onToggle: () -> Void
-    let onFocus: (String) -> Void
+    let onFocus: @MainActor @Sendable (String) -> Void
     @Namespace private var meterNamespace
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion

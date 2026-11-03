@@ -23,7 +23,7 @@ import json,sys
 data=json.load(sys.stdin)["devices"]
 for runtime,devices in data.items():
     if "iOS-27-1" in runtime:
-        phones=[d for d in devices if d["name"].startswith("iPhone") and "Duo" not in d["name"] and "Fold" not in d["name"]]
+        phones=[d for d in devices if d["name"].startswith("iPhone")]
         for name in ["iPhone 18 Pro", "iPhone 17 Pro", "iPhone 18", "iPhone 17"]:
             preferred=next((d for d in phones if d["name"]==name),None)
             if preferred:

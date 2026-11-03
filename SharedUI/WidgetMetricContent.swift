@@ -12,6 +12,10 @@ struct WidgetMetricContent: View {
     let date: Date
     let family: WidgetFamily
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    private var monochrome: Bool { renderingMode != .fullColor }
+    private var secondary: Color { monochrome ? .primary.opacity(0.72) : BearTheme.secondaryText(scheme) }
+    private var track: Color? { monochrome ? .primary.opacity(0.18) : nil }
     private var compact: Bool { family == .systemSmall || (provider == nil && family == .systemMedium) }
     var body: some View {
         VStack(alignment: .leading, spacing: provider == nil && family == .systemLarge ? 12 : 8) {
@@ -52,27 +56,27 @@ struct WidgetMetricContent: View {
             if let window = value.summaryWindow {
                 HStack(spacing: 7) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("剩余").font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme))
+                        Text("剩余").font(.caption2).foregroundStyle(secondary)
                         Text(ProviderPresentation.percent(window.remaining))
                             .font(.system(provider == nil ? .headline : .title2, design: .rounded).bold())
                             .monospacedDigit().minimumScaleFactor(0.7).lineLimit(1).contentTransition(.numericText())
                     }
                     if provider != nil {
-                        BearQuotaArc(fraction: window.fraction, color: quotaColor(window, value.provider), stale: value.isStale)
+                        BearQuotaArc(fraction: window.fraction, color: quotaColor(window, value.provider), stale: value.isStale, trackColor: track).widgetAccentable()
                             .frame(width: 35, height: 35)
                     }
                 }
-                BearCapacityBar(fraction: window.fraction, color: quotaColor(window, value.provider), stale: value.isStale)
-                Text(window.shortLabel).font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme)).lineLimit(1)
+                BearCapacityBar(fraction: window.fraction, color: quotaColor(window, value.provider), stale: value.isStale, trackColor: track).widgetAccentable()
+                Text(window.shortLabel).font(.caption2).foregroundStyle(secondary).lineLimit(1)
             } else if let balance = value.balances.first {
-                Text(balance.balance.currency).font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme))
+                Text(balance.balance.currency).font(.caption2).foregroundStyle(secondary)
                 Text(NSDecimalNumber(decimal: balance.balance.total).stringValue)
                     .font(.system(provider == nil ? .headline : .title2, design: .rounded).bold())
                     .monospacedDigit().minimumScaleFactor(0.6).lineLimit(1).contentTransition(.numericText())
                 if let parts = balance.parts {
-                    BearCompositionBar(fractions: parts.map(\.fraction), color: series(value.provider))
+                    BearCompositionBar(fractions: parts.map(\.fraction), color: series(value.provider)).widgetAccentable()
                 }
-            } else { Text("—").font(.system(.title2, design: .rounded)).foregroundStyle(BearTheme.secondaryText(scheme)) }
+            } else { Text("—").font(.system(.title2, design: .rounded)).foregroundStyle(secondary) }
             timestamp(value)
         }
     }
@@ -80,7 +84,7 @@ struct WidgetMetricContent: View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .center, spacing: 14) {
                 if let window = value.summaryWindow {
-                    BearQuotaArc(fraction: window.fraction, color: quotaColor(window, value.provider), stale: value.isStale)
+                    BearQuotaArc(fraction: window.fraction, color: quotaColor(window, value.provider), stale: value.isStale, trackColor: track).widgetAccentable()
                         .frame(width: family == .systemLarge ? 48 : 60, height: family == .systemLarge ? 48 : 60)
                 }
                 VStack(alignment: .leading, spacing: 3) {
@@ -88,7 +92,7 @@ struct WidgetMetricContent: View {
                     Text(value.headline).font(.system(.title3, design: .rounded).bold())
                         .monospacedDigit().lineLimit(1).minimumScaleFactor(0.65).contentTransition(.numericText())
                     if let window = value.summaryWindow {
-                        Text(window.label).font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme)).lineLimit(1)
+                        Text(window.label).font(.caption2).foregroundStyle(secondary).lineLimit(1)
                     }
                     timestamp(value)
                 }
@@ -99,17 +103,17 @@ struct WidgetMetricContent: View {
                     ForEach(value.compactWindows) { window in
                         HStack(spacing: 8) {
                             Text(window.shortLabel).font(.caption2).frame(width: 42, alignment: .leading)
-                            BearCapacityBar(fraction: window.fraction, color: quotaColor(window, value.provider), stale: value.isStale)
+                            BearCapacityBar(fraction: window.fraction, color: quotaColor(window, value.provider), stale: value.isStale, trackColor: track).widgetAccentable()
                             Text(ProviderPresentation.percent(window.remaining)).font(.caption2.monospacedDigit()).frame(width: 40, alignment: .trailing)
-                        }.foregroundStyle(BearTheme.secondaryText(scheme))
+                        }.foregroundStyle(secondary)
                     }
                 } else if let balance = value.balances.first, let parts = balance.parts {
-                    BearCompositionBar(fractions: parts.map(\.fraction), color: series(value.provider))
+                    BearCompositionBar(fractions: parts.map(\.fraction), color: series(value.provider)).widgetAccentable()
                     HStack {
                         Text("赠送 " + ProviderPresentation.money(parts[0].amount, currency: balance.balance.currency))
                         Spacer(minLength: 3)
                         Text("充值 " + ProviderPresentation.money(parts[1].amount, currency: balance.balance.currency))
-                    }.font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme)).lineLimit(1).minimumScaleFactor(0.7)
+                    }.font(.caption2).foregroundStyle(secondary).lineLimit(1).minimumScaleFactor(0.7)
                 }
             }
         }
@@ -118,10 +122,10 @@ struct WidgetMetricContent: View {
         HStack(spacing: 3) {
             Text(value.status == "已同步" ? "更新于" : value.status)
             if let snapshot = value.state?.snapshot { Text(snapshot.fetchedAt, style: .time) }
-        }.font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme)).lineLimit(2)
+        }.font(.caption2).foregroundStyle(secondary).lineLimit(2)
     }
-    private func series(_ provider: ProviderID) -> Color { BearTheme.series(ProviderPresentation.paletteIndex(provider), scheme) }
+    private func series(_ provider: ProviderID) -> Color { monochrome ? .primary : BearTheme.series(ProviderPresentation.paletteIndex(provider), scheme) }
     private func quotaColor(_ window: UsageWindowPresentation, _ provider: ProviderID) -> Color {
-        BearTheme.quotaColor(window.remaining, series: ProviderPresentation.paletteIndex(provider), scheme: scheme)
+        monochrome ? .primary : BearTheme.quotaColor(window.remaining, series: ProviderPresentation.paletteIndex(provider), scheme: scheme)
     }
 }

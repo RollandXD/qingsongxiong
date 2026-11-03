@@ -10,14 +10,15 @@ public struct BearCapacityBar: View {
     let fraction: Double
     let color: Color
     let stale: Bool
+    let trackColor: Color?
     @Environment(\.colorScheme) private var scheme
-    public init(fraction: Double, color: Color, stale: Bool = false) {
-        self.fraction = min(1, max(0, fraction)); self.color = color; self.stale = stale
+    public init(fraction: Double, color: Color, stale: Bool = false, trackColor: Color? = nil) {
+        self.fraction = min(1, max(0, fraction)); self.color = color; self.stale = stale; self.trackColor = trackColor
     }
     public var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
-                Capsule().fill(BearTheme.track(scheme))
+                Capsule().fill(trackColor ?? BearTheme.track(scheme))
                 Capsule().fill(color.gradient).frame(width: geometry.size.width * fraction)
             }
             .overlay {
@@ -31,13 +32,14 @@ public struct BearQuotaArc: View {
     let fraction: Double
     let color: Color
     let stale: Bool
+    let trackColor: Color?
     @Environment(\.colorScheme) private var scheme
-    public init(fraction: Double, color: Color, stale: Bool = false) {
-        self.fraction = min(1, max(0, fraction)); self.color = color; self.stale = stale
+    public init(fraction: Double, color: Color, stale: Bool = false, trackColor: Color? = nil) {
+        self.fraction = min(1, max(0, fraction)); self.color = color; self.stale = stale; self.trackColor = trackColor
     }
     public var body: some View {
         ZStack {
-            Circle().trim(from: 0, to: 0.75).stroke(BearTheme.track(scheme), style: StrokeStyle(lineWidth: 8, lineCap: .round))
+            Circle().trim(from: 0, to: 0.75).stroke(trackColor ?? BearTheme.track(scheme), style: StrokeStyle(lineWidth: 8, lineCap: .round))
             Circle().trim(from: 0, to: fraction * 0.75)
                 .stroke(color.gradient, style: StrokeStyle(lineWidth: 8, lineCap: .round, dash: stale ? [4, 4] : []))
         }.rotationEffect(.degrees(135)).padding(5).accessibilityHidden(true)
