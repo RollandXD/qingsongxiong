@@ -20,7 +20,7 @@ Arch 需要官方 `usbmuxd` 包。首次安装后重新插入手机，让 udev �
 
 ## 2. 安装验证包
 
-1. 在 GitHub Actions 的成功构建中下载 `QingSongXiong-verification-…` 产物，解压得到 `QingSongXiong-needs-signing.ipa` 与 SHA256SUMS。
+1. 完成 SideStore 登录与首次刷新后，用手机 Safari 打开[验证版发布页](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.1.0-verification.1)，下载 `QingSongXiong-needs-signing.ipa`；校验文件与来源提交见该页。也可从对应 Actions 产物解压获得 IPA 与 SHA256SUMS。
 2. 在 SideStore 导入 IPA，**保留 Widget 扩展**，使用自己的免费账户重新签名。
 3. 该 IPA 的临时 ad-hoc 签名只携带权限声明，没有 Apple 开发者签名；请以 SideStore 的签名/安装结果判断。
 4. 若签名提示共享组或权限错误，记录错误文本并停止；不要移除 Widget 或共享权限来让安装“看起来成功”。
@@ -43,3 +43,9 @@ Arch 需要官方 `usbmuxd` 包。首次安装后重新插入手机，让 udev �
 ## 5. 门槛状态
 
 所有必需实机检查通过后再更新 `device-gate.json`。模拟器、CI 成功或 ad-hoc 签名检查不能替代设备验证。失败时报告具体环节、系统状态码和工具版本，不提交账户信息、配对文件或证书。
+
+## SideStore 0.7.0 登录错误 -80045
+
+2026-11-03 实机安装成功，但手机登录返回 `This action cannot be completed at this time. (-80045)`。上游 [问题 #1658](https://github.com/SideStore/SideStore/issues/1658) 有相同现象与社区临时方案：关闭 On-Device Anisette，选择内置 SideStore (New) 服务并关闭自动轮换，再重置 adi.pb（不保留 headers）后登录一次。该方案在本设备上的结果仍为 UNKNOWN。
+
+按[该版本重置实现](https://github.com/SideStore/SideStore/blob/6032424a0e56c1c319762e786099bdd9186a238b/SideStore/Views/Settings/Advanced/UserCustomizations/UserCustomizationsView.swift#L531)说明，重置会退出 SideStore 中的 Apple 登录并清除 Anisette 验证缓存，保留活动签名证书。未确认登录恢复前不撤销证书、不导出配对资料、不替换未知来源的修改版；新错误应单独记录，不把错误码变化算作登录成功。
