@@ -11,6 +11,15 @@ public enum BearTheme {
     public static func accent(_ scheme: ColorScheme) -> Color {
         scheme == .dark ? Color(red: 0.95, green: 0.71, blue: 0.45) : caramel
     }
+    public static func secondaryText(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? Color(red: 0.75, green: 0.70, blue: 0.65) : Color(red: 0.36, green: 0.31, blue: 0.28)
+    }
+    public static func warning(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? Color(red: 1, green: 0.70, blue: 0.32) : Color(red: 0.50, green: 0.29, blue: 0.04)
+    }
+    public static func success(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? Color(red: 0.48, green: 0.82, blue: 0.57) : Color(red: 0.12, green: 0.40, blue: 0.25)
+    }
 }
 
 public struct BearMark: View {
@@ -38,13 +47,14 @@ public struct BearMark: View {
 }
 
 public struct BearStatusRow: View {
+    @Environment(\.colorScheme) private var scheme
     private let title: String
     private let passed: Bool
     public init(_ title: String, passed: Bool) { self.title = title; self.passed = passed }
     public var body: some View {
         LabeledContent(title) {
             Label(passed ? "通过" : "待验证", systemImage: passed ? "checkmark.circle.fill" : "circle.dashed")
-                .foregroundStyle(passed ? .green : .secondary)
+                .foregroundStyle(passed ? BearTheme.success(scheme) : BearTheme.secondaryText(scheme))
         }.accessibilityElement(children: .combine)
     }
 }

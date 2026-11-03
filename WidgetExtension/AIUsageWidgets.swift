@@ -105,7 +105,7 @@ struct UsageWidgetView: View {
             HStack(spacing: 7) {
                 BearMark().frame(width: 24, height: 24).widgetAccentable().accessibilityHidden(true)
                 Text(entry.provider.map(ProviderPresentation.name) ?? "轻松熊").font(.headline)
-                if entry.preview { Text("预览").font(.caption2).foregroundStyle(.secondary) }
+                if entry.preview { Text("预览").font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme)) }
                 Spacer(minLength: 0)
             }
             if entry.provider == nil && family == .systemMedium {
@@ -116,9 +116,9 @@ struct UsageWidgetView: View {
                                 Text(ProviderPresentation.name(state.provider)).font(.caption.bold())
                                 Text(ProviderPresentation.headline(state.snapshot))
                                     .font(.headline.monospacedDigit()).lineLimit(2).minimumScaleFactor(0.8)
-                                Text(status(state)).font(.caption2).foregroundStyle(.secondary)
+                                Text(status(state)).font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme))
                                 if let snapshot = state.snapshot {
-                                    Text(snapshot.fetchedAt, style: .time).font(.caption2).foregroundStyle(.secondary)
+                                    Text(snapshot.fetchedAt, style: .time).font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme))
                                 }
                             }.frame(maxWidth: .infinity, alignment: .leading)
                                 .privacySensitive().accessibilityElement(children: .combine)
@@ -134,7 +134,7 @@ struct UsageWidgetView: View {
             }
             if family == .systemLarge {
                 Spacer(minLength: 0)
-                Text("读取时间分别显示 · 点击查看详情").font(.caption2).foregroundStyle(.secondary)
+                Text("读取时间分别显示 · 点击查看详情").font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -158,7 +158,7 @@ struct UsageWidgetView: View {
             HStack(spacing: 4) {
                 Text(status(state))
                 if let snapshot = state.snapshot { Text(snapshot.fetchedAt, style: .time) }
-            }.font(.caption2).foregroundStyle(.secondary)
+            }.font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme))
             if family == .systemLarge || (entry.provider != nil && family == .systemMedium) {
                 if let snapshot = state.snapshot {
                     ForEach(snapshot.windows.prefix(2), id: \.id) { window in

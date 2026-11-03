@@ -154,7 +154,7 @@ private struct SettingsScreen: View {
                     NavigationLink("检查 App 与小组件共享能力") { SigningVerificationScreen() }
                         .accessibilityIdentifier("open-signing-verification")
                     Text("可检查 App 与小组件的共享权限和数据保留。")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .font(.footnote).foregroundStyle(BearTheme.secondaryText(scheme))
                 }
                 Section("功能账户") {
                     ForEach(entries, id: \.descriptor.id) { entry in entry.settings }
@@ -167,7 +167,7 @@ private struct SettingsScreen: View {
                     LabeledContent("轻松熊", value: version)
                     Text("个人工具箱 · 原生 SwiftUI 与 WidgetKit")
                     Text("凭据仅用于对应平台官方请求，保存在手机钥匙串；不发送模型请求。")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .font(.footnote).foregroundStyle(BearTheme.secondaryText(scheme))
                     NavigationLink("开源许可与来源") { OpenSourceScreen() }
                     Link("查看项目源码", destination: URL(string: "https://github.com/RollandXD/qingsongxiong")!)
                 }

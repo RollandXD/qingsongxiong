@@ -42,10 +42,14 @@ final class BootstrapUITests: XCTestCase {
     @MainActor
     func testHomeAccessibilityAudit() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["--ui-testing", "-bear.appearance", "light"]
-        app.launch()
-        XCTAssertTrue(app.buttons["provider-codex"].waitForExistence(timeout: 10))
-        try app.performAccessibilityAudit(for: [.sufficientElementDescription, .trait, .textClipped, .contrast])
+        for appearance in ["light", "dark"] {
+            app.launchArguments = ["--ui-testing", "-bear.appearance", appearance]
+            app.launch()
+            XCTAssertTrue(app.buttons["provider-codex"].waitForExistence(timeout: 10))
+            try app.performAccessibilityAudit(for: [.sufficientElementDescription, .trait, .textClipped, .contrast])
+            attach(app, name: "accessibility-audit-" + appearance)
+            app.terminate()
+        }
     }
 
     @MainActor

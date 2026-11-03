@@ -17,7 +17,7 @@ struct SigningVerificationScreen: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("先把地基验证好").font(.headline)
                         Text("这里只使用无敏感信息的测试标记。")
-                            .font(.footnote).foregroundStyle(.secondary)
+                            .font(.footnote).foregroundStyle(BearTheme.secondaryText(scheme))
                     }
                 }.padding(.vertical, 8)
             }
@@ -46,13 +46,13 @@ struct SigningVerificationScreen: View {
                     refresh()
                 }.accessibilityIdentifier("write-probe")
                 Button("重新检查") { refresh() }
-                if let message { Text(message).font(.footnote).foregroundStyle(.secondary) }
+                if let message { Text(message).font(.footnote).foregroundStyle(BearTheme.secondaryText(scheme)) }
             }
             Section("实机验收") {
                 Text("App 中显示通过，还不等于组件已经通过。请核对组件里的相同验证编号和“钥匙串可读”，然后完成一次续签，再确认数据保留。")
                 #if targetEnvironment(simulator)
                 Text("当前是模拟器：共享 Keychain 的权限行为不能代替真机验收。")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(BearTheme.warning(scheme))
                 #endif
             }.font(.footnote)
         }

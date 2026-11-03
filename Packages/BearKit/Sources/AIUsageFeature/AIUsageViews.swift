@@ -35,7 +35,7 @@ public struct AIUsageHome: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("给忙碌，留一点余量").font(.title3.bold())
                             Text("每个平台，各自清楚。")
-                                .font(.subheadline).foregroundStyle(.secondary)
+                                .font(.subheadline).foregroundStyle(BearTheme.secondaryText(scheme))
                         }
                     }.padding(.vertical, 12)
                 }
@@ -49,7 +49,7 @@ public struct AIUsageHome: View {
                 }
                 Section {
                     Label("额度和余额由手机直接读取，凭据仅保留在本机钥匙串。", systemImage: "lock.shield")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .font(.footnote).foregroundStyle(BearTheme.secondaryText(scheme))
                 }
             }
             .scrollContentBackground(.hidden)
@@ -82,6 +82,7 @@ public struct AIUsageHome: View {
 }
 
 private struct ProviderSummary: View {
+    @Environment(\.colorScheme) private var scheme
     let provider: ProviderID
     let state: ProviderState?
     let refreshing: Bool
@@ -91,19 +92,19 @@ private struct ProviderSummary: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(ProviderPresentation.name(provider)).font(.headline)
                 if state == nil {
-                    Text("读取本机状态…").font(.caption).foregroundStyle(.secondary)
+                    Text("读取本机状态…").font(.caption).foregroundStyle(BearTheme.secondaryText(scheme))
                 } else if state?.connection == .disconnected {
-                    Text("尚未连接").font(.caption).foregroundStyle(.secondary)
+                    Text("尚未连接").font(.caption).foregroundStyle(BearTheme.secondaryText(scheme))
                 } else {
                     Text(ProviderPresentation.headline(state?.snapshot)).font(.title3.monospacedDigit().bold())
                     if state?.connection == .reconnectRequired {
-                        Text("需要重新连接").font(.caption).foregroundStyle(.orange)
+                        Text("需要重新连接").font(.caption).foregroundStyle(BearTheme.warning(scheme))
                     } else if let snapshot = state?.snapshot {
                         HStack(spacing: 4) {
                             Text(state?.isStale(at: Date()) == true ? "旧读数 ·" : "更新于")
                             Text(snapshot.fetchedAt, style: .relative)
-                        }.font(.caption).foregroundStyle(.secondary)
-                    } else { Text("等待首次刷新").font(.caption).foregroundStyle(.secondary) }
+                        }.font(.caption).foregroundStyle(BearTheme.secondaryText(scheme))
+                    } else { Text("等待首次刷新").font(.caption).foregroundStyle(BearTheme.secondaryText(scheme)) }
                 }
             }
             Spacer(minLength: 4)
@@ -136,7 +137,7 @@ private struct ProviderDetail: View {
                 ProviderSummary(provider: provider, state: state, refreshing: model.refreshing.contains(provider))
                 if let failure = state?.failure {
                     Label(AIUsageModel.explanation(failure), systemImage: "exclamationmark.circle")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .font(.footnote).foregroundStyle(BearTheme.secondaryText(scheme))
                 }
             }
             if let snapshot = state?.snapshot {
@@ -168,7 +169,7 @@ private struct ProviderDetail: View {
                 }
                 Section("数据时间") {
                     Text(snapshot.fetchedAt.formatted(date: .abbreviated, time: .standard))
-                    if state?.isStale(at: Date()) == true { Text("当前显示上次成功读取的数据。").foregroundStyle(.secondary) }
+                    if state?.isStale(at: Date()) == true { Text("当前显示上次成功读取的数据。").foregroundStyle(BearTheme.secondaryText(scheme)) }
                 }.font(.footnote)
             }
             Section("账户") {
@@ -183,7 +184,7 @@ private struct ProviderDetail: View {
                         ProgressView(provider == .deepseek ? "正在读取余额…" : "正在等待官方授权…")
                     }
                 } else {
-                    Text("此平台的账户连接将在后续版本提供。").foregroundStyle(.secondary)
+                    Text("此平台的账户连接将在后续版本提供。").foregroundStyle(BearTheme.secondaryText(scheme))
                 }
                 if let state, state.connection != .disconnected {
                     Button("刷新数据") { Task { await model.refresh(provider) } }
@@ -192,12 +193,12 @@ private struct ProviderDetail: View {
                 }
             }
             if provider == .deepseek {
-                Section { Text("连接的是 DeepSeek 官方 API 余额，与聊天 App 的会员或次数分开计算。").font(.footnote).foregroundStyle(.secondary) }
+                Section { Text("连接的是 DeepSeek 官方 API 余额，与聊天 App 的会员或次数分开计算。").font(.footnote).foregroundStyle(BearTheme.secondaryText(scheme)) }
             } else {
                 Section {
                     Text("通过平台的订阅授权页连接，请在官方页面核对授权内容。轻松熊只读取额度，不创建 API 密钥或发送模型请求。")
                     Text("订阅额度接口可能随服务更新调整；暂不可用时会保留已有读数及时间。")
-                }.font(.footnote).foregroundStyle(.secondary)
+                }.font(.footnote).foregroundStyle(BearTheme.secondaryText(scheme))
             }
         }
         .scrollContentBackground(.hidden)
@@ -214,6 +215,7 @@ private struct ProviderDetail: View {
 }
 
 private struct QuotaWindowRow: View {
+    @Environment(\.colorScheme) private var scheme
     let window: QuotaWindow
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -222,13 +224,14 @@ private struct QuotaWindowRow: View {
                 .accessibilityLabel(window.label).accessibilityValue("已用 \(window.usedPercent.formatted())%")
             if let reset = window.resetsAt {
                 Text(reset <= Date() ? "重置时间已过，等待刷新确认" : "重置于 " + reset.formatted(date: .abbreviated, time: .shortened))
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(BearTheme.secondaryText(scheme))
             }
         }.padding(.vertical, 5)
     }
 }
 
 private struct APIKeySheet: View {
+    @Environment(\.colorScheme) private var scheme
     @Bindable var model: AIUsageModel
     @State private var key = ""
     @State private var request: Task<Void, Never>?
@@ -239,7 +242,7 @@ private struct APIKeySheet: View {
                 Section {
                     keyField.autocorrectionDisabled()
                         .privacySensitive().accessibilityIdentifier("deepseek-api-key")
-                    Text("仅向 DeepSeek 官方余额接口验证，保存于手机钥匙串。").font(.footnote).foregroundStyle(.secondary)
+                    Text("仅向 DeepSeek 官方余额接口验证，保存于手机钥匙串。").font(.footnote).foregroundStyle(BearTheme.secondaryText(scheme))
                     Link("打开 DeepSeek 密钥管理", destination: URL(string: "https://platform.deepseek.com/api_keys")!)
                 }
                 Section {
@@ -248,7 +251,7 @@ private struct APIKeySheet: View {
                         request = Task { if await model.connect(.deepseek, key: submitted) { key = ""; dismiss() } }
                     }.disabled(key.isEmpty || model.connecting.contains(.deepseek))
                 }
-                if let message = model.message { Text(message).font(.footnote).foregroundStyle(.secondary) }
+                if let message = model.message { Text(message).font(.footnote).foregroundStyle(BearTheme.secondaryText(scheme)) }
             }
             .navigationTitle("连接 DeepSeek")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("取消") { request?.cancel(); dismiss() } } }
