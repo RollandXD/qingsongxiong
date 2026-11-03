@@ -49,8 +49,10 @@ with tempfile.TemporaryDirectory(prefix="bear-payload-") as temporary:
     digest = hashlib.sha256(destination.read_bytes()).hexdigest()
     (output / "SHA256SUMS.txt").write_text(f"{digest}  {destination.name}\n")
     (output / "build-status.json").write_text(json.dumps({
-        "product": "QingSongXiong", "mode": "signing-verification",
+        "product": "QingSongXiong", "mode": info.get("BearBuildMode", "signing-verification"),
         "appleSigned": False, "requiresResigning": True,
-        "deviceGate": "unverified", "liveProvidersEnabled": False,
+        "deviceGate": json.loads((Path(__file__).resolve().parents[1] / "device-gate.json").read_text())["status"],
+        "liveProvidersEnabled": bool(info.get("BearEnabledProviders", [])),
+        "availableProviders": info.get("BearEnabledProviders", []),
     }, ensure_ascii=False, indent=2) + "\n")
     print(destination)

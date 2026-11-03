@@ -63,7 +63,7 @@ public struct UsageSnapshot: Codable, Equatable, Sendable {
     }
 }
 
-public enum UsageFailure: Error, Equatable, Sendable {
+public enum UsageFailure: Error, Codable, Equatable, Sendable {
     case deviceVerificationRequired
     case disconnected
     case reconnectRequired
@@ -71,13 +71,20 @@ public enum UsageFailure: Error, Equatable, Sendable {
     case invalidResponse
     case invalidCredential
     case network
+    case appRefreshRequired
     case rateLimited(retryAt: Date?)
 }
 
 public protocol AIUsageRepository: Sendable {
+    func state(for provider: ProviderID) async throws -> ProviderState
     func cachedSnapshot(for provider: ProviderID) async throws -> UsageSnapshot?
     func refresh(_ provider: ProviderID) async throws -> UsageSnapshot
     func disconnect(_ provider: ProviderID) async throws
+}
+
+public protocol AIUsageAccountConnecting: Sendable {
+    func supports(_ provider: ProviderID) -> Bool
+    func connect(_ provider: ProviderID, apiKey: String?) async throws
 }
 
 public enum AIUsageRoute {

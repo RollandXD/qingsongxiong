@@ -4,5 +4,6 @@
   "BearPlatform": ["Foundation", "FoundationNetworking", "Security", "Darwin", "Glibc", "BearFoundation"],
   "AIUsageDomain": ["Foundation", "BearFoundation"],
   "AIUsageData": ["Foundation", "CoreFoundation", "AIUsageDomain", "BearFoundation", "BearPlatform"],
-  "AIUsageFeature": ["Foundation", "SwiftUI", "Observation", "AIUsageDomain", "BearDesignSystem"]
+  "AIUsagePresentation": ["Foundation", "AIUsageDomain"],
+  "AIUsageFeature": ["Foundation", "SwiftUI", "Observation", "AIUsageDomain", "AIUsagePresentation", "BearDesignSystem"]
 }

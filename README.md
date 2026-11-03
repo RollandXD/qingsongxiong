@@ -2,7 +2,7 @@
 
 温暖、精致的 Apple 个人工具箱。AI 额度监控是第一个功能模块，计划支持 Codex、Claude 订阅额度与 DeepSeek API 余额。
 
-**当前交付阶段：免费安装与共享能力验证版。真实账户接入尚未启用。**
+**当前公开安装包为免费安装与共享能力验证版；main 正在接入真实账户，尚未完成首版。**
 
 这个版本用于确认：独立 App 和两类主屏幕组件能否通过免费签名安装、共享数据、共享 Keychain、重新签名后保留数据，以及续签所需连接与 Shadowrocket 能否配合使用。没有验证过的行为不标为已完成。
 
@@ -11,7 +11,7 @@
 ## 工程
 
 - iPhone / iOS 27.0+，Swift 6，SwiftUI、WidgetKit、App Intents。
-- 六个 Swift Package 模块：基础能力、设计系统、平台实现、AI 领域、AI 数据、AI 展示。
+- 七个 Swift Package 模块：基础能力、设计系统、平台实现、AI 领域、AI 数据、AI 共享展示规则、AI 页面。
 - AppShell 统一装配依赖和注册功能；小组件不依赖主 App 页面或交互式登录。
 - GitHub 公共仓库标准 `xcode-27` 构建机，Xcode 27.1，固定 XcodeGen 与 Actions 版本。
 

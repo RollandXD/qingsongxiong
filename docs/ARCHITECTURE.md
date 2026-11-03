@@ -10,12 +10,15 @@
 | BearDesignSystem | 熊形标记、主题、通用状态组件 | BearFoundation |
 | BearPlatform | 原子共享存储、Keychain、签名探针 | BearFoundation |
 | AIUsageDomain | 平台标识、额度/余额模型、仓储接口、业务路由 | BearFoundation |
-| AIUsageData | 仓储实现；目前真实接入受实机门槛限制 | AIUsageDomain、BearPlatform |
-| AIUsageFeature | SwiftUI 页面与展示状态 | AIUsageDomain、BearDesignSystem |
+| AIUsageData | 供应商适配、账户仓储与缓存、受限组件读取 | AIUsageDomain、BearFoundation、BearPlatform |
+| AIUsagePresentation | App 与 Widget 复用的平台名称、符号与数值展示规则 | AIUsageDomain |
+| AIUsageFeature | SwiftUI 页面与展示状态 | AIUsageDomain、AIUsagePresentation、BearDesignSystem |
 
 AppShell 是组合根：将仓储注入功能页面，创建功能注册表与全局导航。`architecture.json` 和 `check_architecture.py` 同时核对源码 import 与 Swift Package 依赖。
 
-Widget 仅依赖领域、平台的受限读取能力和通用设计资源。交互式 OAuth 驱动将来只加入主 App 路径；Widget 不轮换 refresh token。
+Widget 依赖领域、AIUsagePresentation、平台与数据层的受限读取能力和通用设计资源。`WidgetUsageReader` 使用未过期凭据独立取数，不轮换 refresh token、不写共享快照；凭据过期时提示打开 App。读取完成后再次检查账户 sessionID，防止退出后的迟到结果重新显示。
+
+`LiveAIUsageRepository` 是主 App 唯一的快照与令牌写入者。每个平台独立的代次与请求任务用于合并并发刷新、取消退出请求、拒绝旧账户结果。轮换出的 refresh token 在后续额度请求之前保存，失败保留原快照及其真实时间；限流按服务端 Retry-After 阻止过早请求。`UsageCredentialStore`、`UsageStateStore`、`HTTPClient`、`BearClock` 可分别替换。
 
 ## 新增功能
 

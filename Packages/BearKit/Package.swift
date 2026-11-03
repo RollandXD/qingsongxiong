@@ -11,6 +11,7 @@ let package = Package(
         .library(name: "AIUsageDomain", targets: ["AIUsageDomain"]),
         .library(name: "AIUsageData", targets: ["AIUsageData"]),
         .library(name: "AIUsageFeature", targets: ["AIUsageFeature"]),
+        .library(name: "AIUsagePresentation", targets: ["AIUsagePresentation"]),
     ],
     targets: [
         .target(name: "BearFoundation"),
@@ -18,7 +19,8 @@ let package = Package(
         .target(name: "BearPlatform", dependencies: ["BearFoundation"]),
         .target(name: "AIUsageDomain", dependencies: ["BearFoundation"]),
         .target(name: "AIUsageData", dependencies: ["AIUsageDomain", "BearFoundation", "BearPlatform"]),
-        .target(name: "AIUsageFeature", dependencies: ["AIUsageDomain", "BearDesignSystem"]),
+        .target(name: "AIUsagePresentation", dependencies: ["AIUsageDomain"]),
+        .target(name: "AIUsageFeature", dependencies: ["AIUsageDomain", "AIUsagePresentation", "BearDesignSystem"]),
         .testTarget(name: "BearFoundationTests", dependencies: ["BearFoundation"]),
         .testTarget(name: "BearPlatformTests", dependencies: ["BearPlatform", "BearFoundation"]),
         .testTarget(name: "AIUsageDomainTests", dependencies: ["AIUsageDomain"]),

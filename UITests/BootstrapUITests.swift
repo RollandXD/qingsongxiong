@@ -5,7 +5,7 @@ final class BootstrapUITests: XCTestCase {
     @MainActor
     func testWarmLightHomeAndProviderNavigation() {
         let app = XCUIApplication()
-        app.launchArguments = ["-AppleInterfaceStyle", "Light"]
+        app.launchArguments = ["--ui-testing", "-bear.appearance", "light"]
         app.launch()
         XCTAssertTrue(app.buttons["provider-codex"].waitForExistence(timeout: 10))
         attach(app, name: "home-light")
@@ -17,7 +17,7 @@ final class BootstrapUITests: XCTestCase {
     @MainActor
     func testSigningVerificationScreenAndDarkAppearance() {
         let app = XCUIApplication()
-        app.launchArguments = ["-AppleInterfaceStyle", "Dark"]
+        app.launchArguments = ["--ui-testing", "-bear.appearance", "dark"]
         app.launch()
         let settings = app.buttons["设置"]
         XCTAssertTrue(settings.waitForExistence(timeout: 10))
@@ -28,9 +28,21 @@ final class BootstrapUITests: XCTestCase {
     }
 
     @MainActor
+    func testDeepSeekConnectionUsesSecureEntry() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "-bear.appearance", "light"]
+        app.launch()
+        XCTAssertTrue(app.buttons["provider-deepseek"].waitForExistence(timeout: 10))
+        app.buttons["provider-deepseek"].tap()
+        app.buttons["connect-deepseek"].tap()
+        XCTAssertTrue(app.secureTextFields["deepseek-api-key"].waitForExistence(timeout: 5))
+        attach(app, name: "deepseek-secure-entry-empty")
+    }
+
+    @MainActor
     func testDevelopmentFeatureRegistersWithoutAICoreChanges() {
         let app = XCUIApplication()
-        app.launchArguments = ["--counter-proof"]
+        app.launchArguments = ["--ui-testing", "--counter-proof"]
         app.launch()
         app.buttons["计数验证"].tap()
         let increment = app.buttons["counter-increment"]
