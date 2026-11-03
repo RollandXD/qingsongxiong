@@ -81,3 +81,11 @@ private func state(_ provider: ProviderID, windows: [QuotaWindow] = [], balances
     #expect(view.balances.map { $0.balance.currency } == ["CNY", "USD"])
     #expect(view.balances.map { $0.balance.total } == [12, 3])
 }
+
+@Test func passingAResetDateDoesNotClaimQuotaHasRecovered() throws {
+    let window = UsageWindowPresentation(try QuotaWindow(id: "five_hour", label: "5 小时", usedPercent: 100,
+        resetsAt: displayTime.addingTimeInterval(-1)), provider: .claude)
+    #expect(window.resetLabel(at: displayTime) == "重置时间已过，等待刷新确认")
+    #expect(window.remaining == 0)
+    #expect(try UsageWindowPresentation(quota("five_hour", 10), provider: .claude).resetLabel(at: displayTime) == "未提供重置时间")
+}

@@ -10,6 +10,7 @@ public final class AIUsageModel {
     public private(set) var clearing = false
     public private(set) var refreshFeedback: [ProviderID: String] = [:]
     public private(set) var animatedRefresh: Set<ProviderID> = []
+    public private(set) var verifiedRefresh: Set<ProviderID> = []
     public var message: String?
     public private(set) var dataRevision = 0
     private let repository: any AIUsageRepository
@@ -44,6 +45,7 @@ public final class AIUsageModel {
         guard !clearing, !refreshing.contains(provider), !connecting.contains(provider) else { return }
         if animated { animatedRefresh.insert(provider) } else { animatedRefresh.remove(provider) }
         refreshFeedback[provider] = nil
+        verifiedRefresh.remove(provider)
         let previous = states[provider]?.snapshot
         var succeeded = false
         let revision = revisions[provider, default: 0]
@@ -52,12 +54,14 @@ public final class AIUsageModel {
         do { _ = try await repository.refresh(provider); succeeded = true }
         catch is CancellationError { return }
         catch { if reportFailure && revisions[provider, default: 0] == revision { message = Self.explanation(error) } }
-        await reload(provider, revision: revision)
+        let reloaded = await reload(provider, revision: revision)
         if revisions[provider, default: 0] == revision {
+            let verified = succeeded && reloaded
+            if verified { verifiedRefresh.insert(provider) }
             if animated {
                 let next = states[provider]?.snapshot
                 let changed = previous?.windows != next?.windows || previous?.balances != next?.balances || previous?.isAvailable != next?.isAvailable
-                refreshFeedback[provider] = succeeded ? (changed ? "已更新读数" : "已核实，读数未变化") : "读取未完成，已保留原状态"
+                refreshFeedback[provider] = verified ? (changed ? "已更新读数" : "已核实，读数未变化") : "读取未完成，已保留原状态"
             }
             publishChange()
         }
@@ -71,6 +75,7 @@ public final class AIUsageModel {
         refreshing.remove(provider)
         refreshFeedback[provider] = nil
         animatedRefresh.remove(provider)
+        verifiedRefresh.remove(provider)
         connecting.insert(provider)
         message = nil
         defer { if revisions[provider, default: 0] == revision { connecting.remove(provider) } }
@@ -93,6 +98,7 @@ public final class AIUsageModel {
         refreshing.remove(provider)
         refreshFeedback[provider] = nil
         animatedRefresh.remove(provider)
+        verifiedRefresh.remove(provider)
         connecting.remove(provider)
         await connector?.cancel(provider)
         do {
@@ -117,12 +123,14 @@ public final class AIUsageModel {
         return succeeded
     }
 
-    private func reload(_ provider: ProviderID, revision: UInt64) async {
+    @discardableResult
+    private func reload(_ provider: ProviderID, revision: UInt64) async -> Bool {
         do {
             let state = try await repository.state(for: provider)
-            guard revisions[provider, default: 0] == revision else { return }
+            guard revisions[provider, default: 0] == revision else { return false }
             states[provider] = state
-        } catch { message = "读取本机缓存失败，已有数据未被清除。" }
+            return true
+        } catch { message = "读取本机缓存失败，已有数据未被清除。"; return false }
     }
 
     private func publishChange() { dataRevision &+= 1; onDataChange() }

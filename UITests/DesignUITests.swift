@@ -119,9 +119,12 @@ final class DesignUITests: XCTestCase {
         attach(app, "codex-detail")
         pause()
         app.navigationBars.buttons.firstMatch.tap()
+        print("BEAR_MOTION_END \(Date().timeIntervalSince1970)")
+        XCUIDevice.shared.press(.home)
+        pause()
         app.activate()
         pause()
-        print("BEAR_MOTION_END \(Date().timeIntervalSince1970)")
+        XCTAssertTrue(app.buttons["provider-codex"].waitForExistence(timeout: 5))
     }
 
     @MainActor

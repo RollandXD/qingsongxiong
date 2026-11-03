@@ -21,8 +21,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: 固定版本生成 Xcode 工程
         run: bash scripts/install_xcodegen.sh
-      - name: 提前启动原生模拟器
-        run: bash scripts/apple_build.sh prewarm
       - name: 架构与 Swift 单元测试
         run: bash scripts/apple_build.sh checks
       - name: 真机目标构建与待重签 IPA

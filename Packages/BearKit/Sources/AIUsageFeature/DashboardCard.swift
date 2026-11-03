@@ -121,8 +121,7 @@ struct UsageWindowRow: View {
         .contentShape(Rectangle())
     }
     private var resetLabel: String {
-        guard let date = window.window.resetsAt else { return "未提供重置时间" }
-        return date <= Date() ? "等待刷新确认" : date.formatted(date: .omitted, time: .shortened) + " 重置"
+        window.resetLabel(at: Date())
     }
 }
 

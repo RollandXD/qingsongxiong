@@ -123,7 +123,7 @@ public struct AIUsageHome: View {
         await withTaskGroup(of: Void.self) { group in
             for provider in connected { group.addTask { await model.refresh(provider, reportFailure: false) } }
         }
-        if scenePhase == .active && connected.allSatisfy({ model.states[$0]?.failure == nil }) { refreshHaptic &+= 1 }
+        if scenePhase == .active && connected.allSatisfy({ model.verifiedRefresh.contains($0) }) { refreshHaptic &+= 1 }
     }
 }
 
@@ -269,6 +269,6 @@ struct ProviderDetail: View {
     private func refresh() async {
         guard presentation.state?.connection == .connected else { return }
         await model.refresh(provider, reportFailure: false)
-        if scenePhase == .active && model.states[provider]?.failure == nil { refreshHaptic &+= 1 }
+        if scenePhase == .active && model.verifiedRefresh.contains(provider) { refreshHaptic &+= 1 }
     }
 }

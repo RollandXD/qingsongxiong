@@ -15,6 +15,11 @@ public struct UsageWindowPresentation: Identifiable, Equatable, Sendable {
     public var remaining: Double { window.remainingPercent }
     public var fraction: Double { min(1, max(0, remaining / 100)) }
     public var label: String { window.label }
+    public func resetLabel(at date: Date) -> String {
+        guard let reset = window.resetsAt else { return "未提供重置时间" }
+        guard reset > date else { return "重置时间已过，等待刷新确认" }
+        return reset.formatted(date: .abbreviated, time: .shortened) + " 重置"
+    }
     public var shortLabel: String {
         if id == "seven_day_opus" { return "Opus" }
         if id == "seven_day_sonnet" { return "Sonnet" }
