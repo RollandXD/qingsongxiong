@@ -40,6 +40,49 @@ final class BootstrapUITests: XCTestCase {
     }
 
     @MainActor
+    func testHomeAccessibilityAudit() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "-bear.appearance", "light"]
+        app.launch()
+        XCTAssertTrue(app.buttons["provider-codex"].waitForExistence(timeout: 10))
+        try app.performAccessibilityAudit(for: [.sufficientElementDescription, .trait, .textClipped, .contrast])
+    }
+
+    @MainActor
+    func testLargeTypeKeepsProviderConnectionReachable() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--ui-large-type", "-bear.appearance", "dark"]
+        app.launch()
+        XCTAssertTrue(app.buttons["provider-codex"].waitForExistence(timeout: 10))
+        attach(app, name: "home-accessibility3-dark")
+        let provider = app.buttons["provider-deepseek"]
+        for _ in 0..<4 where !provider.isHittable { app.swipeUp() }
+        provider.tap()
+        let connect = app.buttons["connect-deepseek"]
+        for _ in 0..<4 where !connect.isHittable { app.swipeUp() }
+        XCTAssertTrue(connect.isHittable)
+        attach(app, name: "deepseek-accessibility3-dark")
+    }
+
+    @MainActor
+    func testPrivacyClearsFeatureDataAndReportsCompletion() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "-bear.appearance", "light"]
+        app.launch()
+        app.buttons["设置"].tap()
+        app.buttons["open-privacy"].tap()
+        let clear = app.buttons["clear-feature-data"]
+        if !clear.isHittable { app.swipeUp() }
+        XCTAssertTrue(clear.waitForExistence(timeout: 5))
+        clear.tap()
+        app.buttons["清除功能数据"].tap()
+        let result = app.staticTexts["clear-data-result"]
+        XCTAssertTrue(result.waitForExistence(timeout: 5))
+        XCTAssertEqual(result.label, "功能凭据与额度缓存已清除。")
+        attach(app, name: "privacy-cleared-demo")
+    }
+
+    @MainActor
     func testDevelopmentFeatureRegistersWithoutAICoreChanges() {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--counter-proof"]

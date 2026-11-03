@@ -1,6 +1,6 @@
 # 交付状态
 
-阶段：**手动免费签名与共享能力门槛通过 / DeepSeek 实机通过 / Codex、Claude 授权验证中**。
+阶段：**手动免费签名与共享门槛、三家手机授权取数通过 / 界面与维护收尾中**。
 
 ## 已实现
 
@@ -13,11 +13,13 @@
 - 固定工具版本的免费标准 macOS 构建流程与待重签 IPA 打包。
 - 第三阶段进行中：三家独立响应解析、DeepSeek 官方只读余额请求、可注入时钟和 HTTP 客户端；21 项包测试与原生构建在 CI `6b3a890` 通过。
 - 账户仓储、DeepSeek 安全输入与余额页面、受限 Widget 读取路径、并发/退出/轮换测试在 `6f26d2e` 通过原生 CI。
-- 新增 Codex/Claude 系统浏览器授权、手机回环回调、PKCE、令牌续期和订阅适配器。本增量尚待原生 CI 与用户实机授权验证，不标为已通过。
+- Codex/Claude 系统浏览器授权、手机回环回调、PKCE、令牌续期和订阅适配器已实现。preview.2 用户确认两家的手机授权与额度读取均成功。
+- 新增功能数据清除、开源许可页面、中号总览三列布局及大字体截图测试；本增量尚待原生 CI 和新包验收。
 
 ## 验证证据
 
 - Linux 源码架构检查：PASS。
+- 越层依赖反向检查：PASS（临时副本中分别向 Domain 注入 SwiftUI、向 Widget 注入 AIUsageAuth，均被检查脚本拒绝；不修改真实源码）。
 - Linux 源码凭据检查与脚本语法检查：PASS。
 - Xcode 工程生成、11 项 Swift 包测试：PASS（CI `578c8ef`）。
 - Release 真机目标构建及待重签 IPA 打包：PASS（CI `578c8ef`）。
@@ -31,11 +33,11 @@
 - 单平台组件路由：PASS（用户将单平台组件设为 Claude，确认跳转正确）。
 - 重新签名保留数据、Shadowrocket 恢复：PASS（2026-11-03 用户确认；重签后未重新写入，原编号和共享状态保留）。
 - DeepSeek 官方余额：PASS（2026-11-03 用户确认 preview.1 的 App 与 DeepSeek 组件均正确显示；不收集实际金额或密钥）。
-- Codex、Claude 手机授权、真实额度和组件：UNKNOWN，等待新增代码原生构建及实机验收。
+- Codex、Claude 手机授权与真实额度：PASS（2026-11-03 用户确认 preview.2 两家均成功）。两家的组件真实读数、更新时间与点击跳转：PASS（同日用户确认均正常）。令牌实际过期后的续期仍待实测。
 - 自动续签及跨七天稳定性：UNKNOWN。
 
 ## 下一步
 
-用户已完成 verification.2 的手动免费签名与共享能力验收及 preview.1 的 DeepSeek 真机验收。`device-gate.json` 的 verified 仅指手动签名和共享能力范围，自动续签及跨七天稳定性仍为 UNKNOWN。接下来验证 Codex、Claude 授权与真实读数，并完成可访问性、隐私清除和续签维护流程；不宣称首版已完成。
+用户已完成 verification.2 的手动免费签名与共享能力、preview.1 的 DeepSeek 及 preview.2 的 Codex/Claude 手机授权取数与单平台组件验收。`device-gate.json` 的 verified 仅指手动签名和共享能力范围，自动续签及跨七天稳定性仍为 UNKNOWN。接下来完成新增界面原生验证、总览新布局、可访问性和续签维护流程；不宣称长期运行已验证。
 
 `device-gate.json` 仅记录真实实机结果，不含设备 UDID、Apple 账号或配对文件。

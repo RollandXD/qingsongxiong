@@ -75,7 +75,7 @@ public struct AIUsageHome: View {
                 await model.refreshIfNeeded()
             }
         }
-        .alert("暂未完成", isPresented: Binding(get: { model.message != nil }, set: { if !$0 { model.message = nil } })) {
+        .alert("暂未完成", isPresented: Binding(get: { navigation.path.isEmpty && model.message != nil }, set: { if !$0 { model.message = nil } })) {
             Button("好") { model.message = nil }
         } message: { Text(model.message ?? "") }
     }
@@ -177,7 +177,7 @@ private struct ProviderDetail: View {
                         if provider == .deepseek { showKeyEntry = true }
                         else { Task { await model.connect(provider, key: nil) } }
                     }
-                    .disabled(model.connecting.contains(provider))
+                    .disabled(model.clearing || model.connecting.contains(provider))
                     .accessibilityIdentifier("connect-" + provider.rawValue)
                     if model.connecting.contains(provider) {
                         ProgressView(provider == .deepseek ? "正在读取余额…" : "正在等待官方授权…")
@@ -204,6 +204,9 @@ private struct ProviderDetail: View {
         .background(BearTheme.background(scheme))
         .navigationTitle(ProviderPresentation.name(provider))
         .sheet(isPresented: $showKeyEntry) { APIKeySheet(model: model) }
+        .alert("暂未完成", isPresented: Binding(get: { !showKeyEntry && model.message != nil }, set: { if !$0 { model.message = nil } })) {
+            Button("好") { model.message = nil }
+        } message: { Text(model.message ?? "") }
         .confirmationDialog("退出后会清除本机凭据和该平台缓存。", isPresented: $confirmDisconnect, titleVisibility: .visible) {
             Button("退出账户", role: .destructive) { Task { await model.disconnect(provider) } }
         }

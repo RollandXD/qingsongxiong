@@ -27,6 +27,8 @@ Arch 需要官方 `usbmuxd` 包。首次安装后重新插入手机，让 udev �
 
 ## 3. App 与组件对照
 
+以下编号对照用于 `verification.2` 验证包。正式数据预览中的组件显示真实额度，不再显示探针编号；预览包需按文末的业务读数检查。
+
 1. 打开轻松熊 → 设置 → 检查 App 与小组件共享能力。
 2. 点“写入验证数据”，记录界面上的验证编号。
 3. 主屏幕添加“轻松熊·总览”和“轻松熊·单平台”；后者选择任一平台。
@@ -55,3 +57,11 @@ SideStore 0.7.0 某些构建直接把 `CFBundleDisplayName` 传给 Apple 注册�
 2026-11-03 实机安装成功，但手机登录曾返回 `This action cannot be completed at this time. (-80045)`。上游 [问题 #1658](https://github.com/SideStore/SideStore/issues/1658) 有相同现象与社区临时方案：关闭 On-Device Anisette，选择内置 SideStore (New) 服务并关闭自动轮换，再重置 adi.pb（不保留 headers）后登录一次。用户按该步骤操作后，确认登录成功并完成首次刷新；这项结果不代表轻松熊共享能力或自动续签已通过。
 
 按[该版本重置实现](https://github.com/SideStore/SideStore/blob/6032424a0e56c1c319762e786099bdd9186a238b/SideStore/Views/Settings/Advanced/UserCustomizations/UserCustomizationsView.swift#L531)说明，重置会退出 SideStore 中的 Apple 登录并清除 Anisette 验证缓存，保留活动签名证书。未确认登录恢复前不撤销证书、不导出配对资料、不替换未知来源的修改版；新错误应单独记录，不把错误码变化算作登录成功。
+
+## 业务预览包
+
+日常使用从 [preview.2](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.1.0-preview.2) 获取三家授权版本，使用同一 SideStore 账户覆盖更新，保留全部扩展。更新完成后恢复 Shadowrocket，再在轻松熊中分别连接平台。Codex 与 Claude 在官方页面授权，DeepSeek 密钥只输入手机安全字段。
+
+检查总览及单平台组件的实际读数、各自时间、旧数据提示和对应平台跳转。系统决定组件的刷新机会，不能承诺固定三十分钟执行。主 App 只在活跃时按需检查；组件遇到过期授权提示打开 App。
+
+2026-11-03 用户已确认三家 App 与单平台组件读数正确，Codex、Claude 组件的时间和跳转也均正常。总览布局改进与系统辅助功能检查以 STATUS 中后续记录为准。续签与到期恢复见 [维护说明](MAINTENANCE.md)。

@@ -7,6 +7,7 @@ public final class AIUsageModel {
     public private(set) var states: [ProviderID: ProviderState] = [:]
     public private(set) var refreshing: Set<ProviderID> = []
     public private(set) var connecting: Set<ProviderID> = []
+    public private(set) var clearing = false
     public var message: String?
     public private(set) var dataRevision = 0
     private let repository: any AIUsageRepository
@@ -38,7 +39,7 @@ public final class AIUsageModel {
     }
 
     public func refresh(_ provider: ProviderID, reportFailure: Bool = true) async {
-        guard !refreshing.contains(provider), !connecting.contains(provider) else { return }
+        guard !clearing, !refreshing.contains(provider), !connecting.contains(provider) else { return }
         let revision = revisions[provider, default: 0]
         refreshing.insert(provider)
         defer { if revisions[provider, default: 0] == revision { refreshing.remove(provider) } }
@@ -51,7 +52,7 @@ public final class AIUsageModel {
 
     @discardableResult
     public func connect(_ provider: ProviderID, key: String?) async -> Bool {
-        guard let connector, connector.supports(provider), !connecting.contains(provider) else { return false }
+        guard !clearing, let connector, connector.supports(provider), !connecting.contains(provider) else { return false }
         revisions[provider, default: 0] &+= 1
         let revision = revisions[provider, default: 0]
         refreshing.remove(provider)
@@ -71,7 +72,8 @@ public final class AIUsageModel {
         }
     }
 
-    public func disconnect(_ provider: ProviderID) async {
+    @discardableResult
+    public func disconnect(_ provider: ProviderID) async -> Bool {
         revisions[provider, default: 0] &+= 1
         refreshing.remove(provider)
         connecting.remove(provider)
@@ -79,8 +81,23 @@ public final class AIUsageModel {
         do {
             try await repository.disconnect(provider)
             states[provider] = .disconnected(provider, at: Date())
-            publishChange()
-        } catch { message = "退出未完成，请重试以清除本机数据。" }
+            if !clearing { publishChange() }
+            return true
+        } catch { message = "退出未完成，请重试以清除本机数据。"; return false }
+    }
+
+    /// 功能模块拥有自己的清除流程，App 壳只调用注册的操作。
+    public func clearLocalData() async -> Bool {
+        guard !clearing else { return false }
+        clearing = true
+        defer { clearing = false }
+        var succeeded = true
+        for provider in ProviderID.allCases {
+            if !(await disconnect(provider)) { succeeded = false }
+        }
+        publishChange()
+        if succeeded { message = nil }
+        return succeeded
     }
 
     private func reload(_ provider: ProviderID, revision: UInt64) async {

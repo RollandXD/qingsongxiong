@@ -26,10 +26,11 @@ struct QingSongXiongApp: App {
 }
 
 @MainActor
-private struct AppFeatureEntry {
+struct AppFeatureEntry {
     let descriptor: FeatureDescriptor
     let home: AnyView
     let settings: AnyView
+    let clearLocalData: @MainActor () async -> Bool
     let handle: ([String]) -> Bool
 }
 
@@ -68,13 +69,15 @@ private final class AppComposition {
             descriptor: FeatureDescriptor(id: "ai-usage", title: "AI 额度", systemImage: "sparkles"),
             home: AnyView(AIUsageHome(model: model, navigation: navigation)),
             settings: AnyView(AIUsageAccountSettings(model: model)),
+            clearLocalData: { await model.clearLocalData() },
             handle: { navigation.handle(components: $0) }
         )]
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--counter-proof") {
             entries.append(AppFeatureEntry(
                 descriptor: FeatureDescriptor(id: "local-counter", title: "计数验证", systemImage: "plus.circle"),
-                home: AnyView(DevelopmentCounter()), settings: AnyView(EmptyView()), handle: { _ in false }
+                home: AnyView(DevelopmentCounter()), settings: AnyView(EmptyView()),
+                clearLocalData: { true }, handle: { _ in false }
             ))
         }
         #endif
@@ -94,6 +97,7 @@ private struct AppRoot: View {
     @State private var composition = AppComposition()
     @AppStorage("bear.appearance") private var appearance = "system"
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selectedTab = "home"
 
     private var preferredScheme: ColorScheme? {
@@ -119,7 +123,16 @@ private struct AppRoot: View {
         }
         .tint(BearTheme.accent(colorScheme))
         .preferredColorScheme(preferredScheme)
+        .environment(\.dynamicTypeSize, usesLargeTypeFixture ? .accessibility3 : dynamicTypeSize)
         .onOpenURL { url in selectedTab = "home"; composition.open(url) }
+    }
+
+    private var usesLargeTypeFixture: Bool {
+        #if DEBUG && targetEnvironment(simulator)
+        ProcessInfo.processInfo.arguments.contains("--ui-large-type")
+        #else
+        false
+        #endif
     }
 }
 
@@ -146,11 +159,17 @@ private struct SettingsScreen: View {
                 Section("功能账户") {
                     ForEach(entries, id: \.descriptor.id) { entry in entry.settings }
                 }
+                Section("隐私") {
+                    NavigationLink("隐私与清除数据") { PrivacyScreen(entries: entries) }
+                        .accessibilityIdentifier("open-privacy")
+                }
                 Section("关于") {
                     LabeledContent("轻松熊", value: version)
                     Text("个人工具箱 · 原生 SwiftUI 与 WidgetKit")
                     Text("凭据仅用于对应平台官方请求，保存在手机钥匙串；不发送模型请求。")
                         .font(.footnote).foregroundStyle(.secondary)
+                    NavigationLink("开源许可与来源") { OpenSourceScreen() }
+                    Link("查看项目源码", destination: URL(string: "https://github.com/RollandXD/qingsongxiong")!)
                 }
             }
             .scrollContentBackground(.hidden)

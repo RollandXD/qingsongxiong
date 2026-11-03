@@ -2,11 +2,11 @@
 
 温暖、精致的 Apple 个人工具箱。AI 额度监控是第一个功能模块，计划支持 Codex、Claude 订阅额度与 DeepSeek API 余额。
 
-**当前公开安装包 preview.1 支持 DeepSeek 官方 API 余额，App 与小组件均已实机通过；main 正在接入 Codex、Claude，尚未完成首版。**
+**当前公开安装包 preview.2 支持三家手机独立取数；三家 App 与单平台组件均已实机通过。正在收尾隐私、总览组件布局与可访问性验收。**
 
 手动免费签名、两类组件、共享 Keychain、重签保留数据与 Shadowrocket 恢复已通过实机检查。自动续签与跨七天稳定性仍待实际观察。
 
-[下载 DeepSeek 预览包](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.1.0-preview.1)。安装或覆盖更新时保留全部 Widget 扩展。连接 DeepSeek 时只在手机 App 输入自己的 API Key，不在聊天或 CI 提供凭据。
+[下载三家授权预览包](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.1.0-preview.2)。安装或覆盖更新时保留全部 Widget 扩展。Codex、Claude 在官方页面授权；DeepSeek 只在手机 App 输入自己的 API Key。不在聊天或 CI 提供凭据。
 
 ## 工程
 
@@ -37,6 +37,7 @@ swift test --package-path Packages/BearKit
 - [架构与增加新功能](docs/ARCHITECTURE.md)
 - [免费安装与实机验收](docs/INSTALL.md)
 - [测试说明](docs/TESTING.md)
+- [更新、续签与恢复](docs/MAINTENANCE.md)
 - [机器可读的实机门槛](device-gate.json)
 
 ## 数据与许可

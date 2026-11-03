@@ -108,9 +108,28 @@ struct UsageWidgetView: View {
                 if entry.preview { Text("预览").font(.caption2).foregroundStyle(.secondary) }
                 Spacer(minLength: 0)
             }
-            ForEach(entry.states, id: \.provider) { state in
-                Link(destination: URL(string: "qingsongxiong://ai-usage/provider/" + state.provider.rawValue)!) {
-                    stateView(state)
+            if entry.provider == nil && family == .systemMedium {
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(entry.states, id: \.provider) { state in
+                        Link(destination: URL(string: "qingsongxiong://ai-usage/provider/" + state.provider.rawValue)!) {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(ProviderPresentation.name(state.provider)).font(.caption.bold())
+                                Text(ProviderPresentation.headline(state.snapshot))
+                                    .font(.headline.monospacedDigit()).lineLimit(2).minimumScaleFactor(0.8)
+                                Text(status(state)).font(.caption2).foregroundStyle(.secondary)
+                                if let snapshot = state.snapshot {
+                                    Text(snapshot.fetchedAt, style: .time).font(.caption2).foregroundStyle(.secondary)
+                                }
+                            }.frame(maxWidth: .infinity, alignment: .leading)
+                                .privacySensitive().accessibilityElement(children: .combine)
+                        }
+                    }
+                }
+            } else {
+                ForEach(entry.states, id: \.provider) { state in
+                    Link(destination: URL(string: "qingsongxiong://ai-usage/provider/" + state.provider.rawValue)!) {
+                        stateView(state)
+                    }
                 }
             }
             if family == .systemLarge {

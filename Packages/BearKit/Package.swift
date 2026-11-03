@@ -28,5 +28,6 @@ let package = Package(
         .testTarget(name: "AIUsageDomainTests", dependencies: ["AIUsageDomain"]),
         .testTarget(name: "AIUsageDataTests", dependencies: ["AIUsageData", "AIUsageDomain", "BearFoundation", "BearPlatform"]),
         .testTarget(name: "AIUsageAuthTests", dependencies: ["AIUsageAuth", "AIUsageData", "AIUsageDomain", "BearFoundation", "BearPlatform"]),
+        .testTarget(name: "AIUsageFeatureTests", dependencies: ["AIUsageFeature", "AIUsageDomain"]),
     ]
 )
