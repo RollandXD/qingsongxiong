@@ -32,6 +32,13 @@ if shutil.which("swift"):
                 if dependency not in rules[target["name"]]:
                     errors.append(f"Package.swift：{target['name']} 非法依赖 {dependency}")
 
+for path in (ROOT / "SharedUI").glob("*.swift"):
+    imports = re.findall(r"^\s*import\s+(\w+)", path.read_text(), re.M)
+    allowed = {"Foundation", "SwiftUI", "WidgetKit", "AIUsageDomain", "AIUsagePresentation", "BearDesignSystem"}
+    for module in imports:
+        if module not in allowed:
+            errors.append(f"共享组件界面越层引用：{path.relative_to(ROOT)} -> {module}")
+
 gate = json.loads((ROOT / "device-gate.json").read_text())
 for path in (ROOT / "WidgetExtension").rglob("*.swift"):
     imports = re.findall(r"^\s*import\s+(\w+)", path.read_text(), re.M)

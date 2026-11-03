@@ -2,23 +2,26 @@ import SwiftUI
 
 public enum BearTheme {
     public static let caramel = Color(red: 0.58, green: 0.32, blue: 0.16)
-    public static func background(_ scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color(red: 0.11, green: 0.09, blue: 0.08) : Color(red: 1, green: 0.975, blue: 0.94)
+    private static func rgb(_ value: UInt32) -> Color {
+        Color(red: Double((value >> 16) & 255) / 255, green: Double((value >> 8) & 255) / 255, blue: Double(value & 255) / 255)
     }
-    public static func surface(_ scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color(red: 0.18, green: 0.15, blue: 0.12) : .white
+    public static func background(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0x141615 : 0xF7F6F2) }
+    public static func surface(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0x202320 : 0xFFFFFF) }
+    public static func text(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xF4F3EF : 0x252823) }
+    public static func secondaryText(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xABB1A7 : 0x61665F) }
+    public static func accent(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xD8AA8C : 0x9F6042) }
+    public static func track(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0x353A35 : 0xE9EBE5) }
+    public static func warning(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xE4BC68 : 0x956100) }
+    public static func success(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0x6CC9AD : 0x267864) }
+    public static func danger(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xF18A8D : 0xB84044) }
+    public static func series(_ index: Int, _ scheme: ColorScheme) -> Color {
+        let light: [UInt32] = [0x267864, 0xA95E40, 0x4F6FE8]
+        let dark: [UInt32] = [0x73C4B0, 0xDCA88B, 0x91A7FF]
+        let values = scheme == .dark ? dark : light
+        return rgb(values[min(2, max(0, index))])
     }
-    public static func accent(_ scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color(red: 0.95, green: 0.71, blue: 0.45) : caramel
-    }
-    public static func secondaryText(_ scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color(red: 0.75, green: 0.70, blue: 0.65) : Color(red: 0.36, green: 0.31, blue: 0.28)
-    }
-    public static func warning(_ scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color(red: 1, green: 0.70, blue: 0.32) : Color(red: 0.50, green: 0.29, blue: 0.04)
-    }
-    public static func success(_ scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color(red: 0.48, green: 0.82, blue: 0.57) : Color(red: 0.12, green: 0.40, blue: 0.25)
+    public static func quotaColor(_ remaining: Double, series: Int, scheme: ColorScheme) -> Color {
+        remaining <= 0 ? danger(scheme) : remaining <= 20 ? warning(scheme) : self.series(series, scheme)
     }
 }
 

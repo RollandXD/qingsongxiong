@@ -97,89 +97,12 @@ struct ProviderTimeline: AppIntentTimelineProvider {
 
 struct UsageWidgetView: View {
     let entry: UsageEntry
-    @Environment(\.colorScheme) private var scheme
     @Environment(\.widgetFamily) private var family
-
+    @Environment(\.colorScheme) private var scheme
     var body: some View {
-        VStack(alignment: .leading, spacing: family == .systemSmall ? 8 : 10) {
-            HStack(spacing: 7) {
-                BearMark().frame(width: 24, height: 24).widgetAccentable().accessibilityHidden(true)
-                Text(entry.provider.map(ProviderPresentation.name) ?? "轻松熊").font(.headline)
-                if entry.preview { Text("预览").font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme)) }
-                Spacer(minLength: 0)
-            }
-            if entry.provider == nil && family == .systemMedium {
-                HStack(alignment: .top, spacing: 12) {
-                    ForEach(entry.states, id: \.provider) { state in
-                        Link(destination: URL(string: "qingsongxiong://ai-usage/provider/" + state.provider.rawValue)!) {
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text(ProviderPresentation.name(state.provider)).font(.caption.bold())
-                                Text(ProviderPresentation.headline(state.snapshot))
-                                    .font(.headline.monospacedDigit()).lineLimit(2).minimumScaleFactor(0.8)
-                                Text(status(state)).font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme))
-                                if let snapshot = state.snapshot {
-                                    Text(snapshot.fetchedAt, style: .time).font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme))
-                                }
-                            }.frame(maxWidth: .infinity, alignment: .leading)
-                                .privacySensitive().accessibilityElement(children: .combine)
-                        }
-                    }
-                }
-            } else {
-                ForEach(entry.states, id: \.provider) { state in
-                    Link(destination: URL(string: "qingsongxiong://ai-usage/provider/" + state.provider.rawValue)!) {
-                        stateView(state)
-                    }
-                }
-            }
-            if family == .systemLarge {
-                Spacer(minLength: 0)
-                Text("读取时间分别显示 · 点击查看详情").font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme))
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .containerBackground(for: .widget) { BearTheme.background(scheme) }
-        .widgetURL(URL(string: "qingsongxiong://ai-usage/provider/" + (entry.provider?.rawValue ?? "codex")))
-    }
-
-    @ViewBuilder private func stateView(_ state: ProviderState) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            if entry.provider == nil {
-                HStack {
-                    Text(ProviderPresentation.name(state.provider)).font(.subheadline.bold())
-                    Spacer(minLength: 3)
-                    Text(ProviderPresentation.headline(state.snapshot)).font(.subheadline.monospacedDigit())
-                }
-            } else {
-                Text(ProviderPresentation.headline(state.snapshot))
-                    .font(.system(family == .systemSmall ? .title3 : .title2, design: .rounded).bold())
-                    .monospacedDigit().lineLimit(2).minimumScaleFactor(0.75)
-            }
-            HStack(spacing: 4) {
-                Text(status(state))
-                if let snapshot = state.snapshot { Text(snapshot.fetchedAt, style: .time) }
-            }.font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme))
-            if family == .systemLarge || (entry.provider != nil && family == .systemMedium) {
-                if let snapshot = state.snapshot {
-                    ForEach(snapshot.windows.prefix(2), id: \.id) { window in
-                        HStack {
-                            Text(window.label)
-                            Spacer(minLength: 2)
-                            Text(window.usedPercent.formatted(.number.precision(.fractionLength(0...1))) + "%")
-                        }.font(.caption)
-                    }
-                }
-            }
-        }.privacySensitive().accessibilityElement(children: .combine)
-    }
-
-    private func status(_ state: ProviderState) -> String {
-        if state.connection == .disconnected { return "尚未连接" }
-        if state.connection == .unknown { return "暂不可读取 · 打开 App" }
-        if state.connection == .reconnectRequired { return "需要重新连接" }
-        if state.failure == .appRefreshRequired { return "打开 App 更新授权" }
-        if state.snapshot == nil { return "等待读取" }
-        return state.isStale(at: entry.date) ? "旧读数 ·" : "更新于"
+        WidgetMetricContent(states: entry.states, provider: entry.provider, date: entry.date, family: family)
+            .containerBackground(for: .widget) { BearTheme.background(scheme) }
+            .widgetURL(URL(string: "qingsongxiong://ai-usage/provider/" + (entry.provider?.rawValue ?? "codex")))
     }
 }
 

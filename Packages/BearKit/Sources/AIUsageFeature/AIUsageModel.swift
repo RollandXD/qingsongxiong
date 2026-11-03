@@ -8,6 +8,8 @@ public final class AIUsageModel {
     public private(set) var refreshing: Set<ProviderID> = []
     public private(set) var connecting: Set<ProviderID> = []
     public private(set) var clearing = false
+    public private(set) var refreshFeedback: [ProviderID: String] = [:]
+    public private(set) var animatedRefresh: Set<ProviderID> = []
     public var message: String?
     public private(set) var dataRevision = 0
     private let repository: any AIUsageRepository
@@ -34,20 +36,31 @@ public final class AIUsageModel {
             return state.snapshot.map { Date().timeIntervalSince($0.fetchedAt) >= 300 } ?? true
         }
         await withTaskGroup(of: Void.self) { group in
-            for provider in due { group.addTask { await self.refresh(provider, reportFailure: false) } }
+            for provider in due { group.addTask { await self.refresh(provider, reportFailure: false, animated: false) } }
         }
     }
 
-    public func refresh(_ provider: ProviderID, reportFailure: Bool = true) async {
+    public func refresh(_ provider: ProviderID, reportFailure: Bool = true, animated: Bool = true) async {
         guard !clearing, !refreshing.contains(provider), !connecting.contains(provider) else { return }
+        if animated { animatedRefresh.insert(provider) } else { animatedRefresh.remove(provider) }
+        refreshFeedback[provider] = nil
+        let previous = states[provider]?.snapshot
+        var succeeded = false
         let revision = revisions[provider, default: 0]
         refreshing.insert(provider)
         defer { if revisions[provider, default: 0] == revision { refreshing.remove(provider) } }
-        do { _ = try await repository.refresh(provider) }
+        do { _ = try await repository.refresh(provider); succeeded = true }
         catch is CancellationError { return }
         catch { if reportFailure && revisions[provider, default: 0] == revision { message = Self.explanation(error) } }
         await reload(provider, revision: revision)
-        if revisions[provider, default: 0] == revision { publishChange() }
+        if revisions[provider, default: 0] == revision {
+            if animated {
+                let next = states[provider]?.snapshot
+                let changed = previous?.windows != next?.windows || previous?.balances != next?.balances || previous?.isAvailable != next?.isAvailable
+                refreshFeedback[provider] = succeeded ? (changed ? "已更新读数" : "已核实，读数未变化") : "读取未完成，已保留原状态"
+            }
+            publishChange()
+        }
     }
 
     @discardableResult
@@ -56,6 +69,8 @@ public final class AIUsageModel {
         revisions[provider, default: 0] &+= 1
         let revision = revisions[provider, default: 0]
         refreshing.remove(provider)
+        refreshFeedback[provider] = nil
+        animatedRefresh.remove(provider)
         connecting.insert(provider)
         message = nil
         defer { if revisions[provider, default: 0] == revision { connecting.remove(provider) } }
@@ -76,6 +91,8 @@ public final class AIUsageModel {
     public func disconnect(_ provider: ProviderID) async -> Bool {
         revisions[provider, default: 0] &+= 1
         refreshing.remove(provider)
+        refreshFeedback[provider] = nil
+        animatedRefresh.remove(provider)
         connecting.remove(provider)
         await connector?.cancel(provider)
         do {

@@ -31,3 +31,11 @@ Linux 没有 Xcode，不能把这些静态检查当作 iOS 编译通过。
 2026-11-03：preview.2 用户确认 Codex、Claude 手机授权与额度读取均成功；两家的组件读数、时间与点击跳转也均正常。实际过期令牌续期仍待验证。夹具不得带真实 token、账号邮箱或账户标识。自动续签和跨七天结果仍为 UNKNOWN。
 
 界面收尾新增：清除全部账户失败时继续处理其他平台、取消迟到授权回调、功能数据清除 UI 与 accessibility3 大字体可达性/截图。本增量尚待原生 CI。系统 VoiceOver、减少动态效果与降低透明度仍需真机检查，不能用大字体测试替代。
+
+## 0.2.0 原生视觉回归
+
+- --demo-usage：三家已连接合成数据；--demo-scenario 支持 normal、stale、exhausted、missing、reconnect、partial、multi-currency。
+- --widget-demo：与 Widget 相同源文件的中/大总览、小/中单平台布局。此演示只验证布局，不能替代真实 Widget 注册与着色模式检查。
+- DesignUITests 覆盖同屏指标、独立窗口选择、单一展开、连续反向操作、余额分币种、部分失败与详情导航，并保留旧功能回归。
+- CI 在合成账户 UI 测试期间用 simctl recordVideo 保存 1x 原速录像；BEAR_MOTION_START/END 时间戳用于裁出动作演示。截图与录像经人工检查后才算视觉通过。
+- 基础无障碍由自动审计与实现负责，用户已免除手动真机无障碍模式测试。上文旧阶段的该项手动要求已取消。

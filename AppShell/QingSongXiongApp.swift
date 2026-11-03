@@ -22,7 +22,16 @@ private final class UITestSecureValues: SecureValueStore, @unchecked Sendable {
 
 @main
 struct QingSongXiongApp: App {
-    var body: some Scene { WindowGroup { AppRoot() } }
+    var body: some Scene {
+        WindowGroup {
+            #if DEBUG && targetEnvironment(simulator)
+            if ProcessInfo.processInfo.arguments.contains("--widget-demo") { WidgetDemoScreen() }
+            else { AppRoot() }
+            #else
+            AppRoot()
+            #endif
+        }
+    }
 }
 
 @MainActor
@@ -41,6 +50,37 @@ private final class AppComposition {
 
     init() {
         let navigation = AIUsageNavigation()
+        let model = Self.makeUsageModel()
+        var entries = [AppFeatureEntry(
+            descriptor: FeatureDescriptor(id: "ai-usage", title: "AI 额度", systemImage: "sparkles"),
+            home: AnyView(AIUsageHome(model: model, navigation: navigation)),
+            settings: AnyView(AIUsageAccountSettings(model: model)),
+            clearLocalData: { await model.clearLocalData() },
+            handle: { navigation.handle(components: $0) }
+        )]
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--counter-proof") {
+            entries.append(AppFeatureEntry(
+                descriptor: FeatureDescriptor(id: "local-counter", title: "计数验证", systemImage: "plus.circle"),
+                home: AnyView(DevelopmentCounter()), settings: AnyView(EmptyView()),
+                clearLocalData: { true }, handle: { _ in false }
+            ))
+        }
+        #endif
+        self.entries = entries
+        // 标识来自编译期注册；重复标识必须在开发期失败，而不是悄悄覆盖功能。
+        catalog = try! FeatureCatalog(features: entries.map(\.descriptor))
+    }
+
+    private static func makeUsageModel() -> AIUsageModel {
+        #if DEBUG && targetEnvironment(simulator)
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--demo-usage") {
+            let scenario = arguments.firstIndex(of: "--demo-scenario").flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil } ?? "normal"
+            let repository = DemoUsageRepository(scenario: scenario)
+            return AIUsageModel(repository: repository, connector: repository)
+        }
+        #endif
         let model: AIUsageModel
         do {
             let shared = SharedResources()
@@ -65,25 +105,7 @@ private final class AppComposition {
             model = AIUsageModel(repository: VerificationGatedRepository(), connector: nil)
             model.message = "共享存储不可用，请在设置中检查 App 与小组件共享能力。"
         }
-        var entries = [AppFeatureEntry(
-            descriptor: FeatureDescriptor(id: "ai-usage", title: "AI 额度", systemImage: "sparkles"),
-            home: AnyView(AIUsageHome(model: model, navigation: navigation)),
-            settings: AnyView(AIUsageAccountSettings(model: model)),
-            clearLocalData: { await model.clearLocalData() },
-            handle: { navigation.handle(components: $0) }
-        )]
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--counter-proof") {
-            entries.append(AppFeatureEntry(
-                descriptor: FeatureDescriptor(id: "local-counter", title: "计数验证", systemImage: "plus.circle"),
-                home: AnyView(DevelopmentCounter()), settings: AnyView(EmptyView()),
-                clearLocalData: { true }, handle: { _ in false }
-            ))
-        }
-        #endif
-        self.entries = entries
-        // 标识来自编译期注册；重复标识必须在开发期失败，而不是悄悄覆盖功能。
-        catalog = try! FeatureCatalog(features: entries.map(\.descriptor))
+        return model
     }
 
     func open(_ url: URL) {
@@ -146,7 +168,7 @@ private struct SettingsScreen: View {
                 Section("外观") {
                     Picker("主题", selection: $appearance) {
                         Text("跟随系统").tag("system")
-                        Text("奶油日光").tag("light")
+                        Text("纸白").tag("light")
                         Text("暖夜").tag("dark")
                     }
                 }
@@ -181,7 +203,7 @@ private struct SettingsScreen: View {
     private var version: String {
         let marketing = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
-        return marketing + " (" + build + ") · 接入预览"
+        return marketing + " (" + build + ") · 设计预览"
     }
 }
 

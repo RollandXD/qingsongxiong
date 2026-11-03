@@ -16,7 +16,7 @@ device_package() {
   python3 scripts/package_ipa.py output/DeviceBuild/Build/Products/Release-iphoneos/QingSongXiong.app output
 }
 
-ui_tests() {
+simulator() {
   local simulator_id
   simulator_id="$(xcrun simctl list devices available --json | python3 -c '
 import json,sys
@@ -28,16 +28,31 @@ for runtime,devices in data.items():
                 print(device["udid"]);sys.exit(0)
 sys.exit("iOS 27.1 iPhone simulator unavailable")
 ')"
-  local result=0
+  printf '%s' "$simulator_id" > output/simulator-id.txt
   if ! xcrun simctl list devices booted --json | grep -q "$simulator_id"; then
     xcrun simctl boot "$simulator_id"
   fi
+}
+
+ui_tests() {
+  simulator
+  local simulator_id result=0 recorder_pid
+  simulator_id="$(cat output/simulator-id.txt)"
+  xcodebuild build-for-testing -project QingSongXiong.xcodeproj -scheme QingSongXiong \
+    -configuration Debug -destination "platform=iOS Simulator,id=$simulator_id" \
+    -derivedDataPath output/DerivedData CODE_SIGNING_ALLOWED=NO
   xcrun simctl bootstatus "$simulator_id" -b
-  xcodebuild test -project QingSongXiong.xcodeproj -scheme QingSongXiong \
+  xcrun simctl io "$simulator_id" recordVideo --help > output/recording-help.txt 2>&1 || true
+  python3 -c 'import json,time;json.dump({"startedAt":time.time(),"speed":1,"data":"synthetic"},open("output/recording.json","w"))'
+  xcrun simctl io "$simulator_id" recordVideo --codec=h264 output/native-motion.mp4 > output/recording.log 2>&1 &
+  recorder_pid=$!
+  xcodebuild test-without-building -project QingSongXiong.xcodeproj -scheme QingSongXiong \
   -configuration Debug -destination "platform=iOS Simulator,id=$simulator_id" \
   -parallel-testing-enabled NO \
   -derivedDataPath output/DerivedData -resultBundlePath output/UITests.xcresult \
-    CODE_SIGNING_ALLOWED=NO || result=$?
+    CODE_SIGNING_ALLOWED=NO 2>&1 | tee output/ui-tests.log || result=$?
+  kill -INT "$recorder_pid" 2>/dev/null || true
+  wait "$recorder_pid" || true
   return "$result"
 }
 
@@ -52,9 +67,10 @@ screenshots() {
 
 case "${1:-all}" in
   checks) checks ;;
+  prewarm) simulator ;;
   device) device_package ;;
   ui) ui_tests ;;
   screenshots) screenshots ;;
   all) checks; device_package; ui_tests; screenshots ;;
-  *) printf '%s\n' 'Usage: apple_build.sh [checks|device|ui|screenshots|all]' >&2; exit 2 ;;
+  *) printf '%s\n' 'Usage: apple_build.sh [checks|prewarm|device|ui|screenshots|all]' >&2; exit 2 ;;
 esac

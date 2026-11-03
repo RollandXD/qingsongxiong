@@ -1,12 +1,12 @@
 # 轻松熊 · QingSongXiong
 
-温暖、精致的 Apple 个人工具箱。AI 额度监控是第一个功能模块，计划支持 Codex、Claude 订阅额度与 DeepSeek API 余额。
+温暖、精致的 Apple 个人工具箱。AI 额度监控是第一个功能模块，支持 Codex、Claude 订阅额度与 DeepSeek API 余额。
 
-**当前公开安装包 preview.2 支持三家手机独立取数；三家 App 与单平台组件均已实机通过。正在收尾隐私、总览组件布局与可访问性验收。**
+**当前公开稳定体验为 preview.3（0.1.0/5），三家取数、覆盖更新、账户保留与组件日常功能已实机通过。0.2.0 正在进行原生视觉与动效改版，尚待本轮原生构建、截图与录像验收。**
 
-手动免费签名、两类组件、共享 Keychain、重签保留数据与 Shadowrocket 恢复已通过实机检查。自动续签与跨七天稳定性仍待实际观察。
+[下载已验收的 preview.3](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.1.0-preview.3)。覆盖更新时保留全部 Widget 扩展和原签名账户。Codex、Claude 在官方页面授权；DeepSeek 只在手机安全字段输入 API Key。凭据不进入聊天或 CI。
 
-[下载三家授权预览包](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.1.0-preview.2)。安装或覆盖更新时保留全部 Widget 扩展。Codex、Claude 在官方页面授权；DeepSeek 只在手机 App 输入自己的 API Key。不在聊天或 CI 提供凭据。
+手动免费签名、共享 Keychain、重签保留数据与 Shadowrocket 恢复已通过。每日续签自动化的完整流程已试跑成功；真实定时触发、锁屏及跨七天观察仍 UNKNOWN。
 
 ## 工程
 
