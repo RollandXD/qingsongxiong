@@ -6,7 +6,7 @@
 
 这个版本用于确认：独立 App 和两类主屏幕组件能否通过免费签名安装、共享数据、共享 Keychain、重新签名后保留数据，以及续签所需连接与 Shadowrocket 能否配合使用。没有验证过的行为不标为已完成。
 
-[下载免费签名验证版](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.1.0-verification.1)；安装前先完成 SideStore 的登录与首次刷新，并阅读下方实机验收步骤。
+[验证版发布列表](https://github.com/RollandXD/qingsongxiong/releases)；首包在 SideStore 0.7.0 注册 App ID 时遇到中文名称兼容错误，修正版构建中。安装前先完成 SideStore 的登录与首次刷新，并阅读下方实机验收步骤。
 
 ## 工程
 

@@ -21,6 +21,16 @@ with tempfile.TemporaryDirectory(prefix="bear-payload-") as temporary:
     for bundle in [*app.glob("PlugIns/*.appex"), app]:
         info = plistlib.loads((bundle / "Info.plist").read_bytes())
         bundle_id = info["CFBundleIdentifier"]
+        # SideStore 0.7.0 的 App ID 注册会直接使用基础显示名。
+        # 校验真实构建产物：签名名称为英文，桌面品牌由本地化资源提供。
+        for key in ("CFBundleDisplayName", "CFBundleName"):
+            name = info[key]
+            if not name or not name.isascii() or not all(c.isalnum() or c == " " for c in name):
+                raise SystemExit(f"{bundle_id}: {key} must be an ASCII signing name")
+        localized = plistlib.loads((bundle / "zh-Hans.lproj/InfoPlist.strings").read_bytes())
+        expected_name = "轻松熊小组件" if bundle.suffix == ".appex" else "轻松熊"
+        if localized.get("CFBundleDisplayName") != expected_name:
+            raise SystemExit(f"{bundle_id}: localized brand name missing from built bundle")
         entitlements = {
             "application-identifier": "UNSIGNED00." + bundle_id,
             "com.apple.developer.team-identifier": "UNSIGNED00",

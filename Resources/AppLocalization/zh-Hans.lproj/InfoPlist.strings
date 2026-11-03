@@ -1,0 +1,3 @@
+/* 本地化品牌名称；基础 Info.plist 使用签名服务可接受的英文名称。 */
+"CFBundleDisplayName" = "轻松熊";
+"CFBundleName" = "轻松熊";

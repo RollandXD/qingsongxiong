@@ -26,10 +26,11 @@ targets:
     sources:
       - AppShell
       - path: Resources/Assets.xcassets
+      - path: Resources/AppLocalization
     info:
       path: Configuration/App-Info.plist
       properties:
-        CFBundleDisplayName: 轻松熊
+        CFBundleDisplayName: QingSongXiong
         CFBundleURLTypes:
           - CFBundleURLName: io.github.rollandxd.qingsongxiong
             CFBundleURLSchemes: [qingsongxiong]
@@ -64,11 +65,13 @@ targets:
   QingSongXiongWidgets:
     type: app-extension
     platform: iOS
-    sources: [WidgetExtension]
+    sources:
+      - WidgetExtension
+      - path: Resources/WidgetLocalization
     info:
       path: Configuration/Widget-Info.plist
       properties:
-        CFBundleDisplayName: 轻松熊小组件
+        CFBundleDisplayName: QingSongXiong Widgets
         BearAppGroupIdentifier: $(BEAR_APP_GROUP)
         BearKeychainGroupSuffix: $(BEAR_KEYCHAIN_SUFFIX)
         NSExtension:
