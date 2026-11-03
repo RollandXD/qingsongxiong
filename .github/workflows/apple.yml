@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: apple-${{ github.ref }}
+  group: apple-native-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   apple:
@@ -22,6 +22,7 @@ jobs:
       - name: 固定版本生成 Xcode 工程
         run: bash scripts/install_xcodegen.sh
       - name: 架构与 Swift 单元测试
+        timeout-minutes: 10
         run: bash scripts/apple_build.sh checks
       - name: 真机目标构建与待重签 IPA
         run: bash scripts/apple_build.sh device
