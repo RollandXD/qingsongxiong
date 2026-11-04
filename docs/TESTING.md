@@ -8,34 +8,32 @@ python3 scripts/check_repository.py
 bash -n scripts/install_xcodegen.sh scripts/apple_build.sh
 ```
 
-Linux 没有 Xcode，不能把这些静态检查当作 iOS 编译通过。
+Linux 检查验证源码边界、凭据排除和脚本语法；原生编译由 Xcode 执行。
 
 ## macOS / CI
 
-固定 Xcode 27.1、XcodeGen 2.46.0，使用 Swift 6 语言模式：
+固定 Xcode 27.1、XcodeGen 2.46.0，Swift 6 严格并发。主验收默认 iPhone 16 Pro。select_simulator.py 按机型匹配兼容的 iOS 27 运行时并实际创建设备，缺少目标机型直接报错；设备创建在编译前核验，启动在编译后执行。
 
-- `swift test --package-path Packages/BearKit --parallel`：路由隔离、领域准确性、Decimal、共享快照、并发写入与版本拒绝。
-- 原生 UI 测试：首页导航、深色安装验证页面、Debug 功能注册与独立计数状态。
-- `--ui-testing` 仅在 Debug 模拟器构建中使用易失凭据容器，避免未签名模拟器的 Keychain 权限影响页面测试；真机始终使用共享 Keychain。安全输入截图只截空字段。
-- Release 真机目标构建，产出待重签 IPA；构建不需要真实账户、证书或 Apple 登录。
-- UI 截图由 xcresult 导出到 Actions 产物；人工检查后才记录视觉验收。
-- 数据层覆盖多币种 Decimal 精度、缺失/无效窗口、模型窗口、限流、请求合并、退出迟到响应与令牌轮换。Widget 测试验证不轮换 token、不写共享快照、退出后拒绝旧结果。
-- 授权层覆盖 RFC PKCE 向量、随机 state、回调来源与重复参数校验、单次交换、获授权 scope 的续期、令牌错误映射，以及真实回环监听的错误请求和取消。所有令牌均为测试字符串。
+Xcode 27.1 与模拟器 iOS 27.0 是两项独立事实。当前镜像中的 iOS 27.1 为 Duo 专属，不用于 iPhone 16 Pro 验收。可手动触发 Apple 运行时按需诊断，核对镜像变化。
 
-小组件注册、真实 Keychain 共享、签名有效期、Shadowrocket 与续签连接配合必须按 INSTALL 在真机验证。
+- swift test --package-path Packages/BearKit --parallel：路由隔离、领域数值、Decimal、共享存储与版本拒绝、并发、退出迟到响应、令牌轮换、授权回调、展示映射、交互状态和刷新反馈。
+- 原生 UI：账户安全入口、隐私清除、安装检查、功能注册、浅深色描述/trait/文字截断/对比度审计、大字体可达性、窗口焦点与单一展开、余额分币种、部分刷新失败、详情与前后台，以及四种组件密度。
+- --ui-testing 仅在 Debug 模拟器使用易失凭据容器，避免未签名模拟器的 Keychain 权限干扰；真机使用共享 Keychain。安全输入截图只截空字段。
+- --demo-usage 的合成场景包括 normal、stale、exhausted、missing、reconnect、partial、multi-currency；--widget-demo 与 Widget 使用同一份原生布局。Release 不包含这些演示入口。
+- Release 构建与待重签 IPA 校验不需要真实账号、证书或 Apple 登录。打包核对英文签名名、中文本地化、版本与许可。
 
-## 后续阶段
+## 截图与原速影片
 
-2026-11-03：preview.1 对应 `6f26d2e` 的 30 项包测试、4 项原生 UI 测试与 Release IPA 构建通过。浅色、实际深色和空密钥输入页截图已人工检查。用户确认 DeepSeek 在 App 与组件正确显示官方余额。
+xcresult 导出截图和测试附件，经人工检查才记录视觉验收。simctl 录像显式选择 primary 显示屏，并要求实际生成文件。
 
-2026-11-03：preview.2 用户确认 Codex、Claude 手机授权与额度读取均成功；两家的组件读数、时间与点击跳转也均正常。实际过期令牌续期仍待验证。夹具不得带真实 token、账号邮箱或账户标识。自动续签和跨七天结果仍为 UNKNOWN。
+用 MP4 creation_time 与 BEAR_MOTION_START/END 时间戳裁出动作片段；只裁剪与缩放分辨率，不加速。进程启动时间不等于首帧时间，不能直接用 recording.json 的 startedAt 计算裁剪偏移。媒体只使用合成或脱敏数据。
 
-界面收尾新增：清除全部账户失败时继续处理其他平台、取消迟到授权回调、功能数据清除 UI 与 accessibility3 大字体可达性/截图。本增量尚待原生 CI。系统 VoiceOver、减少动态效果与降低透明度仍需真机检查，不能用大字体测试替代。
+Widget 开发预览验证密度和展示规则；真实注册、Keychain 共享、系统着色、签名与刷新调度分别记录实际证据，不以布局预览替代。
 
-## 0.2.0 原生视觉回归
+## 0.2.0 设计预览 1 结果（2026-11-04）
 
-- --demo-usage：三家已连接合成数据；--demo-scenario 支持 normal、stale、exhausted、missing、reconnect、partial、multi-currency。
-- --widget-demo：与 Widget 相同源文件的中/大总览、小/中单平台布局。此演示只验证布局，不能替代真实 Widget 注册与着色模式检查。
-- DesignUITests 覆盖同屏指标、独立窗口选择、单一展开、连续反向操作、余额分币种、部分失败与详情导航，并保留旧功能回归。
-- CI 在合成账户 UI 测试期间用 simctl recordVideo 保存 1x 原速录像；BEAR_MOTION_START/END 时间戳用于裁出动作演示。截图与录像经人工检查后才算视觉通过。
-- 基础无障碍由自动审计与实现负责，用户已免除手动真机无障碍模式测试。上文旧阶段的该项手动要求已取消。
+来源 1f35bab：63 项包测试、14 项 UI 测试、Release 与 IPA 校验全 PASS，见 [原生 CI](https://github.com/RollandXD/qingsongxiong/actions/runs/41752016088)。已人工检查 iPhone 16 Pro / iOS 27.0 的首页浅深色、独立窗口与模型限制、余额组成、四种组件密度及原速影片，截图为 1206×2622。
+
+用户确认 iPhone 16 Pro 覆盖更新、账户/读数保留、两类 Widget 和日常展开/刷新/返回手感均正常。Widget 系统着色外观未单独专项验收，透明度适配已实现。用户已免除手动真机无障碍模式测试，基本兼容由实现及上述自动审计负责。
+
+实际令牌过期续期、每日自动化的真实定时/锁屏触发和跨七天稳定性仍 UNKNOWN，状态见 STATUS。历史构建证据可从 Git 与 Actions 回查。

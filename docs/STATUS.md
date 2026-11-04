@@ -1,59 +1,48 @@
 # 交付状态
 
-阶段：**preview.3 已实机通过；0.2.0 原生视觉与动效改版等待原生验证**。
+当前：**v0.2.0-preview.1（0.2.0/6）已发布；原生回归及 iPhone 16 Pro 真机日常验收通过**。
 
-## 已实现
+## 本版结果（2026-11-04）
 
-- 八个 Swift Package 模块与可检查的依赖白名单；AI 共享展示供 App/Widget 复用，交互授权模块只进入主 App。
-- 轻松熊原生 App 壳、暖色主题、原创熊形标记、独立功能注册。
-- AI 额度入口与平台路由；公开 preview.1 支持 DeepSeek 官方 API 余额，App 和组件已实机验收。
-- App Group 跨进程快照、版本检查、旧数据保护、共享 Keychain 探针。
-- 总览与单平台两类组件；共享能力与 DeepSeek 业务数据路径已实测。
-- 架构检查、领域/存储测试、Debug 扩展性验证和原生 UI 测试。
-- 固定工具版本的免费标准 macOS 构建流程与待重签 IPA 打包。
-- 第三阶段进行中：三家独立响应解析、DeepSeek 官方只读余额请求、可注入时钟和 HTTP 客户端；21 项包测试与原生构建在 CI `6b3a890` 通过。
-- 账户仓储、DeepSeek 安全输入与余额页面、受限 Widget 读取路径、并发/退出/轮换测试在 `6f26d2e` 通过原生 CI。
-- Codex/Claude 系统浏览器授权、手机回环回调、PKCE、令牌续期和订阅适配器已实现。preview.2 用户确认两家的手机授权与额度读取均成功。
-- preview.2 `d85a3b6` 原生 CI：43 项包测试、4 项 UI 测试、Release iPhone 构建与 IPA 校验全部 PASS（[CI 41627496760](https://github.com/RollandXD/qingsongxiong/actions/runs/41627496760)）。浅色授权入口和实际深色截图已检查。
-- 功能数据清除、开源许可页面、中号总览三列布局及大字体截图测试已实现。`611c5b8` 的 46 项包测试和 Release 构建通过；原生 UI 6/7 通过，首页辅助文字对比度审计失败。本次调整语义文字与状态色，并保留浅色/深色审计等待复验。
-- 复核补充账户更换时缓存写入失败的凭据恢复，以及组件保留有效 Retry-After 的测试；组件存储依赖缩窄为只读协议。本补丁尚待原生 CI。
+来源提交 `1f35bab73f20d8ccf9857b7bafdf0eb99e532a2d`，源码树 `fb3e96f2d780f2e0692a769116a31ddebc96b731`。Xcode 27.1 构建，最低 iOS 27.0。主验收设备为 iPhone 16 Pro，实际模拟器系统 iOS 27.0，截图 1206×2622。
 
-## 验证证据
+| 验证 | 结果 |
+| --- | --- |
+| Linux 架构、源码凭据与脚本语法 | PASS |
+| Swift 包测试 | 63/63 PASS |
+| 原生 UI 回归 | 14/14 PASS |
+| Release iPhone 构建、待重签 IPA 与 SHA-256 | PASS |
+| 基础英文签名名、中文品牌、组件版本与许可 | PASS |
+| Release 不含合成演示入口 | PASS |
+| 已连接/未连接首页浅深色描述、trait、文字截断、对比度审计 | PASS |
+| 大字体下连接操作可达 | PASS |
+| 窗口展开、焦点、单一展开、收起、余额分币种、部分失败、详情与前后台 | PASS |
+| 原生截图与原速动效影片人工检查 | PASS |
 
-- Linux 源码架构检查：PASS。
-- 越层依赖反向检查：PASS（临时副本中分别向 Domain 注入 SwiftUI、向 Widget 注入 AIUsageAuth，均被检查脚本拒绝；不修改真实源码）。
-- Linux 源码凭据检查与脚本语法检查：PASS。
-- Xcode 工程生成、11 项 Swift 包测试：PASS（CI `578c8ef`）。
-- Release 真机目标构建及待重签 IPA 打包：PASS（CI `578c8ef`）。
-- 模拟器 UI：3/3 通过，CI `578c8ef` 整体成功且截图导出完成。
-- DeepSeek 增量 `6f26d2e`：30 项 Swift 包测试、4 项原生 UI 测试、Release 构建/IPA 打包全部 PASS（[CI 41622637175](https://github.com/RollandXD/qingsongxiong/actions/runs/41622637175)）。
-- 浅色首页、实际深色页面与空密钥输入页截图：已人工检查（`6f26d2e`）；大字体、VoiceOver、减少动态效果、降低透明度与真实额度页的完整视觉验收仍待完成。
-- 名称兼容修正版 IPA：来源 `578c8ef`，SHA-256、主 App/Widget 基础英文名和中文本地化资源检查通过，已发布 [v0.1.0-verification.2](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.1.0-verification.2)。首包保留历史来源并明确标记已知问题。
-- SideStore 0.7.0 登录与首次手动刷新：PASS（2026-11-03 用户确认；先前 -80045 经 Anisette 配置排查后恢复）。
-- 首个验证包安装：FAIL（Apple 拒绝中文 `appIdName`）。verification.2 实机安装与启动：PASS（2026-11-03 用户确认）。
-- 两类组件、共享容器/Keychain：PASS（2026-11-03 用户确认 App 三项通过，两类组件编号一致且钥匙串可读）。
-- 单平台组件路由：PASS（用户将单平台组件设为 Claude，确认跳转正确）。
-- 重新签名保留数据、Shadowrocket 恢复：PASS（2026-11-03 用户确认；重签后未重新写入，原编号和共享状态保留）。
-- DeepSeek 官方余额：PASS（2026-11-03 用户确认 preview.1 的 App 与 DeepSeek 组件均正确显示；不收集实际金额或密钥）。
-- Codex、Claude 手机授权与真实额度：PASS（2026-11-03 用户确认 preview.2 两家均成功）。两家的组件真实读数、更新时间与点击跳转：PASS（同日用户确认均正常）。令牌实际过期后的续期仍待实测。
-- 自动续签及跨七天稳定性：UNKNOWN。
-- SideStore `Refresh All Apps` 快捷指令手动执行：PASS（2026-11-03 用户确认 SideStore 和轻松熊到期时间已更新）。
-- 每日自动化配置与完整流程试跑：PASS（2026-11-03 用户确认改用每日触发，整条续签、停用 LocalDevVPN、恢复 Shadowrocket 流程已试跑成功）。没有采用充电触发；实际定时触发、锁屏和跨七天观察仍 UNKNOWN。
+证据：[原生 CI 41752016088](https://github.com/RollandXD/qingsongxiong/actions/runs/41752016088)、[设计预览发布页](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.2.0-preview.1)、[构建验收记录](https://github.com/RollandXD/qingsongxiong/releases/download/v0.2.0-preview.1/verification.json)。截图和影片均使用合成数据；Widget 截图是共享原生布局的开发预览，真实组件已由用户在覆盖更新后确认正常。
 
-## 下一步
+IPA SHA-256：`261bcd658d36142b00141d9d75a5efa10da0ae400432bf0abdb1539362dc3167`。发布的 12 个文件远端摘要与本地逐一核对一致。
 
-用户已完成 verification.2 的手动免费签名与共享能力、preview.1 的 DeepSeek 及 preview.2 的 Codex/Claude 手机授权取数与单平台组件验收。`device-gate.json` 的 verified 仅指手动签名和共享能力范围，自动续签及跨七天稳定性仍为 UNKNOWN。接下来完成新增界面原生验证、总览新布局、可访问性和续签维护流程；不宣称长期运行已验证。
+## 实现范围
 
-`device-gate.json` 仅记录真实实机结果，不含设备 UDID、Apple 账号或配对文件。
+- 暖中性色表面与三家剩余量优先首页；两条额度图形独立表达限制。
+- 通用窗口最低剩余量作为摘要；代码审查与模型专属限制独立标注。点击窗口展开、对照、原位收起，同一时间只展开一家。
+- DeepSeek 使用 Decimal 金额；完整一致时绘制赠送/充值组成，多币种分别显示。
+- 原生玻璃操作控件、系统 zoom 详情转场、短暂入场与真实数据过渡、轻触觉；静止时不持续播放装饰动画。
+- 主动刷新分别说明更新、核实未变与失败；旧数据保留时间和标记；连接成功但首次读取失败不误导重新登录。
+- 总览中/大号、单平台小/中号复用展示模型和独立密度布局。着色模式按透明度区分轨道与填充，真实系统着色外观尚待真机确认。
+- 八个 Swift Package 模块及依赖白名单；共享展示不访问网络或 Keychain，Widget 不依赖主 App 页面或交互登录。Debug 计数工具注册验证通过，Release 不展示。
+- 账户、仓储、凭据、缓存格式、Bundle ID、Widget kind 与共享命名空间保持兼容。
 
-## 0.2.0 设计改版（2026-11-04）
+## 已有真机证据
 
-基线 main@0d30c46 / preview.3（0.1.0/5）。用户确认覆盖更新保留账户和读数，两类组件各尺寸与日常功能正常。该基线原生 CI 的 49 项包测试与 Release 构建通过，但 UI 6/7：默认 Section 的「AI 额度」标题对比度审计失败，不能标为全绿。
+2026-11-03 用户确认：SideStore 0.7.0 首次刷新、免费签名、App/Widget 共享容器与 Keychain、组件跳转、重签保留数据、Shadowrocket 恢复均通过；三家手机授权取数与单平台组件真实读数/时间/跳转通过；preview.3（0.1.0/5）覆盖更新、两类组件各尺寸与日常功能正常。
 
-本轮采用纸白/暖黑的中性色表面、独立额度图形、窗口展开对照、余额组成、原生 zoom 导航与轻触觉。AIUsagePresentation 负责通用/模型/审查分类与精确余额映射；账户、仓储、授权、缓存格式和签名标识保持兼容。合成演示入口仅 Debug 模拟器可进入。
+每日快捷指令自动化完整流程已试跑成功：切换 LocalDevVPN、刷新 SideStore/轻松熊、停用 LocalDevVPN、恢复 Shadowrocket。真正的定时触发、锁屏和跨七天观察，以及实际令牌过期后的续期仍 UNKNOWN。`device-gate.json` 的 verified 只覆盖已确认的手动签名与共享能力。
 
-新增展示映射与交互测试、已连接演示 UI 回归、四种组件密度的共享原生布局截图和原速模拟器录像。`e246285` 的 62 项包测试、Release iPhone 构建与 IPA 校验 PASS；原生 UI 8/14，不能标为全绿（[CI 41673972541](https://github.com/RollandXD/qingsongxiong/actions/runs/41673972541)）。实际截图定位了页脚在大字体下截断，另有 SpringBoard 崩溃、返回按钮定位和收起动画等待问题。双屏模拟器的 simctl 录像因未指定显示屏而失败；XCTest 的失败录像已用于检查展开动作。
+## 真机验收与恢复
 
-当前修正版允许页脚换行，数值过渡按账户/窗口/币种隔离，旧读数增加时钟标记。主验收机型固定为 iPhone 16 Pro；若没有预创建的对应设备，则使用已安装的设备类型创建，缺少该机型时直接报错，不回退为 Duo 或其他型号。录像显式选择 primary 显示屏，并要求实际生成视频。iPhone 16 Pro 原生结果、浅/深色全套截图与完整动效录像、覆盖安装仍待验证。
-
-用户明确免除个人真机的无障碍模式测试；实现保留动态字号、语义标签、减少动态效果兼容，并由原生自动审计检查基础兼容。上文旧阶段的手动无障碍待办不再要求用户执行。
+- 2026-11-04 用户确认 iPhone 16 Pro 覆盖更新、原账户与读数保留、两类组件及窗口展开/刷新/返回手感均正常。证据：[真机验收记录](https://github.com/RollandXD/qingsongxiong/releases/download/v0.2.0-preview.1/device-verification-2026-11-04.json)。
+- 不再安排用户手动测试无障碍模式；实现保留基本兼容，以上自动审计已通过。
+- 先前 UI 回归的页脚截断、返回定位与收起点击问题已复验修正。曾误用 Duo，现严格匹配 iPhone 16 Pro，并按机型选择兼容的 iOS 27 运行时；Xcode 版本不等同于模拟器系统版本。
+- 上一实机验收版本为 [preview.3](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.1.0-preview.3)，来源 `0d30c46`。恢复时保留已有数据，按维护指南用同账号覆盖处理，不先卸载。

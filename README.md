@@ -2,11 +2,13 @@
 
 温暖、精致的 Apple 个人工具箱。AI 额度监控是第一个功能模块，支持 Codex、Claude 订阅额度与 DeepSeek API 余额。
 
-**当前公开稳定体验为 preview.3（0.1.0/5），三家取数、覆盖更新、账户保留与组件日常功能已实机通过。0.2.0 正在进行原生视觉与动效改版，尚待本轮原生构建、截图与录像验收。**
+**当前设计预览 v0.2.0-preview.1（0.2.0/6）已发布。iPhone 16 Pro / iOS 27.0 原生回归、63 项包测试、14 项 UI 测试与安装包校验全部通过。iPhone 16 Pro 真机覆盖更新、账户/读数、两类组件与日常交互也已通过用户确认。**
 
-[下载已验收的 preview.3](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.1.0-preview.3)。覆盖更新时保留全部 Widget 扩展和原签名账户。Codex、Claude 在官方页面授权；DeepSeek 只在手机安全字段输入 API Key。凭据不进入聊天或 CI。
+[下载设计预览与扫码入口](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.2.0-preview.1) · [原速动效影片](https://github.com/RollandXD/qingsongxiong/releases/download/v0.2.0-preview.1/iphone16pro-native-motion-1x.mp4) · [浅深色截图](https://github.com/RollandXD/qingsongxiong/releases/download/v0.2.0-preview.1/iphone16pro-light-dark.png)。演示媒体均为合成数据。
 
-手动免费签名、共享 Keychain、重签保留数据与 Shadowrocket 恢复已通过。每日续签自动化的完整流程已试跑成功；真实定时触发、锁屏及跨七天观察仍 UNKNOWN。
+使用同一 SideStore 账号覆盖安装并保留全部 Widget 扩展。Codex、Claude 在官方页面授权；DeepSeek 只在手机安全字段输入 API Key。凭据不进入聊天或 CI。
+
+此前 preview.3 已实机通过三家取数、账户与读数保留、两类组件及日常功能。每日续签自动化完整流程已试跑成功；真实定时触发、锁屏及跨七天观察仍 UNKNOWN。
 
 ## 工程
 
