@@ -210,7 +210,7 @@ struct DashboardProviderCard: View {
     }
     private var footer: String {
         if let feedback { return feedback }
-        guard let snapshot = presentation.state?.snapshot else { return "在官方授权页连接账户" }
+        guard let snapshot = presentation.state?.snapshot else { return presentation.connectionHint }
         return (presentation.isStale ? "旧读数 " : "更新于 ") + snapshot.fetchedAt.formatted(date: .omitted, time: .shortened)
     }
     @ViewBuilder private var compactGraphic: some View {

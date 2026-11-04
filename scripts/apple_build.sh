@@ -24,7 +24,7 @@ simulator() {
 }
 
 ui_tests() {
-  simulator
+  if [[ ! -s output/simulator-id.txt ]]; then simulator; fi
   local simulator_id result=0 recorder_pid
   simulator_id="$(cat output/simulator-id.txt)"
   xcodebuild build-for-testing -project QingSongXiong.xcodeproj -scheme QingSongXiong \
@@ -63,9 +63,10 @@ screenshots() {
 
 case "${1:-all}" in
   checks) checks ;;
+  select-simulator) simulator ;;
   device) device_package ;;
   ui) ui_tests ;;
   screenshots) screenshots ;;
   all) checks; device_package; ui_tests; screenshots ;;
-  *) printf '%s\n' 'Usage: apple_build.sh [checks|device|ui|screenshots|all]' >&2; exit 2 ;;
+  *) printf '%s\n' 'Usage: apple_build.sh [checks|select-simulator|device|ui|screenshots|all]' >&2; exit 2 ;;
 esac

@@ -21,6 +21,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: 固定版本生成 Xcode 工程
         run: bash scripts/install_xcodegen.sh
+      - name: 核验 iPhone 16 Pro 测试设备
+        timeout-minutes: 3
+        run: bash scripts/apple_build.sh select-simulator
       - name: 架构与 Swift 单元测试
         timeout-minutes: 10
         run: bash scripts/apple_build.sh checks

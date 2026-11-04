@@ -89,3 +89,11 @@ private func state(_ provider: ProviderID, windows: [QuotaWindow] = [], balances
     #expect(window.remaining == 0)
     #expect(try UsageWindowPresentation(quota("five_hour", 10), provider: .claude).resetLabel(at: displayTime) == "未提供重置时间")
 }
+
+@Test func missingReadingsDoNotTurnAConnectedAccountIntoALoginPrompt() {
+    let state = ProviderState(provider: .claude, sessionID: UUID(), connection: .connected,
+        snapshot: nil, failure: .invalidResponse, updatedAt: displayTime)
+    let view = ProviderDashboardPresentation(provider: .claude, state: state, at: displayTime)
+    #expect(view.headline == "—")
+    #expect(view.connectionHint == "账户已连接，读取未完成")
+}

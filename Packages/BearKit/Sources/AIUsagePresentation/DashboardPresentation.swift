@@ -101,6 +101,15 @@ public struct ProviderDashboardPresentation: Equatable, Sendable {
         if let window = summaryWindow { return "剩余 " + ProviderPresentation.percent(window.remaining) }
         return "—"
     }
+    public var connectionHint: String {
+        guard let state else { return "正在读取本机状态" }
+        switch state.connection {
+        case .connected: return "账户已连接，" + status
+        case .reconnectRequired: return "请重新连接账户"
+        case .unknown: return "请打开详情查看连接状态"
+        case .disconnected: return "在官方授权页连接账户"
+        }
+    }
     public init(provider: ProviderID, state: ProviderState?, at date: Date) {
         self.provider = provider
         self.state = state

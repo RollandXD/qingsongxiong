@@ -25,6 +25,9 @@ for name in preferred_names:
 
 types = listing("devicetypes")["devicetypes"]
 supported = {d["identifier"] for d in runtime.get("supportedDeviceTypes", [])}
+print("Available iPhone device types: " + json.dumps([
+    {"name": d["name"], "identifier": d["identifier"], "runtimeSupported": not supported or d["identifier"] in supported}
+    for d in types if d["name"].startswith("iPhone")], ensure_ascii=False), file=sys.stderr)
 subprocess.run(["xcrun", "simctl", "help", "create"], stdout=sys.stderr, stderr=sys.stderr, check=True)
 for name in preferred_names:
     candidate = next((d for d in types if d["name"] == name and (not supported or d["identifier"] in supported)), None)

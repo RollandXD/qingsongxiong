@@ -66,7 +66,7 @@ public struct AIUsageHome: View {
                     Button { Task { await refreshAll() } } label: {
                         Image(systemName: "arrow.clockwise")
                     }
-                    .disabled(!model.refreshing.isEmpty || !model.connecting.isEmpty || model.clearing)
+                    .disabled(!model.states.values.contains(where: { $0.connection == .connected }) || !model.refreshing.isEmpty || !model.connecting.isEmpty || model.clearing)
                     .accessibilityLabel("刷新全部额度").accessibilityIdentifier("refresh-all")
                 }
             }
@@ -159,7 +159,7 @@ struct ProviderDetail: View {
                 }
                 if !presentation.windows.isEmpty { windows }
                 if !presentation.balances.isEmpty { balances }
-                if presentation.state?.snapshot == nil || presentation.state?.connection == .reconnectRequired { connection }
+                if (presentation.state?.snapshot == nil && presentation.state?.connection != .connected) || presentation.state?.connection == .reconnectRequired { connection }
                 if let snapshot = presentation.state?.snapshot {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("数据时间").font(.caption.weight(.semibold))

@@ -137,9 +137,13 @@ final class DesignUITests: XCTestCase {
     private func tap(_ identifier: String, _ app: XCUIApplication) {
         let button = app.buttons[identifier]
         XCTAssertTrue(button.waitForExistence(timeout: 5), identifier)
-        if !button.isHittable {
-            for _ in 0..<3 where !button.isHittable { app.swipeUp() }
-            for _ in 0..<5 where !button.isHittable { app.swipeDown() }
+        // 部分可见的 Glass 控件可能仍被 AX 标为可点击；先避开导航和标签栏覆盖区。
+        for _ in 0..<8 {
+            let center = button.frame.midY
+            if center < 125 { app.swipeDown() }
+            else if center > app.frame.height - 110 { app.swipeUp() }
+            else if button.isHittable { break }
+            else { app.swipeUp() }
         }
         XCTAssertTrue(button.isHittable, identifier)
         button.tap()

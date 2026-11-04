@@ -67,7 +67,9 @@ struct WidgetMetricContent: View {
                             .frame(width: 35, height: 35)
                     }
                 }
-                BearCapacityBar(fraction: window.fraction, color: quotaColor(window, value.provider), stale: value.isStale, trackColor: track).widgetAccentable()
+                if provider == nil {
+                    BearCapacityBar(fraction: window.fraction, color: quotaColor(window, value.provider), stale: value.isStale, trackColor: track).widgetAccentable()
+                }
                 Text(window.shortLabel).font(.caption2).foregroundStyle(secondary).lineLimit(1)
             } else if let balance = value.balances.first {
                 Text(balance.balance.currency).font(.caption2).foregroundStyle(secondary)
@@ -87,6 +89,10 @@ struct WidgetMetricContent: View {
                 if let window = value.summaryWindow {
                     BearQuotaArc(fraction: window.fraction, color: quotaColor(window, value.provider), stale: value.isStale, trackColor: track).widgetAccentable()
                         .frame(width: family == .systemLarge ? 48 : 60, height: family == .systemLarge ? 48 : 60)
+                } else if !value.balances.isEmpty {
+                    Image(systemName: "wallet.bifold").font(.title2).foregroundStyle(series(value.provider))
+                        .frame(width: family == .systemLarge ? 48 : 60, height: family == .systemLarge ? 48 : 60)
+                        .widgetAccentable().accessibilityHidden(true)
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     if provider == nil { Text(ProviderPresentation.name(value.provider)).font(.subheadline.bold()) }
@@ -109,14 +115,15 @@ struct WidgetMetricContent: View {
                             Text(ProviderPresentation.percent(window.remaining)).font(.caption2.monospacedDigit()).frame(width: 40, alignment: .trailing)
                         }.foregroundStyle(secondary)
                     }
-                } else if let balance = value.balances.first, let parts = balance.parts {
-                    BearCompositionBar(fractions: parts.map(\.fraction), color: series(value.provider)).widgetAccentable()
-                    HStack {
-                        Text("赠送 " + ProviderPresentation.money(parts[0].amount, currency: balance.balance.currency))
-                        Spacer(minLength: 3)
-                        Text("充值 " + ProviderPresentation.money(parts[1].amount, currency: balance.balance.currency))
-                    }.font(.caption2).foregroundStyle(secondary).lineLimit(1).minimumScaleFactor(0.7)
                 }
+            }
+            if let balance = value.balances.first, let parts = balance.parts {
+                BearCompositionBar(fractions: parts.map(\.fraction), color: series(value.provider)).widgetAccentable()
+                HStack {
+                    Text("赠送 " + ProviderPresentation.money(parts[0].amount, currency: balance.balance.currency))
+                    Spacer(minLength: 3)
+                    Text("充值 " + ProviderPresentation.money(parts[1].amount, currency: balance.balance.currency))
+                }.font(.caption2).foregroundStyle(secondary).lineLimit(1).minimumScaleFactor(0.7)
             }
         }
     }
