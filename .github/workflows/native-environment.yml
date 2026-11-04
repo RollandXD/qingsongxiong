@@ -1,0 +1,23 @@
+name: Apple 运行时按需诊断
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  environment:
+    runs-on: xcode-27
+    timeout-minutes: 5
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+    steps:
+      - name: 核对已安装的运行时与 16 Pro 支持
+        run: |
+          xcodebuild -version
+          python3 - <<'PY'
+          import json,subprocess
+          data=json.loads(subprocess.check_output(['xcrun','simctl','list','runtimes','--json'],text=True))
+          for r in data['runtimes']:
+              if 'SimRuntime.iOS' in r['identifier']:
+                  print(json.dumps({k:r.get(k) for k in ['name','version','identifier','isAvailable','availabilityError']},ensure_ascii=False))
+                  print('Supported iPhones:',[(d['name'],d['identifier']) for d in r.get('supportedDeviceTypes',[]) if 'iPhone' in d['name']])
+          PY
+          xcodebuild -help 2>&1 | sed -n '/downloadPlatform/,+12p'
