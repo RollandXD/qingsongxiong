@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """选择本次 CI 的普通 iPhone；没有预创建设备时使用已安装的设备类型创建。"""
 import json
+import os
 import subprocess
 import sys
 
@@ -15,7 +16,7 @@ runtime = next((r for r in runtimes if "iOS-27-1" in r["identifier"] and r.get("
 if runtime is None:
     sys.exit("iOS 27.1 runtime unavailable")
 phones = [d for d in devices.get(runtime["identifier"], []) if d["name"].startswith("iPhone") and d.get("isAvailable", True)]
-preferred_names = ["iPhone 18 Pro", "iPhone 17 Pro", "iPhone 18", "iPhone 17", "iPhone 16 Pro", "iPhone 16"]
+preferred_names = [os.environ.get("BEAR_SIMULATOR_NAME", "iPhone 16 Pro")]
 for name in preferred_names:
     if device := next((d for d in phones if d["name"] == name), None):
         print(device["name"], file=sys.stderr)
@@ -37,9 +38,4 @@ for name in preferred_names:
         sys.exit(0)
     print("Cannot create " + name + ": " + result.stderr.strip(), file=sys.stderr)
 
-# 仍可使用预创建设备；录像始终显式指定 primary 显示屏。
-if phones:
-    print("Fallback: " + phones[0]["name"], file=sys.stderr)
-    print(phones[0]["udid"])
-else:
-    sys.exit("No compatible iPhone simulator available")
+sys.exit("Required simulator unavailable: " + preferred_names[0] + "; refusing to substitute another device")

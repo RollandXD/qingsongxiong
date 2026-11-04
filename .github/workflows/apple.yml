@@ -66,4 +66,5 @@ jobs:
             output/recording.json
             output/recording.log
             output/displays.txt
+            output/simulator-profile.json
             output/ui-tests.log
