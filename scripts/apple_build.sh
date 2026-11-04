@@ -20,7 +20,6 @@ simulator() {
   local simulator_id
   simulator_id="$(python3 scripts/select_simulator.py)"
   printf '%s' "$simulator_id" > output/simulator-id.txt
-  python3 -c 'import json,os;json.dump({"model":os.environ.get("BEAR_SIMULATOR_NAME","iPhone 16 Pro"),"runtime":"iOS 27.1"},open("output/simulator-profile.json","w"))'
 }
 
 ui_tests() {
