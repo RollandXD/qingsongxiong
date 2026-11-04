@@ -41,6 +41,7 @@ struct WidgetMetricContent: View {
     private func metricLink(_ state: ProviderState) -> some View {
         Link(destination: URL(string: "qingsongxiong://ai-usage/provider/" + state.provider.rawValue)!) {
             metric(ProviderDashboardPresentation(provider: state.provider, state: state, at: date))
+                .id(state.sessionID)
         }
         .privacySensitive().accessibilityElement(children: .combine)
     }
@@ -59,7 +60,7 @@ struct WidgetMetricContent: View {
                         Text("剩余").font(.caption2).foregroundStyle(secondary)
                         Text(ProviderPresentation.percent(window.remaining))
                             .font(.system(provider == nil ? .headline : .title2, design: .rounded).bold())
-                            .monospacedDigit().minimumScaleFactor(0.7).lineLimit(1).contentTransition(.numericText())
+                            .monospacedDigit().minimumScaleFactor(0.7).lineLimit(1).contentTransition(.numericText()).id(window.id)
                     }
                     if provider != nil {
                         BearQuotaArc(fraction: window.fraction, color: quotaColor(window, value.provider), stale: value.isStale, trackColor: track).widgetAccentable()
@@ -72,7 +73,7 @@ struct WidgetMetricContent: View {
                 Text(balance.balance.currency).font(.caption2).foregroundStyle(secondary)
                 Text(NSDecimalNumber(decimal: balance.balance.total).stringValue)
                     .font(.system(provider == nil ? .headline : .title2, design: .rounded).bold())
-                    .monospacedDigit().minimumScaleFactor(0.6).lineLimit(1).contentTransition(.numericText())
+                    .monospacedDigit().minimumScaleFactor(0.6).lineLimit(1).contentTransition(.numericText()).id(balance.id)
                 if let parts = balance.parts {
                     BearCompositionBar(fractions: parts.map(\.fraction), color: series(value.provider)).widgetAccentable()
                 }
@@ -91,6 +92,7 @@ struct WidgetMetricContent: View {
                     if provider == nil { Text(ProviderPresentation.name(value.provider)).font(.subheadline.bold()) }
                     Text(value.headline).font(.system(.title3, design: .rounded).bold())
                         .monospacedDigit().lineLimit(1).minimumScaleFactor(0.65).contentTransition(.numericText())
+                        .id(value.summaryWindow?.id ?? value.balances.first?.id ?? "empty")
                     if let window = value.summaryWindow {
                         Text(window.label).font(.caption2).foregroundStyle(secondary).lineLimit(1)
                     }
@@ -120,6 +122,9 @@ struct WidgetMetricContent: View {
     }
     private func timestamp(_ value: ProviderDashboardPresentation) -> some View {
         HStack(spacing: 3) {
+            if value.isStale && value.state?.snapshot != nil {
+                Image(systemName: "clock.badge.exclamationmark").accessibilityHidden(true)
+            }
             Text(value.status == "已同步" ? "更新于" : value.status)
             if let snapshot = value.state?.snapshot { Text(snapshot.fetchedAt, style: .time) }
         }.font(.caption2).foregroundStyle(secondary).lineLimit(2)

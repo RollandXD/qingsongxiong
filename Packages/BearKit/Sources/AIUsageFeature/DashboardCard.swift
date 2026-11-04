@@ -17,7 +17,12 @@ struct ProviderIdentity: View {
             Spacer(minLength: 4)
             if refreshing { ProgressView().controlSize(.small).accessibilityLabel("正在刷新") }
             else {
-                Text(presentation.status).font(.caption.weight(.medium))
+                HStack(spacing: 4) {
+                    if presentation.isStale && presentation.state?.snapshot != nil {
+                        Image(systemName: "clock.badge.exclamationmark").accessibilityHidden(true)
+                    }
+                    Text(presentation.status)
+                }.font(.caption.weight(.medium))
                     .foregroundStyle(presentation.isStale && presentation.state?.snapshot != nil ? BearTheme.warning(scheme) : BearTheme.secondaryText(scheme))
             }
         }.foregroundStyle(BearTheme.text(scheme))
@@ -37,7 +42,7 @@ struct DashboardMetric: View {
                 Text(NSDecimalNumber(decimal: balance.balance.total).stringValue)
                     .font(.system(size: metricSize * (large ? 1.3 : 1), weight: .semibold, design: .rounded))
                     .monospacedDigit().lineLimit(1).minimumScaleFactor(0.55)
-                    .contentTransition(.numericText()).textSelection(.enabled)
+                    .contentTransition(.numericText()).id(balance.id)
                 if presentation.balances.count > 1 {
                     Text("另有 \(presentation.balances.count - 1) 种币种").font(.caption).foregroundStyle(BearTheme.secondaryText(scheme))
                 } else { Text("官方 API 可用余额").font(.caption).foregroundStyle(BearTheme.secondaryText(scheme)) }
@@ -181,7 +186,7 @@ struct DashboardProviderCard: View {
             .accessibilityIdentifier("provider-" + provider.rawValue)
             HStack(alignment: .center) {
                 Text(footer).font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme))
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
                 if !presentation.windows.isEmpty || !presentation.balances.isEmpty {
                     Button(action: onToggle) {

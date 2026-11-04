@@ -91,7 +91,9 @@ final class BootstrapUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "--counter-proof"]
         app.launch()
-        app.buttons["计数验证"].tap()
+        let entry = app.buttons["feature-local-counter"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 10))
+        entry.tap()
         let increment = app.buttons["counter-increment"]
         XCTAssertTrue(increment.waitForExistence(timeout: 5))
         increment.tap()

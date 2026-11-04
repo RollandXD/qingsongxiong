@@ -19,8 +19,8 @@ final class DesignUITests: XCTestCase {
         for appearance in ["light", "dark"] {
             let app = launch(appearance)
             XCTAssertTrue(app.buttons["provider-deepseek"].isHittable, "常规字号下三家的主要指标应同屏")
-            try app.performAccessibilityAudit(for: [.sufficientElementDescription, .trait, .textClipped, .contrast])
             attach(app, "dashboard-" + appearance)
+            try app.performAccessibilityAudit(for: [.sufficientElementDescription, .trait, .textClipped, .contrast])
             app.terminate()
         }
     }
@@ -34,12 +34,12 @@ final class DesignUITests: XCTestCase {
         XCTAssertTrue(app.buttons[review].isSelected)
         attach(app, "codex-review-independent")
         tap("expand-claude", app)
-        XCTAssertFalse(app.buttons[review].exists, "同一时间只展开一家")
+        waitUntilGone(app.buttons[review])
         tap("window-claude-seven_day_sonnet", app)
         XCTAssertTrue(app.buttons["window-claude-seven_day_sonnet"].isSelected)
         attach(app, "claude-model-limit")
         tap("expand-claude", app)
-        XCTAssertFalse(app.buttons["window-claude-seven_day_sonnet"].exists)
+        waitUntilGone(app.buttons["window-claude-seven_day_sonnet"])
         // 快速反向操作最终归位，不积累动画任务。
         app.buttons["expand-claude"].tap(withNumberOfTaps: 2, numberOfTouches: 1)
         XCTAssertTrue(app.buttons["provider-claude"].exists)
@@ -118,7 +118,13 @@ final class DesignUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
         attach(app, "codex-detail")
         pause()
-        app.navigationBars.buttons.firstMatch.tap()
+        if app.buttons["BackButton"].exists { app.buttons["BackButton"].tap() }
+        else if app.navigationBars.buttons["轻松熊"].exists { app.navigationBars.buttons["轻松熊"].tap() }
+        else {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.5))
+                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5)))
+        }
+        XCTAssertTrue(app.buttons["provider-codex"].waitForExistence(timeout: 5))
         print("BEAR_MOTION_END \(Date().timeIntervalSince1970)")
         XCUIDevice.shared.press(.home)
         pause()
@@ -140,6 +146,12 @@ final class DesignUITests: XCTestCase {
     }
 
     private func pause() { Thread.sleep(forTimeInterval: 0.9) }
+
+    @MainActor
+    private func waitUntilGone(_ element: XCUIElement) {
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 5), .completed)
+    }
 
     @MainActor
     private func attach(_ app: XCUIApplication, _ name: String) {

@@ -18,20 +18,7 @@ device_package() {
 
 simulator() {
   local simulator_id
-  simulator_id="$(xcrun simctl list devices available --json | python3 -c '
-import json,sys
-data=json.load(sys.stdin)["devices"]
-for runtime,devices in data.items():
-    if "iOS-27-1" in runtime:
-        phones=[d for d in devices if d["name"].startswith("iPhone")]
-        for name in ["iPhone 18 Pro", "iPhone 17 Pro", "iPhone 18", "iPhone 17"]:
-            preferred=next((d for d in phones if d["name"]==name),None)
-            if preferred:
-                print(preferred["name"],file=sys.stderr);print(preferred["udid"]);sys.exit(0)
-        if phones:
-            print(phones[0]["name"],file=sys.stderr);print(phones[0]["udid"]);sys.exit(0)
-sys.exit("iOS 27.1 iPhone simulator unavailable")
-')"
+  simulator_id="$(python3 scripts/select_simulator.py)"
   printf '%s' "$simulator_id" > output/simulator-id.txt
 }
 
@@ -46,9 +33,9 @@ ui_tests() {
     xcrun simctl boot "$simulator_id"
   fi
   xcrun simctl bootstatus "$simulator_id" -b
-  xcrun simctl io "$simulator_id" recordVideo --help > output/recording-help.txt 2>&1 || true
+  xcrun simctl io "$simulator_id" enumerate > output/displays.txt
   python3 -c 'import json,time;json.dump({"startedAt":time.time(),"speed":1,"data":"synthetic"},open("output/recording.json","w"))'
-  xcrun simctl io "$simulator_id" recordVideo --codec=h264 output/native-motion.mp4 > output/recording.log 2>&1 &
+  xcrun simctl io "$simulator_id" recordVideo --display=primary --codec=h264 output/native-motion.mp4 > output/recording.log 2>&1 &
   recorder_pid=$!
   xcodebuild test-without-building -project QingSongXiong.xcodeproj -scheme QingSongXiong \
   -configuration Debug -destination "platform=iOS Simulator,id=$simulator_id" \
@@ -57,6 +44,10 @@ ui_tests() {
     CODE_SIGNING_ALLOWED=NO 2>&1 | tee output/ui-tests.log || result=$?
   kill -INT "$recorder_pid" 2>/dev/null || true
   wait "$recorder_pid" || true
+  if [[ ! -s output/native-motion.mp4 ]]; then
+    cat output/recording.log >&2
+    result=1
+  fi
   return "$result"
 }
 

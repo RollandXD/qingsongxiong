@@ -135,6 +135,7 @@ private struct AppRoot: View {
                     NavigationStack {
                         List(composition.entries, id: \.descriptor.id) { entry in
                             NavigationLink(entry.descriptor.title) { entry.home }
+                                .accessibilityIdentifier("feature-" + entry.descriptor.id)
                         }.navigationTitle("轻松熊")
                     }
                 }

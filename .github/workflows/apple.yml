@@ -65,5 +65,5 @@ jobs:
             output/native-motion.mp4
             output/recording.json
             output/recording.log
-            output/recording-help.txt
+            output/displays.txt
             output/ui-tests.log
