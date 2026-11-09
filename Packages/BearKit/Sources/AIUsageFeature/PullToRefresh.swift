@@ -42,13 +42,14 @@ private struct BearPullToRefresh: ViewModifier {
                 dragging = new == .tracking || new == .interacting
             }
             .overlay(alignment: .top) {
-                PullBearIndicator(progress: interaction.progress, refreshing: interaction.refreshing,
-                                  settled: settled, succeeded: succeeded, completion: completion, enabled: enabled)
-                    .padding(.top, 2)
-                    .offset(y: interaction.refreshing || settled ? 0 : min(8, interaction.distance - 50))
-                    .opacity(interaction.distance > 8 || interaction.refreshing || settled ? 1 : 0)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(!interaction.refreshing && !settled)
+                if interaction.distance > 8 || interaction.refreshing || settled {
+                    PullBearIndicator(progress: interaction.progress, refreshing: interaction.refreshing,
+                                      settled: settled, succeeded: succeeded, completion: completion, enabled: enabled)
+                        .padding(.top, 2)
+                        .offset(y: interaction.refreshing || settled ? 0 : min(8, interaction.distance - 50))
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(!interaction.refreshing && !settled)
+                }
             }
             .onChange(of: scenePhase) { _, phase in if phase != .active { task?.cancel(); interaction.finish(); settled = false } }
             .onDisappear { task?.cancel(); interaction.finish() }

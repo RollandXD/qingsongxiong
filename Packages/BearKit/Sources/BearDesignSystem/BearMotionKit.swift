@@ -251,7 +251,7 @@ public extension View {
     }
 }
 
-/// 卡片按压：缩放 + 高光跟随按压位置。
+/// 卡片按压：缩放 + 柔和高光；指针可追踪位置，触屏保持原生按钮手势。
 public struct BearLiftPressStyle: ButtonStyle {
     @Environment(\.bearReduceMotion) private var reduceMotion
     public init() {}
@@ -276,8 +276,7 @@ private struct BearPressHighlight: ViewModifier {
             }
         }
         .onContinuousHover { phase in if case .active(let location) = phase { point = location } }
-        // 不抢占滚动/边缘返回手势。手机触点在松手时记下，下一次高光从该处响应。
-        .simultaneousGesture(SpatialTapGesture().onEnded { value in point = value.location })
+        // 不往按钮 label 叠加 tap/drag 识别器，避免取消原生按钮、滚动或边缘返回。
     }
 }
 

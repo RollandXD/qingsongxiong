@@ -140,7 +140,7 @@ public struct AIUsageHome: View {
             expanded: interaction.expandedProvider == provider, focusedID: interaction.focusedWindows[provider],
             refreshing: model.refreshing.contains(provider), feedback: model.refreshFeedback[provider],
             navigationNamespace: navigationNamespace,
-            onNavigate: { navigation.cardSource = provider },
+            onNavigate: { navigation.cardSource = provider; navigation.path.append(provider) },
             onToggle: {
                 withAnimation(reduceMotion ? BearMotion.quiet : BearMotion.unfold) { interaction.toggle(provider) }
             },

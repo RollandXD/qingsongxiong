@@ -192,7 +192,7 @@ struct DashboardProviderCard: View {
     private var series: Color { BearTheme.series(ProviderPresentation.paletteIndex(provider), scheme) }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            NavigationLink(value: provider) {
+            Button(action: onNavigate) {
                 VStack(alignment: .leading, spacing: 12) {
                     ProviderIdentity(presentation: presentation, refreshing: refreshing)
                     HStack(alignment: .center, spacing: 16) {
@@ -203,7 +203,6 @@ struct DashboardProviderCard: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(BearLiftPressStyle())
-            .simultaneousGesture(TapGesture().onEnded { _ in onNavigate() })
             .accessibilityIdentifier("provider-" + provider.rawValue)
             HStack(alignment: .center) {
                 Text(footer).font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme))
