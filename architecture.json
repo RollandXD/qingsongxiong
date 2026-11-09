@@ -3,7 +3,7 @@
   "BearDesignSystem": ["SwiftUI", "BearFoundation"],
   "BearPlatform": ["Foundation", "FoundationNetworking", "Security", "Darwin", "Glibc", "BearFoundation"],
   "AIUsageDomain": ["Foundation", "BearFoundation"],
-  "AIUsageData": ["Foundation", "CoreFoundation", "AIUsageDomain", "BearFoundation", "BearPlatform"],
+  "AIUsageData": ["Foundation", "FoundationNetworking", "CoreFoundation", "AIUsageDomain", "BearFoundation", "BearPlatform"],
   "AIUsagePresentation": ["Foundation", "AIUsageDomain"],
   "AIUsageAuth": ["Foundation", "CoreFoundation", "CryptoKit", "Security", "Network", "AIUsageData", "AIUsageDomain", "BearFoundation", "BearPlatform"],
   "AIUsageFeature": ["Foundation", "SwiftUI", "Observation", "AIUsageDomain", "AIUsagePresentation", "BearDesignSystem"]

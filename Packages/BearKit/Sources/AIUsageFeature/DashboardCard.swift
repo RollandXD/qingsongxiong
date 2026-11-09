@@ -35,6 +35,7 @@ struct DashboardMetric: View {
     var large = false
     @ScaledMetric(relativeTo: .largeTitle) private var metricSize = 38
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             if let balance = presentation.balances.first {
@@ -43,7 +44,7 @@ struct DashboardMetric: View {
                     .font(.system(size: metricSize * (large ? 1.3 : 1), weight: .semibold, design: .rounded))
                     .monospacedDigit().lineLimit(1).minimumScaleFactor(0.55)
                     .accessibilityLabel("可用余额，" + balance.balance.currency + " " + NSDecimalNumber(decimal: balance.balance.total).stringValue)
-                    .contentTransition(.numericText()).id(balance.id)
+                    .contentTransition(reduceMotion ? .opacity : .numericText(value: NSDecimalNumber(decimal: balance.balance.total).doubleValue)).id(balance.id)
                 if presentation.balances.count > 1 {
                     Text("另有 \(presentation.balances.count - 1) 种币种").font(.caption).foregroundStyle(BearTheme.secondaryText(scheme))
                 } else { Text("官方 API 可用余额").font(.caption).foregroundStyle(BearTheme.secondaryText(scheme)) }
@@ -52,7 +53,7 @@ struct DashboardMetric: View {
                 Text(ProviderPresentation.percent(window.remaining))
                     .font(.system(size: metricSize * (large ? 1.3 : 1), weight: .semibold, design: .rounded))
                     .monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
-                    .contentTransition(.numericText()).id(window.id)
+                    .contentTransition(reduceMotion ? .opacity : .numericText(value: window.remaining)).id(window.id)
                 Text(window.label).font(.footnote.weight(.medium)).foregroundStyle(BearTheme.secondaryText(scheme))
                     .lineLimit(2)
             } else {
@@ -207,6 +208,7 @@ struct DashboardProviderCard: View {
             HStack(alignment: .center) {
                 Text(footer).font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme))
                     .fixedSize(horizontal: false, vertical: true)
+                    .modifier(BearVerifiedFlash(trigger: feedback))
                 Spacer(minLength: 4)
                 if !presentation.windows.isEmpty || !presentation.balances.isEmpty {
                     Button(action: onToggle) {
@@ -282,10 +284,13 @@ struct DashboardProviderCard: View {
                             onFocus(presentation.windows[index].id)
                         })
                 }
-                ForEach(presentation.windows) { window in
+                ForEach(Array(presentation.windows.enumerated()), id: \.element.id) { index, window in
                     UsageWindowRow(window: window, provider: provider, stale: presentation.isStale,
                                    selected: focused?.id == window.id, namespace: meterNamespace,
                                    onSelect: { onFocus(window.id) })
+                        .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                        .animation(BearMotion.choose(BearMotion.unfold, reduceMotion: reduceMotion)
+                            .delay(reduceMotion ? 0 : Double(index) * BearMotion.rowStagger), value: expanded)
                 }
                 Text("各窗口独立计算，比例不能相加。").font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme)).padding(.horizontal, 12)
             }

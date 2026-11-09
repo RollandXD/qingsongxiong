@@ -6,10 +6,13 @@ import Foundation
 public actor DemoUsageRepository: AIUsageRepository, AIUsageAccountConnecting {
     private var values: [ProviderID: ProviderState]
     private let scenario: String
-    private var count = 0
+    private let anchorDate: Date
+    private var counts: [ProviderID: Int] = [:]
     public init(scenario: String = "normal") {
         self.scenario = scenario
-        values = Self.fixtures(scenario: scenario)
+        let now = Date()
+        anchorDate = now
+        values = Self.fixtures(scenario: scenario, now: now, anchor: now)
     }
     public nonisolated func supports(_ provider: ProviderID) -> Bool { true }
     public func state(for provider: ProviderID) async throws -> ProviderState { values[provider]! }
@@ -25,8 +28,8 @@ public actor DemoUsageRepository: AIUsageRepository, AIUsageAccountConnecting {
                 snapshot: old.snapshot, failure: failure, updatedAt: Date())
             throw failure
         }
-        count += 1
-        let sample = Self.fixtures(scenario: scenario, step: count)[provider]!.snapshot!
+        counts[provider, default: 0] += 1
+        let sample = Self.fixtures(scenario: scenario, step: counts[provider, default: 0], anchor: anchorDate)[provider]!.snapshot!
         values[provider] = ProviderState(provider: provider, sessionID: old.sessionID, connection: .connected,
             snapshot: sample, failure: nil, updatedAt: Date())
         return sample
@@ -37,12 +40,16 @@ public actor DemoUsageRepository: AIUsageRepository, AIUsageAccountConnecting {
     public func cancel(_ provider: ProviderID) async {}
     public func disconnect(_ provider: ProviderID) async throws { values[provider] = .disconnected(provider, at: Date()) }
 
-    private static func fixtures(scenario: String, step: Int = 0) -> [ProviderID: ProviderState] {
-        let date = Date().addingTimeInterval(scenario == "stale" || scenario == "reconnect" ? -1800 : 0)
+    private static func fixtures(scenario: String, step: Int = 0, now: Date = Date(), anchor: Date? = nil) -> [ProviderID: ProviderState] {
+        let date = now.addingTimeInterval(scenario == "stale" || scenario == "reconnect" ? -1800 : 0)
         let exhausted = scenario == "exhausted"
+        let displayStep = scenario == "motion" ? min(3, step) : step
+        let extraBalance = scenario == "motion" ? Decimal(displayStep * 3) : 0
         func window(_ id: String, _ label: String, _ used: Double, reset: TimeInterval) -> QuotaWindow {
-            try! QuotaWindow(id: id, label: label, usedPercent: exhausted ? 100 : max(0, used + Double(step % 5) * 2),
-                             resetsAt: date.addingTimeInterval(reset))
+            let general = ["rate_limit.primary_window", "rate_limit.secondary_window", "five_hour", "seven_day"].contains(id)
+            let amount = scenario == "motion" && general ? [25.0, 85, 100, 35][displayStep] : max(0, used + Double(displayStep % 5) * 2)
+            return try! QuotaWindow(id: id, label: label, usedPercent: exhausted ? 100 : amount,
+                             resetsAt: (anchor ?? date).addingTimeInterval(reset))
         }
         let snapshots = [
             UsageSnapshot(provider: .codex,
@@ -57,8 +64,8 @@ public actor DemoUsageRepository: AIUsageRepository, AIUsageAccountConnecting {
                           window("seven_day_sonnet", "7 天 · Sonnet", 100, reset: 259200)],
                 balances: [], isAvailable: nil, fetchedAt: date),
             UsageSnapshot(provider: .deepseek, windows: [],
-                balances: [CurrencyBalance(currency: "CNY", total: exhausted ? 0 : Decimal(string: "128.36")!,
-                                           granted: exhausted ? 0 : Decimal(string: "28.36")!, toppedUp: exhausted ? 0 : 100)]
+                balances: [CurrencyBalance(currency: "CNY", total: exhausted ? 0 : Decimal(string: "128.36")! + extraBalance,
+                                           granted: exhausted ? 0 : Decimal(string: "28.36")! + extraBalance, toppedUp: exhausted ? 0 : 100)]
                     + (scenario == "multi-currency" ? [CurrencyBalance(currency: "USD", total: 8, granted: 3, toppedUp: 5)] : []),
                 isAvailable: !exhausted, fetchedAt: date),
         ]

@@ -76,6 +76,9 @@ public struct BearOrbit: View {
     let lanes: [Lane]
     let lineWidth: CGFloat
     let gap: CGFloat
+    @State private var entranceFinished = false
+    @State private var thresholdEvent = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     public init(lanes: [Lane], lineWidth: CGFloat = 9, gap: CGFloat = 5) {
         self.lanes = lanes; self.lineWidth = lineWidth; self.gap = gap
     }
@@ -84,8 +87,27 @@ public struct BearOrbit: View {
             ForEach(Array(lanes.enumerated()), id: \.element.id) { index, lane in
                 BearRing(fraction: lane.fraction, color: lane.color, stale: lane.stale, lineWidth: lineWidth)
                     .padding(CGFloat(index) * (lineWidth + gap))
+                    .animation(reduceMotion ? BearMotion.quiet : entranceFinished ? BearMotion.data :
+                        BearMotion.entrance.delay(Double(index) * BearMotion.stagger), value: lane.fraction)
             }
-        }.accessibilityHidden(true)
+        }
+        .keyframeAnimator(initialValue: 1.0, trigger: thresholdEvent) { content, scale in
+            content.scaleEffect(reduceMotion ? 1 : scale)
+        } keyframes: { _ in
+            CubicKeyframe(1.045, duration: 0.12)
+            SpringKeyframe(1, duration: 0.3)
+        }
+        .onChange(of: lanes) { old, new in
+            if new.contains(where: { lane in
+                guard let prior = old.first(where: { $0.id == lane.id }) else { return false }
+                return (prior.fraction > 0.2 && lane.fraction <= 0.2) || (prior.fraction > 0 && lane.fraction == 0)
+            }) { thresholdEvent &+= 1 }
+        }
+        .task {
+            do { try await Task.sleep(for: .milliseconds(850)) } catch { return }
+            entranceFinished = true
+        }
+        .accessibilityHidden(true)
     }
 }
 
@@ -235,7 +257,68 @@ public struct BearLiftPressStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
-            .overlay { Color.primary.opacity(configuration.isPressed ? 0.025 : 0).allowsHitTesting(false) }
+            .modifier(BearPressHighlight(pressed: configuration.isPressed))
             .animation(reduceMotion ? BearMotion.quiet : BearMotion.press, value: configuration.isPressed)
+    }
+}
+
+private struct BearPressHighlight: ViewModifier {
+    let pressed: Bool
+    @State private var point: CGPoint?
+    func body(content: Content) -> some View {
+        content.overlay {
+            GeometryReader { geometry in
+                let center = point.map { UnitPoint(x: $0.x / max(1, geometry.size.width), y: $0.y / max(1, geometry.size.height)) } ?? .topLeading
+                RadialGradient(colors: [.white.opacity(0.25), .clear], center: center,
+                               startRadius: 0, endRadius: max(geometry.size.width, geometry.size.height))
+                    .opacity(pressed ? 1 : 0).allowsHitTesting(false).accessibilityHidden(true)
+            }
+        }
+        .onContinuousHover { phase in if case .active(let location) = phase { point = location } }
+        // 不抢占滚动/边缘返回手势。手机触点在松手时记下，下一次高光从该处响应。
+        .simultaneousGesture(SpatialTapGesture().onEnded { value in point = value.location })
+    }
+}
+
+/// 刷新期间旋转、成功弹跳、失败轻摆；Reduce Motion 时仅改变状态。
+public struct BearRefreshGlyph: View {
+    let refreshing: Bool
+    let success: Int
+    let failure: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    public init(refreshing: Bool, success: Int, failure: Int) {
+        self.refreshing = refreshing; self.success = success; self.failure = failure
+    }
+    public var body: some View {
+        Group {
+            if reduceMotion { Image(systemName: refreshing ? "hourglass" : "arrow.clockwise") }
+            else {
+                Image(systemName: "arrow.clockwise")
+                    .symbolEffect(.rotate, options: .repeating, isActive: refreshing)
+                    .symbolEffect(.bounce, value: success)
+                    .symbolEffect(.wiggle, value: failure)
+            }
+        }.accessibilityHidden(true)
+    }
+}
+
+/// 核实结果只扫光一次；结束后移除视觉层，避免静止文字合成影响 OCR。
+public struct BearVerifiedFlash: ViewModifier {
+    let trigger: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shining = false
+    public init(trigger: String?) { self.trigger = trigger }
+    public func body(content: Content) -> some View {
+        content.overlay {
+            if shining && !reduceMotion {
+                Capsule().fill(.white.opacity(0.16)).allowsHitTesting(false).accessibilityHidden(true)
+                    .transition(.opacity)
+            }
+        }.task(id: trigger) {
+            guard trigger?.contains("已核实") == true else { shining = false; return }
+            withAnimation(BearMotion.quiet) { shining = true }
+            do { try await Task.sleep(for: .milliseconds(320)) } catch { return }
+            withAnimation(BearMotion.quiet) { shining = false }
+        }
     }
 }

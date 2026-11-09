@@ -11,6 +11,13 @@ struct WidgetMetricContent: View {
     let provider: ProviderID?
     let date: Date
     let family: WidgetFamily
+    let relays: [RelayState]
+    let refreshControl: AnyView?
+    init(states: [ProviderState], provider: ProviderID?, date: Date, family: WidgetFamily,
+         relays: [RelayState] = [], refreshControl: AnyView? = nil) {
+        self.states = states; self.provider = provider; self.date = date; self.family = family
+        self.relays = relays; self.refreshControl = refreshControl
+    }
     @Environment(\.colorScheme) private var scheme
     @Environment(\.widgetRenderingMode) private var renderingMode
     private var monochrome: Bool { renderingMode != .fullColor }
@@ -18,11 +25,18 @@ struct WidgetMetricContent: View {
     private var track: Color? { monochrome ? .primary.opacity(0.18) : nil }
     private var compact: Bool { family == .systemSmall || (provider == nil && family == .systemMedium) }
     var body: some View {
+        Group {
+            if [.accessoryCircular, .accessoryRectangular, .accessoryInline].contains(family) { accessory }
+            else { panel }
+        }
+    }
+    private var panel: some View {
         VStack(alignment: .leading, spacing: provider == nil && family == .systemLarge ? 12 : 8) {
             HStack {
                 Text(provider.map(ProviderPresentation.name) ?? "AI 额度").font(.subheadline.bold())
                 Spacer(minLength: 0)
-                Image(systemName: "chart.bar.xaxis").font(.caption).foregroundStyle(BearTheme.accent(scheme))
+                if let refreshControl { refreshControl }
+                else { Image(systemName: "chart.bar.xaxis").font(.caption).foregroundStyle(BearTheme.accent(scheme)) }
             }
             if provider == nil && family == .systemMedium {
                 HStack(alignment: .top, spacing: 12) {
@@ -33,7 +47,18 @@ struct WidgetMetricContent: View {
             } else {
                 ForEach(states, id: \.provider) { state in metricLink(state) }
             }
-            if family == .systemLarge { Spacer(minLength: 0) }
+            if family == .systemLarge {
+                ForEach(relays.prefix(2)) { state in
+                    Link(destination: RelayPresentation.url(state.id)) {
+                        HStack {
+                            Label(state.account.displayName, systemImage: "network")
+                            Spacer(minLength: 4)
+                            Text(RelayPresentation(state: state, at: date).headline).monospacedDigit().privacySensitive()
+                        }.font(.caption).foregroundStyle(secondary)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
         }
         .foregroundStyle(BearTheme.text(scheme))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -55,22 +80,18 @@ struct WidgetMetricContent: View {
                 Text(ProviderPresentation.name(value.provider)).font(.caption2.bold())
             }
             if let window = value.summaryWindow {
-                HStack(spacing: 7) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("剩余").font(.caption2).foregroundStyle(secondary)
+                ZStack {
+                    BearQuotaArc(fraction: window.fraction, color: quotaColor(window, value.provider), stale: value.isStale, trackColor: track)
+                        .widgetAccentable()
+                    VStack(spacing: 1) {
+                        if provider != nil { Text("剩余").font(.caption2).foregroundStyle(secondary) }
                         Text(ProviderPresentation.percent(window.remaining))
                             .font(.system(provider == nil ? .headline : .title2, design: .rounded).bold())
                             .monospacedDigit().minimumScaleFactor(0.7).lineLimit(1).contentTransition(.numericText()).id(window.id)
-                    }
-                    if provider != nil {
-                        BearQuotaArc(fraction: window.fraction, color: quotaColor(window, value.provider), stale: value.isStale, trackColor: track).widgetAccentable()
-                            .frame(width: 35, height: 35)
-                    }
-                }
-                if provider == nil {
-                    BearCapacityBar(fraction: window.fraction, color: quotaColor(window, value.provider), stale: value.isStale, trackColor: track).widgetAccentable()
-                }
-                Text(window.shortLabel).font(.caption2).foregroundStyle(secondary).lineLimit(1)
+                    }.padding(8)
+                }.frame(width: provider == nil ? 48 : 64, height: provider == nil ? 48 : 64)
+                if provider == nil { Text(window.shortLabel).font(.caption2).foregroundStyle(secondary).lineLimit(1) }
+                else { resetLabel(window) }
             } else if let balance = value.balances.first {
                 Text(balance.balance.currency).font(.caption2).foregroundStyle(secondary)
                 Text(NSDecimalNumber(decimal: balance.balance.total).stringValue)
@@ -127,6 +148,30 @@ struct WidgetMetricContent: View {
             }
         }
     }
+    @ViewBuilder private var accessory: some View {
+        if let state = states.first {
+            let value = ProviderDashboardPresentation(provider: state.provider, state: state, at: date)
+            if family == .accessoryCircular, let window = value.summaryWindow {
+                Gauge(value: window.fraction, in: 0...1) { Text(ProviderPresentation.name(state.provider)) } currentValueLabel: {
+                    Text(ProviderPresentation.percent(window.remaining)).minimumScaleFactor(0.5)
+                }.gaugeStyle(.accessoryCircularCapacity).widgetAccentable().privacySensitive()
+            } else if family == .accessoryInline {
+                Text(ProviderPresentation.name(state.provider) + " · " + value.headline).privacySensitive().contentTransition(.numericText())
+            } else {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(ProviderPresentation.name(state.provider)).font(.caption.bold())
+                    Text(value.headline).font(.headline).monospacedDigit().contentTransition(.numericText())
+                    if let window = value.summaryWindow { resetLabel(window) }
+                    else { Text(value.status).font(.caption2) }
+                }.privacySensitive()
+            }
+        } else { Text("打开轻松熊连接账户") }
+    }
+    @ViewBuilder private func resetLabel(_ window: UsageWindowPresentation) -> some View {
+        if let reset = window.window.resetsAt, reset > date {
+            HStack(spacing: 2) { Text(reset, style: .relative); Text("重置") }.font(.caption2).foregroundStyle(secondary).lineLimit(1)
+        }
+    }
     private func timestamp(_ value: ProviderDashboardPresentation) -> some View {
         HStack(spacing: 3) {
             if value.isStale && value.state?.snapshot != nil {
@@ -134,7 +179,7 @@ struct WidgetMetricContent: View {
             }
             Text(value.status == "已同步" ? "更新于" : value.status)
             if let snapshot = value.state?.snapshot { Text(snapshot.fetchedAt, style: .time) }
-        }.font(.caption2).foregroundStyle(secondary).lineLimit(2)
+        }.font(.caption2).foregroundStyle(secondary).lineLimit(1)
     }
     private func series(_ provider: ProviderID) -> Color { monochrome ? .primary : BearTheme.series(ProviderPresentation.paletteIndex(provider), scheme) }
     private func quotaColor(_ window: UsageWindowPresentation, _ provider: ProviderID) -> Color {

@@ -1,10 +1,10 @@
 import AIUsageDomain
 import Foundation
 
-/// 小组件刷新节流：读数变化立即推送；读数不变时最多每 `freshnessInterval` 推一次，
-/// 让小组件的「更新于」和过期判定（fetchedAt + 15 分钟）不至于误报。
+/// 仅内容或账户身份变化才通知；时间戳由组件自身时间线负责，不消耗额外预算。
 struct WidgetReloadPolicy {
     struct Signature: Equatable {
+        let sessionID: UUID?
         let connection: AccountConnection?
         let windows: [QuotaWindow]?
         let balances: [CurrencyBalance]?
@@ -12,6 +12,7 @@ struct WidgetReloadPolicy {
         let failure: UsageFailure?
 
         init(_ state: ProviderState?) {
+            sessionID = state?.sessionID
             connection = state?.connection
             windows = state?.snapshot?.windows
             balances = state?.snapshot?.balances
@@ -20,17 +21,17 @@ struct WidgetReloadPolicy {
         }
     }
 
-    var freshnessInterval: TimeInterval = 600
     private var published: [ProviderID: Signature]?
-    private var publishedAt: Date?
+
+    mutating func seedIfNeeded(_ states: [ProviderID: ProviderState], at date: Date) {
+        if published == nil { _ = shouldReload(states, at: date) }
+    }
 
     /// 返回是否需要通知小组件；需要时同时记下本次推送的内容。
     mutating func shouldReload(_ states: [ProviderID: ProviderState], at date: Date, force: Bool = false) -> Bool {
         let current = Dictionary(uniqueKeysWithValues: ProviderID.allCases.map { ($0, Signature(states[$0])) })
-        let stale = publishedAt.map { date.timeIntervalSince($0) >= freshnessInterval } ?? true
-        guard force || current != published || stale else { return false }
+        guard force || current != published else { return false }
         published = current
-        publishedAt = date
         return true
     }
 }

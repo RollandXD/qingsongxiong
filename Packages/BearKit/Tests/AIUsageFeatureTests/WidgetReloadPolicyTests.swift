@@ -4,14 +4,15 @@ import Foundation
 import Testing
 
 private let reloadTime = Date(timeIntervalSince1970: 1_800_000_000)
-private func state(used: Double, fetchedAt: Date) throws -> ProviderState {
-    ProviderState(provider: .codex, sessionID: UUID(), connection: .connected,
+private let reloadSession = UUID()
+private func state(used: Double, fetchedAt: Date, sessionID: UUID = reloadSession) throws -> ProviderState {
+    ProviderState(provider: .codex, sessionID: sessionID, connection: .connected,
            snapshot: UsageSnapshot(provider: .codex, windows: [try QuotaWindow(id: "rate_limit.primary_window", label: "5 小时", usedPercent: used, resetsAt: nil)],
        balances: [], isAvailable: nil, fetchedAt: fetchedAt),
            failure: nil, updatedAt: fetchedAt)
 }
 
-@Test func unchangedReadingsDoNotReloadWidgetsUntilTheyAgeOut() throws {
+@Test func unchangedReadingsDoNotReloadWidgetsEvenAfterTenMinutes() throws {
     var policy = WidgetReloadPolicy()
     let first = policy.shouldReload([.codex: try state(used: 20, fetchedAt: reloadTime)], at: reloadTime)
     #expect(first)
@@ -21,9 +22,11 @@ private func state(used: Double, fetchedAt: Date) throws -> ProviderState {
     // 读数变化：立即推送。
     let changed = policy.shouldReload([.codex: try state(used: 25, fetchedAt: reloadTime + 360)], at: reloadTime + 360)
     #expect(changed)
-    // 读数不变但距上次推送已满 10 分钟：推送一次，刷新小组件的「更新于」。
+    // 时间推移也不 reload；组件自行申请 15 分钟时间线。
     let aged = policy.shouldReload([.codex: try state(used: 25, fetchedAt: reloadTime + 960)], at: reloadTime + 960)
-    #expect(aged)
+    #expect(!aged)
+    let replaced = policy.shouldReload([.codex: try state(used: 25, fetchedAt: reloadTime + 961, sessionID: UUID())], at: reloadTime + 961)
+    #expect(replaced)
 }
 
 @Test func forcedChangesAlwaysReloadWidgets() throws {

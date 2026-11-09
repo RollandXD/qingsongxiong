@@ -19,7 +19,7 @@ public actor WidgetUsageReader {
         self.clock = clock
     }
 
-    public func state(for provider: ProviderID, refresh: Bool) async -> ProviderState {
+    public func state(for provider: ProviderID, refresh: Bool, force: Bool = false) async -> ProviderState {
         do {
             guard let credential = try credentials.load(provider) else {
                 memory[provider] = nil
@@ -40,7 +40,7 @@ public actor WidgetUsageReader {
                 return result(provider, credential: credential, snapshot: cached?.snapshot,
                               failure: .rateLimited(retryAt: retryAt))
             }
-            if let cached, let snapshot = cached.snapshot, clock.now().timeIntervalSince(snapshot.fetchedAt) < 300 {
+            if !force, let cached, let snapshot = cached.snapshot, clock.now().timeIntervalSince(snapshot.fetchedAt) < 300 {
                 return cached
             }
             if let expiration = credential.expiresAt, expiration <= clock.now() {

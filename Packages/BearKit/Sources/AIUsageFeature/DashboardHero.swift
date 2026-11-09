@@ -43,7 +43,7 @@ struct DashboardHero: View {
                     Text(entered ? ProviderPresentation.percent(tightest.window.remaining) : "0%")
                         .font(.system(size: heroSize, weight: .bold, design: .rounded))
                         .monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
-                        .contentTransition(.numericText(countsDown: true))
+                        .contentTransition(reduceMotion ? .opacity : .numericText(value: entered ? tightest.window.remaining : 0))
                         .foregroundStyle(BearTheme.text(scheme))
                 } else {
                     Text("—").font(.system(size: heroSize, weight: .bold, design: .rounded))

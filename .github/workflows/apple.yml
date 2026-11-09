@@ -59,7 +59,7 @@ jobs:
         with:
           name: QingSongXiong-screenshots-${{ github.sha }}
           retention-days: 1
-          compression-level: 9
+          compression-level: 0 # PNG/JPEG/视频已经压缩，避免导出包再次高压缩阻塞队列
           if-no-files-found: warn
           path: |
             output/screenshots/

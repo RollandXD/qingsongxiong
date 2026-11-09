@@ -5,10 +5,11 @@ final class DesignUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
 
     @MainActor
-    private func launch(_ appearance: String = "light", scenario: String = "normal", widgets: Bool = false) -> XCUIApplication {
+    private func launch(_ appearance: String = "light", scenario: String = "normal", widgets: Bool = false, reduceMotion: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", widgets ? "--widget-demo" : "--demo-usage",
                                "--demo-scenario", scenario, "-bear.appearance", appearance]
+        if reduceMotion { app.launchArguments.append("--ui-reduce-motion") }
         app.launch()
         if !widgets { XCTAssertTrue(app.buttons["provider-codex"].waitForExistence(timeout: 10)) }
         return app
@@ -133,8 +134,23 @@ final class DesignUITests: XCTestCase {
 
     @MainActor
     func testMotionTourAtNormalSpeed() {
-        let app = launch()
         print("BEAR_MOTION_START \(Date().timeIntervalSince1970)")
+        let app = launch(scenario: "motion")
+        pause()
+        // 真正的下拉/释放，不调用测试专用刷新入口。
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.28))
+            .press(forDuration: 0.08, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8)))
+        waitForMood("留意用量", app)
+        app.buttons["refresh-all"].tap()
+        waitForMood("额度告急", app)
+        attach(app, "motion-threshold-alert")
+        pause()
+        app.buttons["refresh-all"].tap()
+        waitForMood("额度充足", app)
+        pause()
+        app.buttons["refresh-all"].tap()
+        XCTAssertTrue(app.staticTexts["已核实，读数未变化"].firstMatch.waitForExistence(timeout: 5))
+        attach(app, "motion-verified-unchanged")
         pause()
         tap("expand-codex", app)
         pause()
@@ -165,12 +181,79 @@ final class DesignUITests: XCTestCase {
                 .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5)))
         }
         XCTAssertTrue(app.buttons["provider-codex"].waitForExistence(timeout: 5))
-        print("BEAR_MOTION_END \(Date().timeIntervalSince1970)")
         XCUIDevice.shared.press(.home)
         pause()
         app.activate()
         pause()
         XCTAssertTrue(app.buttons["provider-codex"].waitForExistence(timeout: 5))
+        app.swipeUp()
+        tap("relay-account-11111111-2222-3333-4444-555555555555", app)
+        XCTAssertTrue(app.buttons["relay-refresh"].waitForExistence(timeout: 5))
+        app.buttons["relay-refresh"].tap()
+        pause()
+        attach(app, "motion-relay-balance")
+        print("BEAR_MOTION_END \(Date().timeIntervalSince1970)")
+    }
+
+    @MainActor
+    func testRelayCreateEditFailureAndDelete() {
+        let app = launch()
+        tap("relay-manage", app)
+        XCTAssertTrue(app.navigationBars["中转账户"].waitForExistence(timeout: 5))
+        app.buttons["relay-add"].tap()
+        let name = app.textFields["relay-name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        name.tap()
+        let oldName = name.value as? String ?? "我的中转"
+        name.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: oldName.count) + "Demo Relay")
+        let key = app.secureTextFields["relay-key"]
+        key.tap(); key.typeText("invalid-demo")
+        app.buttons["relay-save"].tap()
+        XCTAssertTrue(app.staticTexts["relay-error"].waitForExistence(timeout: 5))
+        attach(app, "relay-validation-failure")
+        key.tap()
+        key.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 20) + "fixture-only")
+        app.buttons["relay-save"].tap()
+        XCTAssertTrue(app.navigationBars["中转账户"].waitForExistence(timeout: 5))
+        let created = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'relay-list-' AND label CONTAINS 'Demo Relay'")).firstMatch
+        XCTAssertTrue(created.waitForExistence(timeout: 5))
+        created.tap()
+        attach(app, "relay-detail-created")
+        app.buttons["中转账户操作"].tap()
+        app.buttons["编辑账户"].tap()
+        XCTAssertTrue(app.buttons["relay-save"].waitForExistence(timeout: 5))
+        // 密钥留空时保留旧值，名称不变也执行验证后替换事务。
+        app.buttons["relay-save"].tap()
+        XCTAssertTrue(app.buttons["relay-refresh"].waitForExistence(timeout: 5))
+        app.buttons["relay-refresh"].tap()
+        XCTAssertTrue(app.staticTexts["已核实，余额未变化"].waitForExistence(timeout: 5))
+        app.buttons["中转账户操作"].tap()
+        app.buttons["删除账户"].tap()
+        app.buttons["删除账户"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["中转账户"].waitForExistence(timeout: 5))
+        attach(app, "relay-after-delete")
+    }
+
+    @MainActor
+    func testMotionRespectsReduceMotionAndFailureFeedback() {
+        let app = launch(scenario: "motion", reduceMotion: true)
+        app.buttons["refresh-all"].tap()
+        waitForMood("留意用量", app)
+        app.buttons["refresh-all"].tap()
+        waitForMood("额度告急", app)
+        attach(app, "reduce-motion-threshold")
+        app.terminate()
+        let failed = launch(scenario: "partial")
+        failed.buttons["refresh-all"].tap()
+        XCTAssertTrue(failed.staticTexts["读取未完成，已保留原状态"].waitForExistence(timeout: 6))
+        attach(failed, "motion-refresh-failed")
+    }
+
+    @MainActor
+    private func waitForMood(_ mood: String, _ app: XCUIApplication) {
+        let hero = app.descendants(matching: .any)["dashboard-hero"].firstMatch
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", mood), object: hero)
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 6), .completed, mood)
     }
 
     @MainActor

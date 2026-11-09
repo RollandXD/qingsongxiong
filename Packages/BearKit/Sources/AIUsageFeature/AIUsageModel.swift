@@ -29,6 +29,7 @@ public final class AIUsageModel {
 
     public func loadCached() async {
         for provider in ProviderID.allCases { await reload(provider, revision: revisions[provider, default: 0]) }
+        reloadPolicy.seedIfNeeded(states, at: Date())
     }
 
     public func refreshIfNeeded() async {
@@ -134,7 +135,7 @@ public final class AIUsageModel {
     }
 
     @ObservationIgnored private var reloadPolicy = WidgetReloadPolicy()
-    /// 页面修订号每次都递增；小组件只在读数变化、强制或读数陈旧时通知。
+    /// 页面修订号每次都递增；小组件仅在读数、账户或失败状态改变时通知。
     private func publishChange(force: Bool = false) {
         dataRevision &+= 1
         if reloadPolicy.shouldReload(states, at: Date(), force: force) { onDataChange() }

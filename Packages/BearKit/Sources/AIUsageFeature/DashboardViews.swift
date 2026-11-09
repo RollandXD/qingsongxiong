@@ -7,10 +7,15 @@ import SwiftUI
 @MainActor @Observable
 public final class AIUsageNavigation {
     public var path: [ProviderID] = []
+    public var relayID: UUID?
     var cardSource: ProviderID?
     public init() {}
     public func handle(components: [String]) -> Bool {
+        if components.count == 2, components[0] == "relay", let id = UUID(uuidString: components[1]) {
+            path = []; relayID = id; cardSource = nil; return true
+        }
         guard let provider = AIUsageRoute.provider(components: components) else { return false }
+        relayID = nil
         cardSource = nil
         path = [provider]
         return true
@@ -33,15 +38,18 @@ private struct ProviderNavigationTransition: ViewModifier {
 public struct AIUsageHome: View {
     @Bindable private var model: AIUsageModel
     @Bindable private var navigation: AIUsageNavigation
+    private let relay: RelayModel?
     @State private var interaction = DashboardInteraction()
     @State private var refreshHaptic = 0
+    @State private var failureHaptic = 0
+    @State private var thresholdHaptic = 0
     @State private var appeared = false
     @Namespace private var navigationNamespace
     @Environment(\.colorScheme) private var scheme
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    public init(model: AIUsageModel, navigation: AIUsageNavigation) {
-        self.model = model; self.navigation = navigation
+    public init(model: AIUsageModel, navigation: AIUsageNavigation, relay: RelayModel? = nil) {
+        self.model = model; self.navigation = navigation; self.relay = relay
     }
     public var body: some View {
         NavigationStack(path: $navigation.path) {
@@ -65,6 +73,7 @@ public struct AIUsageHome: View {
                             .animation(BearMotion.choose(BearMotion.entrance, reduceMotion: reduceMotion)
                                 .delay(reduceMotion ? 0 : Double(index + 1) * BearMotion.stagger * 2), value: appeared)
                     }
+                    if let relay { RelayHomeSection(model: relay, onSelect: { navigation.relayID = $0 }) }
                 }
                 .padding(.horizontal, 18).padding(.top, 8).padding(.bottom, 24)
             }
@@ -77,13 +86,16 @@ public struct AIUsageHome: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button { Task { await refreshAll() } } label: {
-                        Image(systemName: "arrow.clockwise")
+                        BearRefreshGlyph(refreshing: !model.refreshing.isEmpty || !(relay?.refreshing.isEmpty ?? true), success: refreshHaptic, failure: failureHaptic)
                     }
-                    .disabled(!model.states.values.contains(where: { $0.connection == .connected }) || !model.refreshing.isEmpty || !model.connecting.isEmpty || model.clearing)
+                    .disabled(!canRefresh)
                     .accessibilityLabel("刷新全部额度").accessibilityIdentifier("refresh-all")
                 }
             }
-            .refreshable { await refreshAll() }
+            .bearPullToRefresh(enabled: canRefresh) { await refreshAll() }
+            .navigationDestination(item: $navigation.relayID) { id in
+                if let relay { RelayDetail(id: id, model: relay) }
+            }
             .navigationDestination(for: ProviderID.self) { provider in
                 ProviderDetail(provider: provider, model: model)
                     .modifier(ProviderNavigationTransition(provider: provider,
@@ -92,6 +104,11 @@ public struct AIUsageHome: View {
         }
         .tint(BearTheme.accent(scheme))
         .sensoryFeedback(.success, trigger: refreshHaptic)
+        .sensoryFeedback(.warning, trigger: failureHaptic)
+        .sensoryFeedback(.warning, trigger: thresholdHaptic)
+        .onChange(of: overview.mood) { old, new in
+            if old != .asleep && new == .urgent && scenePhase == .active { thresholdHaptic &+= 1 }
+        }
         .onChange(of: model.states) { _, states in interaction.reconcile(states) }
         .onChange(of: scenePhase) { _, phase in if phase != .active { appeared = true } }
         .task(id: scenePhase) {
@@ -100,9 +117,11 @@ public struct AIUsageHome: View {
             interaction.reconcile(model.states)
             withAnimation(BearMotion.choose(BearMotion.entrance, reduceMotion: reduceMotion)) { appeared = true }
             await model.refreshIfNeeded()
+            await relay?.refreshIfNeeded()
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(300)) } catch { return }
                 await model.refreshIfNeeded()
+                await relay?.refreshIfNeeded()
             }
         }
         .alert("暂未完成", isPresented: Binding(get: { navigation.path.isEmpty && model.message != nil }, set: { if !$0 { model.message = nil } })) {
@@ -133,13 +152,32 @@ public struct AIUsageHome: View {
                        value: state?.snapshot?.fetchedAt)
             .animation(reduceMotion ? BearMotion.quiet : BearMotion.unfold, value: state?.connection)
     }
-    private func refreshAll() async {
+    private var canRefresh: Bool {
+        let hasAccounts = model.states.values.contains(where: { $0.connection == .connected }) || !(relay?.states.isEmpty ?? true)
+        return hasAccounts && model.refreshing.isEmpty && model.connecting.isEmpty && !model.clearing
+            && (relay?.refreshing.isEmpty ?? true) && !(relay?.saving ?? false) && !(relay?.clearing ?? false)
+    }
+    @discardableResult
+    private func refreshAll() async -> Bool {
         let connected = ProviderID.allCases.filter { model.states[$0]?.connection == .connected }
-        guard !connected.isEmpty else { return }
-        await withTaskGroup(of: Void.self) { group in
-            for provider in connected { group.addTask { await model.refresh(provider, reportFailure: false) } }
+        let relayIDs = relay?.states.map(\.id) ?? []
+        guard !connected.isEmpty || !relayIDs.isEmpty else { return false }
+        let succeeded = await withTaskGroup(of: Bool.self) { group in
+            for provider in connected {
+                group.addTask {
+                    await model.refresh(provider, reportFailure: false)
+                    return await model.verifiedRefresh.contains(provider)
+                }
+            }
+            if let relay { for id in relayIDs { group.addTask { await relay.refresh(id, report: false) } } }
+            var allSucceeded = true
+            for await result in group { if !result { allSucceeded = false } }
+            return allSucceeded
         }
-        if scenePhase == .active && connected.allSatisfy({ model.verifiedRefresh.contains($0) }) { refreshHaptic &+= 1 }
+        if scenePhase == .active && !Task.isCancelled {
+            if succeeded { refreshHaptic &+= 1 } else { failureHaptic &+= 1 }
+        }
+        return succeeded
     }
 }
 
@@ -159,6 +197,7 @@ struct ProviderDetail: View {
     @State private var showKeyEntry = false
     @State private var confirmDisconnect = false
     @State private var refreshHaptic = 0
+    @State private var failureHaptic = 0
     @Environment(\.colorScheme) private var scheme
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -199,7 +238,9 @@ struct ProviderDetail: View {
             ToolbarItem(placement: .primaryAction) {
                 HStack {
                     if presentation.state?.connection == .connected {
-                        Button { Task { await refresh() } } label: { Image(systemName: "arrow.clockwise") }
+                        Button { Task { await refresh() } } label: {
+                            BearRefreshGlyph(refreshing: model.refreshing.contains(provider), success: refreshHaptic, failure: failureHaptic)
+                        }
                             .disabled(model.refreshing.contains(provider))
                             .accessibilityLabel("刷新数据").accessibilityIdentifier("refresh-" + provider.rawValue)
                     }
@@ -212,8 +253,9 @@ struct ProviderDetail: View {
                 }
             }
         }
-        .refreshable { await refresh() }
+        .bearPullToRefresh(enabled: presentation.state?.connection == .connected && !model.refreshing.contains(provider)) { await refresh() }
         .sensoryFeedback(.success, trigger: refreshHaptic)
+        .sensoryFeedback(.warning, trigger: failureHaptic)
         .animation(model.animatedRefresh.contains(provider) ? (reduceMotion ? BearMotion.quiet : BearMotion.data) : nil,
                    value: presentation.state?.snapshot?.fetchedAt)
         .sheet(isPresented: $showKeyEntry) {
@@ -289,9 +331,14 @@ struct ProviderDetail: View {
         if provider == .deepseek { showKeyEntry = true }
         else { Task { await model.connect(provider, key: nil) } }
     }
-    private func refresh() async {
-        guard presentation.state?.connection == .connected else { return }
+    @discardableResult
+    private func refresh() async -> Bool {
+        guard presentation.state?.connection == .connected else { return false }
         await model.refresh(provider, reportFailure: false)
-        if scenePhase == .active && model.verifiedRefresh.contains(provider) { refreshHaptic &+= 1 }
+        let succeeded = model.verifiedRefresh.contains(provider)
+        if scenePhase == .active && !Task.isCancelled {
+            if succeeded { refreshHaptic &+= 1 } else { failureHaptic &+= 1 }
+        }
+        return succeeded
     }
 }

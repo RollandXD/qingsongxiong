@@ -43,21 +43,8 @@ struct QingSongXiongApp: App {
         .backgroundTask(.appRefresh(UsageBackgroundRefresh.identifier)) {
             // 先排下一次，保证系统持续调度；本次只刷新读数已过期的账户。
             await UsageBackgroundRefresh.schedule()
-            await composition.usage.refreshIfNeeded()
+            await composition.refreshInBackground()
         }
-        #endif
-    }
-}
-
-/// 系统决定实际触发时间；这里只申请「不早于 15 分钟后」。
-@MainActor
-enum UsageBackgroundRefresh {
-    static let identifier = "io.github.rollandxd.qingsongxiong.usage-refresh"
-    static func schedule() {
-        #if os(iOS) && !targetEnvironment(simulator)
-        let request = BGAppRefreshTaskRequest(identifier: identifier)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
-        try? BGTaskScheduler.shared.submit(request)
         #endif
     }
 }
@@ -76,16 +63,26 @@ final class AppComposition {
     let entries: [AppFeatureEntry]
     let catalog: FeatureCatalog
     let usage: AIUsageModel
+    let relay: RelayModel
 
     init() {
         let navigation = AIUsageNavigation()
         let model = Self.makeUsageModel()
+        let relay = Self.makeRelayModel()
         usage = model
+        self.relay = relay
         var entries = [AppFeatureEntry(
             descriptor: FeatureDescriptor(id: "ai-usage", title: "AI 额度", systemImage: "sparkles"),
-            home: AnyView(AIUsageHome(model: model, navigation: navigation)),
-            settings: AnyView(AIUsageAccountSettings(model: model)),
-            clearLocalData: { await model.clearLocalData() },
+            home: AnyView(AIUsageHome(model: model, navigation: navigation, relay: relay)),
+            settings: AnyView(Group {
+                AIUsageAccountSettings(model: model)
+                NavigationLink("中转账户") { RelayAccountsView(model: relay) }.accessibilityIdentifier("relay-settings")
+            }),
+            clearLocalData: {
+                let providers = await model.clearLocalData()
+                let relays = await relay.clearLocalData()
+                return providers && relays
+            },
             handle: { navigation.handle(components: $0) }
         )]
         #if DEBUG
@@ -130,12 +127,50 @@ final class AppComposition {
             let connector = MobileAccountConnector(repository: repository, tokenClient: tokenClient,
       browser: SystemOAuthBrowser())
             model = AIUsageModel(repository: repository, connector: connector,
-    onDataChange: { WidgetCenter.shared.reloadAllTimelines() })
+    onDataChange: {
+                    WidgetCenter.shared.reloadTimelines(ofKind: "QingSongXiong.Overview")
+                    WidgetCenter.shared.reloadTimelines(ofKind: "QingSongXiong.Provider")
+                })
         } catch {
             model = AIUsageModel(repository: VerificationGatedRepository(), connector: nil)
             model.message = "共享存储不可用，请在设置中检查 App 与小组件共享能力。"
         }
         return model
+    }
+
+    private static func makeRelayModel() -> RelayModel {
+        #if DEBUG && targetEnvironment(simulator)
+        if ProcessInfo.processInfo.arguments.contains("--demo-usage") {
+            return RelayModel(repository: DemoRelayRepository())
+        }
+        #endif
+        do {
+            let shared = SharedResources()
+            let store = try FileRelayStore(container: shared.containerURL())
+            let values: any SecureValueStore
+            #if DEBUG && targetEnvironment(simulator)
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing") { values = UITestSecureValues() }
+            else { values = try shared.vault(service: "io.github.rollandxd.qingsongxiong.ai-usage.relay") }
+            #else
+            values = try shared.vault(service: "io.github.rollandxd.qingsongxiong.ai-usage.relay")
+            #endif
+            let repository = LiveRelayRepository(store: store, credentials: SecureRelayCredentials(values: values),
+                adapter: RelayBalanceAdapter(client: URLSessionHTTPClient(followRedirects: false)))
+            return RelayModel(repository: repository, onDataChange: {
+                WidgetCenter.shared.reloadTimelines(ofKind: "QingSongXiong.Overview")
+                WidgetCenter.shared.reloadTimelines(ofKind: "QingSongXiong.Provider")
+            })
+        } catch {
+            return RelayModel(repository: VerificationGatedRelayRepository())
+        }
+    }
+
+    func refreshInBackground() async {
+        guard !Task.isCancelled else { return }
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await self.usage.refreshIfNeeded() }
+            group.addTask { await self.relay.refreshIfNeeded() }
+        }
     }
 
     func open(_ url: URL) {
@@ -150,6 +185,7 @@ private struct AppRoot: View {
     @AppStorage("bear.appearance") private var appearance = "system"
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedTab = "home"
 
     private var preferredScheme: ColorScheme? {
@@ -177,7 +213,16 @@ private struct AppRoot: View {
         .tint(BearTheme.accent(colorScheme))
         .preferredColorScheme(preferredScheme)
         .environment(\.dynamicTypeSize, usesLargeTypeFixture ? .accessibility3 : dynamicTypeSize)
+        .environment(\.accessibilityReduceMotion, usesReducedMotionFixture || reduceMotion)
         .onOpenURL { url in selectedTab = "home"; composition.open(url) }
+    }
+
+    private var usesReducedMotionFixture: Bool {
+        #if DEBUG && targetEnvironment(simulator)
+        ProcessInfo.processInfo.arguments.contains("--ui-reduce-motion")
+        #else
+        false
+        #endif
     }
 
     private var usesLargeTypeFixture: Bool {
@@ -219,7 +264,7 @@ private struct SettingsScreen: View {
                 Section("关于") {
                     LabeledContent("轻松熊", value: version)
                     Text("个人工具箱 · 原生 SwiftUI 与 WidgetKit")
-                    Text("凭据仅用于对应平台官方请求，保存在手机钥匙串；不发送模型请求。")
+                    Text("凭据只用于对应平台的余额或额度查询，保存在手机钥匙串；中转仅支持已审核的 APIKEY.FAN，不发送模型请求。")
                         .font(.footnote).foregroundStyle(BearTheme.secondaryText(scheme))
                     NavigationLink("开源许可与来源") { OpenSourceScreen() }
                     Link("查看项目源码", destination: URL(string: "https://github.com/RollandXD/qingsongxiong")!)

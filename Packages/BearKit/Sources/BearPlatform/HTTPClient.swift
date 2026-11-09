@@ -24,7 +24,7 @@ public final class URLSessionHTTPClient: HTTPClient, Sendable {
     public enum TransportFailure: Error { case invalidResponse, responseTooLarge }
     private let session: URLSession
 
-    public init() {
+    public init(followRedirects: Bool = true) {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpCookieStorage = nil
         configuration.httpShouldSetCookies = false
@@ -32,7 +32,8 @@ public final class URLSessionHTTPClient: HTTPClient, Sendable {
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         configuration.timeoutIntervalForRequest = 30
         configuration.timeoutIntervalForResource = 45
-        session = URLSession(configuration: configuration)
+        session = URLSession(configuration: configuration,
+                             delegate: followRedirects ? nil : RejectHTTPRedirects(), delegateQueue: nil)
     }
 
     public func send(_ request: URLRequest) async throws -> HTTPResponse {
@@ -43,5 +44,14 @@ public final class URLSessionHTTPClient: HTTPClient, Sendable {
             if let key = pair.key as? String { result[key.lowercased()] = String(describing: pair.value) }
         }
         return HTTPResponse(data: data, statusCode: response.statusCode, headers: headers)
+    }
+}
+
+/// 无条件拒绝所有重定向，包括同源；不将 Bearer 转发到第二个目标。
+private final class RejectHTTPRedirects: NSObject, URLSessionTaskDelegate, Sendable {
+    func urlSession(_ session: URLSession, task: URLSessionTask,
+                    willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest,
+                    completionHandler: @escaping @Sendable (URLRequest?) -> Void) {
+        completionHandler(nil)
     }
 }

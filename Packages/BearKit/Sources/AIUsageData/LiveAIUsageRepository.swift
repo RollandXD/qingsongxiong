@@ -95,7 +95,10 @@ public actor LiveAIUsageRepository: AIUsageRepository, AIUsageAccountConnecting 
     }
 
     public func refresh(_ provider: ProviderID) async throws -> UsageSnapshot {
-        if let request = requests[provider] { return try await request.task.value }
+        try Task.checkCancellation()
+        if let request = requests[provider] {
+            return try await withTaskCancellationHandler { try await request.task.value } onCancel: { request.task.cancel() }
+        }
         guard let credential = try credentials.load(provider) else { throw UsageFailure.disconnected }
         let previous = try currentState(for: provider)
         guard previous.connection != .reconnectRequired else { throw UsageFailure.reconnectRequired }
@@ -107,7 +110,7 @@ public actor LiveAIUsageRepository: AIUsageRepository, AIUsageAccountConnecting 
         let task = Task { try await self.performRefresh(provider, credential: credential, generation: generation) }
         requests[provider] = InFlight(id: id, task: task)
         defer { if requests[provider]?.id == id { requests[provider] = nil } }
-        return try await task.value
+        return try await withTaskCancellationHandler { try await task.value } onCancel: { task.cancel() }
     }
 
     private func performRefresh(_ provider: ProviderID, credential initial: ProviderCredential,
