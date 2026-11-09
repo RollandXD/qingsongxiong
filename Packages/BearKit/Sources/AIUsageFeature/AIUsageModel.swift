@@ -83,7 +83,7 @@ public final class AIUsageModel {
             try await connector.connect(provider, apiKey: key)
             guard revisions[provider, default: 0] == revision else { return false }
             await reload(provider, revision: revision)
-            publishChange()
+            publishChange(force: true)
             return true
         } catch is CancellationError { return false }
         catch {
@@ -104,7 +104,7 @@ public final class AIUsageModel {
         do {
             try await repository.disconnect(provider)
             states[provider] = .disconnected(provider, at: Date())
-            if !clearing { publishChange() }
+            if !clearing { publishChange(force: true) }
             return true
         } catch { message = "退出未完成，请重试以清除本机数据。"; return false }
     }
@@ -118,7 +118,7 @@ public final class AIUsageModel {
         for provider in ProviderID.allCases {
             if !(await disconnect(provider)) { succeeded = false }
         }
-        publishChange()
+        publishChange(force: true)
         if succeeded { message = nil }
         return succeeded
     }
@@ -133,7 +133,12 @@ public final class AIUsageModel {
         } catch { message = "读取本机缓存失败，已有数据未被清除。"; return false }
     }
 
-    private func publishChange() { dataRevision &+= 1; onDataChange() }
+    @ObservationIgnored private var reloadPolicy = WidgetReloadPolicy()
+    /// 页面修订号每次都递增；小组件只在读数变化、强制或读数陈旧时通知。
+    private func publishChange(force: Bool = false) {
+        dataRevision &+= 1
+        if reloadPolicy.shouldReload(states, at: Date(), force: force) { onDataChange() }
+    }
 
     public static func explanation(_ error: any Error) -> String {
         guard let failure = error as? UsageFailure else { return "操作暂未完成，请稍后重试。" }

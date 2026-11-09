@@ -40,6 +40,8 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: io.github.rollandxd.qingsongxiong
             CFBundleURLSchemes: [qingsongxiong]
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers: [io.github.rollandxd.qingsongxiong.usage-refresh]
         BearAppGroupIdentifier: $(BEAR_APP_GROUP)
         BearKeychainGroupSuffix: $(BEAR_KEYCHAIN_SUFFIX)
         UILaunchScreen:

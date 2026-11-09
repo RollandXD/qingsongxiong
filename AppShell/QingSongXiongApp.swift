@@ -8,6 +8,9 @@ import BearPlatform
 import Foundation
 import SwiftUI
 import WidgetKit
+#if os(iOS)
+import BackgroundTasks
+#endif
 
 #if DEBUG && targetEnvironment(simulator)
 /// 自动化 UI 测试不依赖模拟器的签名/钥匙串权限，不使用真实账户。
@@ -22,15 +25,39 @@ private final class UITestSecureValues: SecureValueStore, @unchecked Sendable {
 
 @main
 struct QingSongXiongApp: App {
+    @State private var composition = AppComposition()
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some Scene {
         WindowGroup {
             #if DEBUG && targetEnvironment(simulator)
             if ProcessInfo.processInfo.arguments.contains("--widget-demo") { WidgetDemoScreen() }
-            else { AppRoot() }
+            else { AppRoot(composition: composition) }
             #else
-            AppRoot()
+            AppRoot(composition: composition)
             #endif
         }
+        .onChange(of: scenePhase) { _, phase in if phase == .background { UsageBackgroundRefresh.schedule() } }
+        #if os(iOS)
+        .backgroundTask(.appRefresh(UsageBackgroundRefresh.identifier)) {
+            // 先排下一次，保证系统持续调度；本次只刷新读数已过期的账户。
+            await UsageBackgroundRefresh.schedule()
+            await composition.usage.refreshIfNeeded()
+        }
+        #endif
+    }
+}
+
+/// 系统决定实际触发时间；这里只申请「不早于 15 分钟后」。
+@MainActor
+enum UsageBackgroundRefresh {
+    static let identifier = "io.github.rollandxd.qingsongxiong.usage-refresh"
+    static func schedule() {
+        #if os(iOS) && !targetEnvironment(simulator)
+        let request = BGAppRefreshTaskRequest(identifier: identifier)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
+        try? BGTaskScheduler.shared.submit(request)
+        #endif
     }
 }
 
@@ -44,13 +71,15 @@ struct AppFeatureEntry {
 }
 
 @MainActor @Observable
-private final class AppComposition {
+final class AppComposition {
     let entries: [AppFeatureEntry]
     let catalog: FeatureCatalog
+    let usage: AIUsageModel
 
     init() {
         let navigation = AIUsageNavigation()
         let model = Self.makeUsageModel()
+        usage = model
         var entries = [AppFeatureEntry(
             descriptor: FeatureDescriptor(id: "ai-usage", title: "AI 额度", systemImage: "sparkles"),
             home: AnyView(AIUsageHome(model: model, navigation: navigation)),
@@ -98,9 +127,9 @@ private final class AppComposition {
             let repository = LiveAIUsageRepository(credentials: credentials, states: states,
                 fetchers: UsageAdapterRegistry.make(client: client), renewer: tokenClient)
             let connector = MobileAccountConnector(repository: repository, tokenClient: tokenClient,
-                                                    browser: SystemOAuthBrowser())
+      browser: SystemOAuthBrowser())
             model = AIUsageModel(repository: repository, connector: connector,
-                                 onDataChange: { WidgetCenter.shared.reloadAllTimelines() })
+    onDataChange: { WidgetCenter.shared.reloadAllTimelines() })
         } catch {
             model = AIUsageModel(repository: VerificationGatedRepository(), connector: nil)
             model.message = "共享存储不可用，请在设置中检查 App 与小组件共享能力。"
@@ -116,7 +145,7 @@ private final class AppComposition {
 }
 
 private struct AppRoot: View {
-    @State private var composition = AppComposition()
+    let composition: AppComposition
     @AppStorage("bear.appearance") private var appearance = "system"
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -135,7 +164,7 @@ private struct AppRoot: View {
                     NavigationStack {
                         List(composition.entries, id: \.descriptor.id) { entry in
                             NavigationLink(entry.descriptor.title) { entry.home }
-                                .accessibilityIdentifier("feature-" + entry.descriptor.id)
+    .accessibilityIdentifier("feature-" + entry.descriptor.id)
                         }.navigationTitle("轻松熊")
                     }
                 }
