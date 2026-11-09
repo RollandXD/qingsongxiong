@@ -50,7 +50,7 @@ struct DashboardHero: View {
                         .foregroundStyle(BearTheme.secondaryText(scheme))
                 }
                 Text(overview.summary(at: Date()))
-                    .font(.footnote).foregroundStyle(BearTheme.secondaryText(scheme))
+                    .font(.footnote.weight(.medium)).foregroundStyle(BearTheme.secondaryText(scheme))
                     .fixedSize(horizontal: false, vertical: true)
             }
                 .frame(maxWidth: .infinity, alignment: .leading)

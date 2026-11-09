@@ -184,7 +184,7 @@ private struct BearFace: View {
                         Capsule().frame(width: side * 0.1, height: side * 0.02)
                     }.foregroundStyle(ink).offset(y: -side * 0.025)
                         .background(Ellipse().fill(BearTheme.caramel).frame(width: side * 0.5, height: side * 0.09).offset(y: -side * 0.025))
-                    Text("z").font(.system(size: side * 0.2, weight: .bold, design: .rounded))
+                    Image(systemName: "moon.fill").font(.system(size: side * 0.25, weight: .bold))
                         .foregroundStyle(BearTheme.secondaryText(scheme)).offset(x: side * 0.45, y: -side * 0.42)
                     case .urgent:
                     Circle().fill(Color(red: 0.55, green: 0.75, blue: 0.95)).frame(width: side * 0.08, height: side * 0.11)

@@ -52,7 +52,7 @@ struct DashboardMetric: View {
                     .font(.system(size: metricSize * (large ? 1.3 : 1), weight: .semibold, design: .rounded))
                     .monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
                     .contentTransition(.numericText()).id(window.id)
-                Text(window.label).font(.caption).foregroundStyle(BearTheme.secondaryText(scheme))
+                Text(window.label).font(.footnote.weight(.medium)).foregroundStyle(BearTheme.secondaryText(scheme))
                     .lineLimit(2)
             } else {
                 Text("—").font(.system(size: metricSize, weight: .semibold, design: .rounded))

@@ -16,6 +16,8 @@ final class DesignUITests: XCTestCase {
 
     @MainActor
     func testConnectedOverviewLightAndDark() throws {
+        continueAfterFailure = true
+        defer { continueAfterFailure = false }
         for appearance in ["light", "dark"] {
             let app = launch(appearance)
             XCTAssertTrue(app.otherElements["dashboard-hero"].exists || app.staticTexts["dashboard-hero"].exists)
@@ -30,6 +32,8 @@ final class DesignUITests: XCTestCase {
 
     @MainActor
     func testProviderDetailsLightAndDark() throws {
+        continueAfterFailure = true
+        defer { continueAfterFailure = false }
         for appearance in ["light", "dark"] {
             for provider in ["codex", "claude", "deepseek"] {
                 let app = launch(appearance)

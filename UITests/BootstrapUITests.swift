@@ -44,6 +44,8 @@ final class BootstrapUITests: XCTestCase {
 
     @MainActor
     func testHomeAccessibilityAudit() throws {
+        continueAfterFailure = true
+        defer { continueAfterFailure = false }
         let app = XCUIApplication()
         for appearance in ["light", "dark"] {
             app.launchArguments = ["--ui-testing", "-bear.appearance", appearance]
