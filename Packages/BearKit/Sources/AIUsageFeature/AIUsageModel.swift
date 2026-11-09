@@ -33,6 +33,10 @@ public final class AIUsageModel {
     }
 
     public func refreshIfNeeded() async {
+        guard !Task.isCancelled, !clearing else { return }
+        // 后台任务可能冷启动 App；不能依赖首页先加载过内存状态。
+        await loadCached()
+        guard !Task.isCancelled, !clearing else { return }
         let due = ProviderID.allCases.filter { provider in
             guard let state = states[provider], state.connection == .connected else { return false }
             return state.snapshot.map { Date().timeIntervalSince($0.fetchedAt) >= 300 } ?? true
