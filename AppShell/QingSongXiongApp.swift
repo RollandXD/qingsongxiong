@@ -31,7 +31,8 @@ struct QingSongXiongApp: App {
     var body: some Scene {
         WindowGroup {
             #if DEBUG && targetEnvironment(simulator)
-            if ProcessInfo.processInfo.arguments.contains("--widget-demo") { WidgetDemoScreen() }
+            if ProcessInfo.processInfo.arguments.contains("--contrast-probe") { DesignContrastProbe() }
+            else if ProcessInfo.processInfo.arguments.contains("--widget-demo") { WidgetDemoScreen() }
             else { AppRoot(composition: composition) }
             #else
             AppRoot(composition: composition)

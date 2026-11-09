@@ -15,6 +15,21 @@ final class DesignUITests: XCTestCase {
     }
 
     @MainActor
+    func testContrastTokenProbe() throws {
+        continueAfterFailure = true
+        defer { continueAfterFailure = false }
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--contrast-probe"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["纯黑白 Black white"].waitForExistence(timeout: 5))
+        attach(app, "contrast-token-probe")
+        try app.performAccessibilityAudit(for: [.contrast]) { issue in
+            print("BEAR_CONTRAST_PROBE \(issue.compactDescription) element=\(issue.element?.label ?? "nil")")
+            return false // 收集问题，不屏蔽审计。
+        }
+    }
+
+    @MainActor
     func testConnectedOverviewLightAndDark() throws {
         continueAfterFailure = true
         defer { continueAfterFailure = false }
@@ -22,7 +37,10 @@ final class DesignUITests: XCTestCase {
             let app = launch(appearance)
             XCTAssertTrue(app.otherElements["dashboard-hero"].exists || app.staticTexts["dashboard-hero"].exists)
             attach(app, "dashboard-" + appearance)
-            try app.performAccessibilityAudit(for: [.sufficientElementDescription, .trait, .textClipped, .contrast])
+            try app.performAccessibilityAudit(for: [.sufficientElementDescription, .trait, .textClipped, .contrast]) { issue in
+                print("BEAR_AUDIT \(appearance) \(issue.compactDescription) element=\(issue.element?.label ?? "nil")")
+                return false
+            }
             app.swipeUp()
             XCTAssertTrue(app.buttons["provider-deepseek"].isHittable, "首页下半部可滚动抵达余额卡")
             attach(app, "dashboard-balance-" + appearance)
@@ -41,7 +59,10 @@ final class DesignUITests: XCTestCase {
                 let name = provider == "codex" ? "Codex" : provider == "claude" ? "Claude" : "DeepSeek"
                 XCTAssertTrue(app.navigationBars[name].waitForExistence(timeout: 5))
                 attach(app, "detail-" + provider + "-" + appearance)
-                try app.performAccessibilityAudit(for: [.sufficientElementDescription, .trait, .textClipped, .contrast])
+                try app.performAccessibilityAudit(for: [.sufficientElementDescription, .trait, .textClipped, .contrast]) { issue in
+                    print("BEAR_AUDIT \(provider) \(appearance) \(issue.compactDescription) element=\(issue.element?.label ?? "nil")")
+                    return false
+                }
                 app.swipeUp()
                 attach(app, "detail-bottom-" + provider + "-" + appearance)
                 if provider != "deepseek" { XCTAssertTrue(app.staticTexts["接下来的重置"].exists) }

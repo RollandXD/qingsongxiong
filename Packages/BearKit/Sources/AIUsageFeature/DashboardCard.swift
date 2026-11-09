@@ -42,6 +42,7 @@ struct DashboardMetric: View {
                 Text(NSDecimalNumber(decimal: balance.balance.total).stringValue)
                     .font(.system(size: metricSize * (large ? 1.3 : 1), weight: .semibold, design: .rounded))
                     .monospacedDigit().lineLimit(1).minimumScaleFactor(0.55)
+                    .accessibilityLabel("可用余额，" + balance.balance.currency + " " + NSDecimalNumber(decimal: balance.balance.total).stringValue)
                     .contentTransition(.numericText()).id(balance.id)
                 if presentation.balances.count > 1 {
                     Text("另有 \(presentation.balances.count - 1) 种币种").font(.caption).foregroundStyle(BearTheme.secondaryText(scheme))
@@ -56,6 +57,7 @@ struct DashboardMetric: View {
                     .lineLimit(2)
             } else {
                 Text("—").font(.system(size: metricSize, weight: .semibold, design: .rounded))
+                    .accessibilityLabel("暂无额度读数")
                 Text(presentation.status).font(.subheadline).foregroundStyle(BearTheme.secondaryText(scheme))
             }
         }.foregroundStyle(BearTheme.text(scheme)).frame(maxWidth: .infinity, alignment: .leading)
