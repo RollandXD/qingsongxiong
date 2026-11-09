@@ -52,11 +52,24 @@ public struct AIUsageHome: View {
                             .accessibilityAddTraits(.isHeader)
                         Spacer()
                     }.padding(.horizontal, 3).padding(.bottom, 3)
-                    ForEach(ProviderID.allCases) { provider in card(provider) }
+                    DashboardHero(overview: overview, entered: appeared)
+                        .opacity(appeared ? 1 : 0)
+                        .blur(radius: appeared || reduceMotion ? 0 : 6)
+                        .offset(y: appeared || reduceMotion ? 0 : 10)
+                        .padding(.bottom, 4)
+                    ForEach(Array(ProviderID.allCases.enumerated()), id: \.element) { index, provider in
+                        card(provider)
+                            .opacity(appeared ? 1 : 0)
+                            .blur(radius: appeared || reduceMotion ? 0 : 4)
+                            .offset(y: appeared || reduceMotion ? 0 : 12)
+                            .animation(BearMotion.choose(BearMotion.entrance, reduceMotion: reduceMotion)
+                                .delay(reduceMotion ? 0 : Double(index + 1) * BearMotion.stagger * 2), value: appeared)
+                    }
                 }
                 .padding(.horizontal, 18).padding(.top, 8).padding(.bottom, 24)
             }
-            .background(BearTheme.background(scheme))
+            .scrollEdgeEffectStyle(.soft, for: .top)
+            .background(BearTheme.paper(scheme).ignoresSafeArea())
             .navigationTitle("轻松熊")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -85,7 +98,7 @@ public struct AIUsageHome: View {
             guard scenePhase == .active else { return }
             await model.loadCached()
             interaction.reconcile(model.states)
-            withAnimation(reduceMotion ? BearMotion.quiet : .easeOut(duration: 0.35)) { appeared = true }
+            withAnimation(BearMotion.choose(BearMotion.entrance, reduceMotion: reduceMotion)) { appeared = true }
             await model.refreshIfNeeded()
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(300)) } catch { return }
@@ -95,6 +108,11 @@ public struct AIUsageHome: View {
         .alert("暂未完成", isPresented: Binding(get: { navigation.path.isEmpty && model.message != nil }, set: { if !$0 { model.message = nil } })) {
             Button("好") { model.message = nil }
         } message: { Text(model.message ?? "") }
+    }
+    private var overview: DashboardOverviewPresentation {
+        DashboardOverviewPresentation(providers: ProviderID.allCases.map {
+            ProviderDashboardPresentation(provider: $0, state: model.states[$0], at: Date())
+        })
     }
     private func card(_ provider: ProviderID) -> some View {
         let state = model.states[provider]
@@ -111,8 +129,6 @@ public struct AIUsageHome: View {
                 withAnimation(reduceMotion ? BearMotion.quiet : BearMotion.unfold) { interaction.focus(id, for: provider) }
             })
             .id(provider)
-            .opacity(appeared ? 1 : 0.75)
-            .offset(y: appeared || reduceMotion ? 0 : 8)
             .animation(model.animatedRefresh.contains(provider) ? (reduceMotion ? BearMotion.quiet : BearMotion.data) : nil,
                        value: state?.snapshot?.fetchedAt)
             .animation(reduceMotion ? BearMotion.quiet : BearMotion.unfold, value: state?.connection)
@@ -172,8 +188,9 @@ struct ProviderDetail: View {
                     .font(.footnote).foregroundStyle(BearTheme.secondaryText(scheme))
             }.padding(20)
         }
-        .background(BearTheme.background(scheme))
-        .foregroundStyle(BearTheme.text(scheme))
+                                                                .scrollEdgeEffectStyle(.soft, for: .top)
+                                                                .background(BearTheme.paper(scheme).ignoresSafeArea())
+                                                                .foregroundStyle(BearTheme.text(scheme))
         .navigationTitle(ProviderPresentation.name(provider))
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -209,22 +226,24 @@ struct ProviderDetail: View {
             Button("退出账户", role: .destructive) { Task { await model.disconnect(provider) } }
         }
     }
+    private var series: Color { BearTheme.series(ProviderPresentation.paletteIndex(provider), scheme) }
     private var hero: some View {
         VStack(alignment: .leading, spacing: 22) {
             ProviderIdentity(presentation: presentation, refreshing: model.refreshing.contains(provider))
             HStack(spacing: 24) {
                 DashboardMetric(presentation: presentation, focused: nil, large: true)
                 if let window = presentation.summaryWindow {
-                    BearQuotaArc(fraction: window.fraction,
-                                 color: BearTheme.quotaColor(window.remaining, series: ProviderPresentation.paletteIndex(provider), scheme: scheme),
-                                 stale: presentation.isStale).frame(width: 94, height: 94)
+      BearRing(fraction: window.fraction,
+        color: BearTheme.quotaColor(window.remaining, series: ProviderPresentation.paletteIndex(provider), scheme: scheme),
+ stale: presentation.isStale, lineWidth: 11).frame(width: 112, height: 112)
+   .accessibilityHidden(true)
                 }
             }
             if let window = presentation.summaryWindow {
                 Text(window.role == .general ? "通用窗口中剩余比例最低" : window.role.label)
                     .font(.caption).foregroundStyle(BearTheme.secondaryText(scheme))
             }
-        }.padding(22).background(BearTheme.surface(scheme), in: RoundedRectangle(cornerRadius: 26))
+        }.padding(22).bearGlassCard(tint: series, cornerRadius: 30)
     }
     private var windows: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -232,7 +251,7 @@ struct ProviderDetail: View {
             ForEach(presentation.windows) { window in
                 UsageWindowRow(window: window, provider: provider, stale: presentation.isStale,
                                selected: presentation.summaryWindow?.id == window.id)
-                    .background(BearTheme.surface(scheme), in: RoundedRectangle(cornerRadius: 17))
+                    .bearGlassCard(tint: series, cornerRadius: 20)
             }
         }
     }
@@ -243,7 +262,7 @@ struct ProviderDetail: View {
                 VStack(alignment: .leading, spacing: 14) {
                     Text(ProviderPresentation.money(balance.balance.total, currency: balance.balance.currency)).font(.headline).textSelection(.enabled)
                     BalanceBreakdown(balance: balance, color: BearTheme.series(ProviderPresentation.paletteIndex(provider), scheme))
-                }.padding(18).background(BearTheme.surface(scheme), in: RoundedRectangle(cornerRadius: 20))
+                }.padding(18).bearGlassCard(tint: series, cornerRadius: 22)
             }
             if let available = presentation.state?.snapshot?.isAvailable {
                 Label((presentation.isStale ? "上次读取：" : "") + (available ? "余额可继续调用" : "余额不足以继续调用"),

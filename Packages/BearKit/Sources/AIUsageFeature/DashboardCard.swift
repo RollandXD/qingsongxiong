@@ -79,7 +79,7 @@ struct WindowMeter: View {
     var namespace: Namespace.ID?
     @Environment(\.colorScheme) private var scheme
     var body: some View {
-        BearCapacityBar(fraction: window.fraction,
+        BearTickCapsule(fraction: window.fraction,
                         color: BearTheme.quotaColor(window.remaining, series: ProviderPresentation.paletteIndex(provider), scheme: scheme), stale: stale)
             .modifier(MeterGeometry(id: provider.rawValue + "." + window.id, namespace: namespace))
     }
@@ -122,7 +122,7 @@ struct UsageWindowRow: View {
         .foregroundStyle(BearTheme.text(scheme))
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(selected ? BearTheme.accent(scheme).opacity(scheme == .dark ? 0.12 : 0.065) : .clear, in: RoundedRectangle(cornerRadius: 15))
+        .background(selected ? BearTheme.accent(scheme).opacity(scheme == .dark ? 0.14 : 0.08) : .clear, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
         .contentShape(Rectangle())
     }
     private var resetLabel: String {
@@ -181,7 +181,7 @@ struct DashboardProviderCard: View {
                 }
                 .contentShape(Rectangle())
             }
-            .buttonStyle(BearPressStyle())
+            .buttonStyle(BearLiftPressStyle())
             .simultaneousGesture(TapGesture().onEnded { _ in onNavigate() })
             .accessibilityIdentifier("provider-" + provider.rawValue)
             HStack(alignment: .center) {
@@ -202,8 +202,12 @@ struct DashboardProviderCard: View {
             if expanded { expandedContent.transition(.opacity.combined(with: .offset(y: -6))) }
         }
         .padding(18)
-        .background(BearTheme.surface(scheme), in: RoundedRectangle(cornerRadius: 24))
-        .overlay { RoundedRectangle(cornerRadius: 24).stroke(BearTheme.text(scheme).opacity(0.045), lineWidth: 0.5) }
+        .padding(.leading, 4)
+        .overlay(alignment: .leading) {
+            Capsule().fill(series.gradient).frame(width: 4).padding(.vertical, 22).padding(.leading, 8)
+                .accessibilityHidden(true)
+        }
+        .bearGlassCard(tint: series, cornerRadius: 26)
         .matchedTransitionSource(id: provider, in: navigationNamespace)
         .animation(reduceMotion ? BearMotion.quiet : BearMotion.unfold, value: expanded)
         .sensoryFeedback(.selection, trigger: focusedID)
@@ -224,9 +228,9 @@ struct DashboardProviderCard: View {
                 } else { Text("独立 API 余额").font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme)) }
             }
         } else if expanded, let focused {
-            BearQuotaArc(fraction: focused.fraction,
-                         color: BearTheme.quotaColor(focused.remaining, series: ProviderPresentation.paletteIndex(provider), scheme: scheme),
-                         stale: presentation.isStale).frame(height: 68)
+            BearRing(fraction: focused.fraction,
+                     color: BearTheme.quotaColor(focused.remaining, series: ProviderPresentation.paletteIndex(provider), scheme: scheme),
+                     stale: presentation.isStale).frame(height: 68)
         } else if !presentation.windows.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 ForEach(presentation.compactWindows) { window in

@@ -20,6 +20,16 @@ public enum BearTheme {
         let values = scheme == .dark ? dark : light
         return rgb(values[min(2, max(0, index))])
     }
+    /// 玻璃卡底纹：四角网格渐变，系列色只在一角极淡出现。
+    public static func meshStops(tint: Color, _ scheme: ColorScheme) -> [Color] {
+        let base = surface(scheme).opacity(0)
+        return [tint.opacity(scheme == .dark ? 0.16 : 0.10), base, base, accent(scheme).opacity(scheme == .dark ? 0.06 : 0.04)]
+    }
+    /// 页面背景纸感渐变。
+    public static func paper(_ scheme: ColorScheme) -> LinearGradient {
+        LinearGradient(colors: [rgb(scheme == .dark ? 0x1A1C1A : 0xFBF8F1), background(scheme)],
+                       startPoint: .top, endPoint: .bottom)
+    }
     public static func quotaColor(_ remaining: Double, series: Int, scheme: ColorScheme) -> Color {
         remaining <= 0 ? danger(scheme) : remaining <= 20 ? warning(scheme) : self.series(series, scheme)
     }
