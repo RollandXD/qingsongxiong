@@ -63,6 +63,16 @@ jobs:
           if-no-files-found: warn
           path: |
             output/screenshots/
+      - name: 导出原速与四分之一慢放巡览
+        if: always()
+        timeout-minutes: 8
+        run: |
+          if grep -q 'BEAR_MOTION_END' output/ui-tests.log 2>/dev/null; then
+            if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then brew install ffmpeg; fi
+            python3 scripts/export_motion.py output
+          else
+            printf '%s\n' '本次没有完成动效巡览；不生成替代影片。'
+          fi
       - name: 保存合成数据原速动效录像
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -73,6 +83,9 @@ jobs:
           if-no-files-found: warn
           path: |
             output/native-motion.mp4
+            output/motion-tour-1x.mp4
+            output/motion-tour-025x.mp4
+            output/motion-tour.json
             output/recording.json
             output/recording.log
             output/displays.txt

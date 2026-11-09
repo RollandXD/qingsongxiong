@@ -140,7 +140,7 @@ struct UsageWidgetView: View {
                     .widgetURL(URL(string: "qingsongxiong://ai-usage/provider/" + (entry.provider?.rawValue ?? "codex")))
             }
         }.containerBackground(for: .widget) {
-            LinearGradient(colors: [BearTheme.paper(scheme), BearTheme.background(scheme)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            BearTheme.paper(scheme)
         }
     }
 }
