@@ -65,7 +65,7 @@ public struct BearCompositionBar: View {
 }
 
 public struct BearPressStyle: ButtonStyle {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.bearReduceMotion) private var reduceMotion
     public init() {}
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label

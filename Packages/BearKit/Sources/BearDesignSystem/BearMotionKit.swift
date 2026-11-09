@@ -78,12 +78,13 @@ public struct BearOrbit: View {
     let gap: CGFloat
     @State private var entranceFinished = false
     @State private var thresholdEvent = 0
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.bearReduceMotion) private var reduceMotion
     public init(lanes: [Lane], lineWidth: CGFloat = 9, gap: CGFloat = 5) {
         self.lanes = lanes; self.lineWidth = lineWidth; self.gap = gap
     }
     public var body: some View {
-        ZStack {
+        let reduced = reduceMotion
+        return ZStack {
             ForEach(Array(lanes.enumerated()), id: \.element.id) { index, lane in
                 BearRing(fraction: lane.fraction, color: lane.color, stale: lane.stale, lineWidth: lineWidth)
                     .padding(CGFloat(index) * (lineWidth + gap))
@@ -92,7 +93,7 @@ public struct BearOrbit: View {
             }
         }
         .keyframeAnimator(initialValue: 1.0, trigger: thresholdEvent) { content, scale in
-            content.scaleEffect(reduceMotion ? 1 : scale)
+            content.scaleEffect(reduced ? 1 : scale)
         } keyframes: { _ in
             CubicKeyframe(1.045, duration: 0.12)
             SpringKeyframe(1, duration: 0.3)
@@ -149,7 +150,7 @@ public enum BearMood: String, CaseIterable, Sendable {
 /// 带情绪的轻松熊：仅在 mood 变化时播放一次关键帧，静止时零动画。
 public struct BearMoodMark: View {
     let mood: BearMood
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.bearReduceMotion) private var reduceMotion
     @State private var trigger = 0
     public init(mood: BearMood) { self.mood = mood }
     private struct Pose { var tilt = 0.0; var scale = 1.0; var blink = 1.0; var lift = 0.0 }
@@ -252,7 +253,7 @@ public extension View {
 
 /// 卡片按压：缩放 + 高光跟随按压位置。
 public struct BearLiftPressStyle: ButtonStyle {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.bearReduceMotion) private var reduceMotion
     public init() {}
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -285,7 +286,7 @@ public struct BearRefreshGlyph: View {
     let refreshing: Bool
     let success: Int
     let failure: Int
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.bearReduceMotion) private var reduceMotion
     public init(refreshing: Bool, success: Int, failure: Int) {
         self.refreshing = refreshing; self.success = success; self.failure = failure
     }
@@ -305,7 +306,7 @@ public struct BearRefreshGlyph: View {
 /// 核实结果只扫光一次；结束后移除视觉层，避免静止文字合成影响 OCR。
 public struct BearVerifiedFlash: ViewModifier {
     let trigger: String?
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.bearReduceMotion) private var reduceMotion
     @State private var shining = false
     public init(trigger: String?) { self.trigger = trigger }
     public func body(content: Content) -> some View {

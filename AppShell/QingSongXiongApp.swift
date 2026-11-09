@@ -38,7 +38,9 @@ struct QingSongXiongApp: App {
             AppRoot(composition: composition)
             #endif
         }
-        .onChange(of: scenePhase) { _, phase in if phase == .background { UsageBackgroundRefresh.schedule() } }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { Task { await UsageBackgroundRefresh.schedule() } }
+        }
         #if os(iOS)
         .backgroundTask(.appRefresh(UsageBackgroundRefresh.identifier)) {
             // 先排下一次，保证系统持续调度；本次只刷新读数已过期的账户。
@@ -185,7 +187,6 @@ private struct AppRoot: View {
     @AppStorage("bear.appearance") private var appearance = "system"
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedTab = "home"
 
     private var preferredScheme: ColorScheme? {
@@ -213,7 +214,7 @@ private struct AppRoot: View {
         .tint(BearTheme.accent(colorScheme))
         .preferredColorScheme(preferredScheme)
         .environment(\.dynamicTypeSize, usesLargeTypeFixture ? .accessibility3 : dynamicTypeSize)
-        .environment(\.accessibilityReduceMotion, usesReducedMotionFixture || reduceMotion)
+        .environment(\.bearReduceMotion, usesReducedMotionFixture)
         .onOpenURL { url in selectedTab = "home"; composition.open(url) }
     }
 

@@ -35,7 +35,7 @@ struct DashboardMetric: View {
     var large = false
     @ScaledMetric(relativeTo: .largeTitle) private var metricSize = 38
     @Environment(\.colorScheme) private var scheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.bearReduceMotion) private var reduceMotion
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             if let balance = presentation.balances.first {
@@ -184,7 +184,7 @@ struct DashboardProviderCard: View {
     let onFocus: @MainActor @Sendable (String) -> Void
     @Namespace private var meterNamespace
     @Environment(\.colorScheme) private var scheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.bearReduceMotion) private var reduceMotion
     private var provider: ProviderID { presentation.provider }
     private var focused: UsageWindowPresentation? {
         presentation.windows.first { $0.id == focusedID } ?? presentation.summaryWindow

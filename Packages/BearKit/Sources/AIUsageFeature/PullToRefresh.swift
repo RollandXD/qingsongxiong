@@ -62,9 +62,10 @@ private struct PullBearIndicator: View {
     let succeeded: Bool
     let completion: Int
     let enabled: Bool
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.bearReduceMotion) private var reduceMotion
     var body: some View {
-        HStack(spacing: 9) {
+        let reduced = reduceMotion
+        return HStack(spacing: 9) {
             Group {
                 if refreshing && !reduceMotion {
                     // 只有真实请求期间才存在动画时间线；静止不轮询、不持续装饰。
@@ -76,7 +77,7 @@ private struct PullBearIndicator: View {
                     BearMoodMark(mood: settled ? (succeeded ? .calm : .watchful) : .asleep)
                         .scaleEffect(reduceMotion ? 1 : 0.65 + progress * 0.35)
                         .keyframeAnimator(initialValue: 0.0, trigger: completion) { content, tilt in
-                            content.rotationEffect(.degrees(reduceMotion ? 0 : tilt))
+                            content.rotationEffect(.degrees(reduced ? 0 : tilt))
                         } keyframes: { _ in
                             CubicKeyframe(10, duration: 0.12)
                             SpringKeyframe(0, duration: 0.25)

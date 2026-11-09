@@ -47,7 +47,7 @@ public struct AIUsageHome: View {
     @Namespace private var navigationNamespace
     @Environment(\.colorScheme) private var scheme
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.bearReduceMotion) private var reduceMotion
     public init(model: AIUsageModel, navigation: AIUsageNavigation, relay: RelayModel? = nil) {
         self.model = model; self.navigation = navigation; self.relay = relay
     }
@@ -200,7 +200,7 @@ struct ProviderDetail: View {
     @State private var failureHaptic = 0
     @Environment(\.colorScheme) private var scheme
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.bearReduceMotion) private var reduceMotion
     private var presentation: ProviderDashboardPresentation {
         ProviderDashboardPresentation(provider: provider, state: model.states[provider], at: Date())
     }

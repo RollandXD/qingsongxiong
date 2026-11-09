@@ -9,11 +9,11 @@ import BackgroundTasks
 enum UsageBackgroundRefresh {
     static let identifier = "io.github.rollandxd.qingsongxiong.refresh"
     static private(set) var lastScheduleSucceeded: Bool?
-    static func schedule() {
+    static func schedule() async {
         #if os(iOS) && !targetEnvironment(simulator)
         let request = BGAppRefreshTaskRequest(identifier: identifier)
         request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
-        do { try BGTaskScheduler.shared.submit(request); lastScheduleSucceeded = true }
+        do { try await BGTaskScheduler.shared.submitTaskRequest(request); lastScheduleSucceeded = true }
         catch { lastScheduleSucceeded = false }
         #endif
     }

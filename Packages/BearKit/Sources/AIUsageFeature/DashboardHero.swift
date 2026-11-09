@@ -16,7 +16,7 @@ struct DashboardHero: View {
     let entered: Bool
     @ScaledMetric(relativeTo: .largeTitle) private var heroSize = 64
     @Environment(\.colorScheme) private var scheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.bearReduceMotion) private var reduceMotion
 
     private var lanes: [BearOrbit.Lane] {
         overview.providers.filter { !$0.windows.isEmpty || $0.state?.connection != .connected }

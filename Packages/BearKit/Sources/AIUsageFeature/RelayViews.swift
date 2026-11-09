@@ -36,7 +36,7 @@ struct RelayHomeSection: View {
 struct RelayBalanceCard: View {
     let state: RelayState
     @Environment(\.colorScheme) private var scheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.bearReduceMotion) private var reduceMotion
     private var presentation: RelayPresentation { RelayPresentation(state: state, at: Date()) }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -100,7 +100,7 @@ struct RelayDetail: View {
     @State private var failure = 0
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var scheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.bearReduceMotion) private var reduceMotion
     private var state: RelayState? { model.states.first { $0.id == id } }
     var body: some View {
         ScrollView {
