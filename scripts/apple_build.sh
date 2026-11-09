@@ -25,6 +25,8 @@ simulator() {
 ui_tests() {
   if [[ ! -s output/simulator-id.txt ]]; then simulator; fi
   local simulator_id result=0 recorder_pid
+  local -a selection=()
+  if [[ -n "${BEAR_UI_TEST:-}" ]]; then selection=("-only-testing:QingSongXiongUITests/${BEAR_UI_TEST}"); fi
   simulator_id="$(cat output/simulator-id.txt)"
   xcodebuild build-for-testing -project QingSongXiong.xcodeproj -scheme QingSongXiong \
     -configuration Debug -destination "platform=iOS Simulator,id=$simulator_id" \
@@ -39,7 +41,7 @@ ui_tests() {
   recorder_pid=$!
   xcodebuild test-without-building -project QingSongXiong.xcodeproj -scheme QingSongXiong \
   -configuration Debug -destination "platform=iOS Simulator,id=$simulator_id" \
-  -parallel-testing-enabled NO \
+  -parallel-testing-enabled NO "${selection[@]}" \
   -derivedDataPath output/DerivedData -resultBundlePath output/UITests.xcresult \
     CODE_SIGNING_ALLOWED=NO 2>&1 | tee output/ui-tests.log || result=$?
   kill -INT "$recorder_pid" 2>/dev/null || true

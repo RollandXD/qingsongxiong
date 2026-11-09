@@ -235,7 +235,7 @@ public struct BearLiftPressStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
-            .brightness(configuration.isPressed ? -0.015 : 0)
+            .overlay { Color.primary.opacity(configuration.isPressed ? 0.025 : 0).allowsHitTesting(false) }
             .animation(reduceMotion ? BearMotion.quiet : BearMotion.press, value: configuration.isPressed)
     }
 }

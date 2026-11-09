@@ -6,6 +6,11 @@ on:
   pull_request:
     paths-ignore: ['**/*.md', 'docs/**', LICENSE, NOTICE]
   workflow_dispatch:
+    inputs:
+      ui_tests:
+        description: '可选：单个 UI 测试标识（留空运行全部）'
+        type: string
+        default: ''
 permissions:
   contents: read
 concurrency:
@@ -42,6 +47,8 @@ jobs:
             output/build-status.json
       - name: 原生 UI 测试与截图
         timeout-minutes: 25
+        env:
+          BEAR_UI_TEST: ${{ inputs.ui_tests }}
         run: bash scripts/apple_build.sh ui
       - name: 导出原生截图
         if: always()
