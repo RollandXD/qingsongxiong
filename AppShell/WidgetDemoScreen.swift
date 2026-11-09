@@ -47,7 +47,8 @@ struct WidgetDemoScreen: View {
             Text(title).font(.caption).foregroundStyle(BearTheme.secondaryText(scheme))
             WidgetMetricContent(states: provider.map { id in states.filter { $0.provider == id } } ?? states,
                                 provider: provider, date: Date(), family: family, relays: provider == nil ? relays : [])
-                .padding(16).frame(width: width, height: height)
+                .padding(family == .accessoryCircular || family == .accessoryRectangular || family == .accessoryInline ? 0 : 16)
+                .frame(width: width, height: height)
                 .background(BearTheme.surface(scheme), in: RoundedRectangle(cornerRadius: 24))
                 .accessibilityIdentifier("widget-demo-" + (provider?.rawValue ?? "overview") + "-" + String(describing: family))
         }
