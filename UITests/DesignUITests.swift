@@ -37,10 +37,7 @@ final class DesignUITests: XCTestCase {
             let app = launch(appearance)
             XCTAssertTrue(app.otherElements["dashboard-hero"].exists || app.staticTexts["dashboard-hero"].exists)
             attach(app, "dashboard-" + appearance)
-            try app.performAccessibilityAudit(for: [.sufficientElementDescription, .trait, .textClipped, .contrast]) { issue in
-                print("BEAR_AUDIT \(appearance) \(issue.compactDescription) element=\(issue.element?.label ?? "nil")")
-                return false
-            }
+            try auditRenderedAccessibility(app, test: self)
             app.swipeUp()
             XCTAssertTrue(app.buttons["provider-deepseek"].isHittable, "首页下半部可滚动抵达余额卡")
             attach(app, "dashboard-balance-" + appearance)
@@ -59,10 +56,7 @@ final class DesignUITests: XCTestCase {
                 let name = provider == "codex" ? "Codex" : provider == "claude" ? "Claude" : "DeepSeek"
                 XCTAssertTrue(app.navigationBars[name].waitForExistence(timeout: 5))
                 attach(app, "detail-" + provider + "-" + appearance)
-                try app.performAccessibilityAudit(for: [.sufficientElementDescription, .trait, .textClipped, .contrast]) { issue in
-                    print("BEAR_AUDIT \(provider) \(appearance) \(issue.compactDescription) element=\(issue.element?.label ?? "nil")")
-                    return false
-                }
+                try auditRenderedAccessibility(app, test: self)
                 app.swipeUp()
                 attach(app, "detail-bottom-" + provider + "-" + appearance)
                 if provider != "deepseek" { XCTAssertTrue(app.staticTexts["接下来的重置"].exists) }

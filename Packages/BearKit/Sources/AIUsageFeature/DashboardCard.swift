@@ -57,7 +57,7 @@ struct DashboardMetric: View {
                     .lineLimit(2)
             } else {
                 Text("—").font(.system(size: metricSize, weight: .semibold, design: .rounded))
-                    .accessibilityLabel("暂无额度读数")
+                    .accessibilityHidden(true) // 下方状态文字已经说明未连接；破折号只是装饰。
                 Text(presentation.status).font(.subheadline).foregroundStyle(BearTheme.secondaryText(scheme))
             }
         }.foregroundStyle(BearTheme.text(scheme)).frame(maxWidth: .infinity, alignment: .leading)

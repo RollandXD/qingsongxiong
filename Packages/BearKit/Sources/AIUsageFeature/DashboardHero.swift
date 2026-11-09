@@ -47,7 +47,7 @@ struct DashboardHero: View {
                         .foregroundStyle(BearTheme.text(scheme))
                 } else {
                     Text("—").font(.system(size: heroSize, weight: .bold, design: .rounded))
-                        .foregroundStyle(BearTheme.secondaryText(scheme))
+                        .foregroundStyle(BearTheme.secondaryText(scheme)).accessibilityHidden(true)
                 }
                 Text(overview.summary(at: Date()))
                     .font(.footnote.weight(.medium)).foregroundStyle(BearTheme.secondaryText(scheme))

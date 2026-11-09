@@ -51,7 +51,7 @@ final class BootstrapUITests: XCTestCase {
             app.launchArguments = ["--ui-testing", "-bear.appearance", appearance]
             app.launch()
             XCTAssertTrue(app.buttons["provider-codex"].waitForExistence(timeout: 10))
-            try app.performAccessibilityAudit(for: [.sufficientElementDescription, .trait, .textClipped, .contrast])
+            try auditRenderedAccessibility(app, test: self)
             attach(app, name: "accessibility-audit-" + appearance)
             app.terminate()
         }
