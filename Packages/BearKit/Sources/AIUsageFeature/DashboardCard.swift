@@ -214,7 +214,8 @@ struct DashboardProviderCard: View {
                         HStack(spacing: 5) {
                             Text(expanded ? "收起" : provider == .deepseek ? "组成" : "窗口")
                             Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.caption2.weight(.bold))
-                        }.font(.caption.weight(.semibold)).padding(.horizontal, 3)
+                        }.font(.caption.weight(.semibold))
+                            .foregroundStyle(BearTheme.text(scheme)).padding(.horizontal, 3)
                     }
                     .buttonStyle(.glass)
                     .accessibilityIdentifier("expand-" + provider.rawValue)

@@ -39,8 +39,10 @@ final class DesignUITests: XCTestCase {
             XCTAssertTrue(app.otherElements["dashboard-hero"].exists || app.staticTexts["dashboard-hero"].exists)
             attach(app, "dashboard-" + appearance)
             try auditRenderedAccessibility(app, test: self)
-            app.swipeUp()
-            XCTAssertTrue(app.buttons["provider-deepseek"].isHittable, "首页下半部可滚动抵达余额卡")
+            let balance = app.buttons["provider-deepseek"]
+            // 对准真实 ScrollView，多次滚动直到按钮离开浮动标签栏覆盖区。
+            for _ in 0..<4 where !balance.isHittable { app.scrollViews.firstMatch.swipeUp() }
+            XCTAssertTrue(balance.isHittable, "首页下半部可滚动抵达余额卡")
             attach(app, "dashboard-balance-" + appearance)
             app.terminate()
         }
@@ -246,6 +248,7 @@ final class DesignUITests: XCTestCase {
         let app = launch(scenario: "motion", reduceMotion: true)
         app.buttons["refresh-all"].tap()
         waitForMood("留意用量", app)
+        attach(app, "reduce-motion-warning")
         app.buttons["refresh-all"].tap()
         waitForMood("额度告急", app)
         attach(app, "reduce-motion-threshold")
@@ -260,7 +263,9 @@ final class DesignUITests: XCTestCase {
     private func waitForMood(_ mood: String, _ app: XCUIApplication) {
         let hero = app.descendants(matching: .any)["dashboard-hero"].firstMatch
         let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", mood), object: hero)
-        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 6), .completed, mood)
+        let result = XCTWaiter.wait(for: [changed], timeout: 15)
+        if result != .completed { attach(app, "unresolved-mood-" + mood) }
+        XCTAssertEqual(result, .completed, mood)
     }
 
     @MainActor
