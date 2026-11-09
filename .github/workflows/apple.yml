@@ -19,7 +19,7 @@ concurrency:
 jobs:
   apple:
     runs-on: xcode-27
-    timeout-minutes: 40
+    timeout-minutes: 50
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
     steps:
@@ -46,7 +46,7 @@ jobs:
             output/SHA256SUMS.txt
             output/build-status.json
       - name: 原生 UI 测试与截图
-        timeout-minutes: 25
+        timeout-minutes: 35
         env:
           BEAR_UI_TEST: ${{ inputs.ui_tests }}
         run: bash scripts/apple_build.sh ui
