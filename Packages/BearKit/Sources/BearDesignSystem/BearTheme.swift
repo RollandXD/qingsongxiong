@@ -8,7 +8,7 @@ public enum BearTheme {
     public static func background(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0x141615 : 0xF7F6F2) }
     public static func surface(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0x202320 : 0xFFFFFF) }
     public static func text(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xF4F3EF : 0x252823) }
-    public static func secondaryText(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xABB1A7 : 0x61665F) }
+    public static func secondaryText(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xABB1A7 : 0x4D534D) }
     public static func accent(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xD8AA8C : 0x9F6042) }
     public static func track(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0x353A35 : 0xE9EBE5) }
     public static func warning(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xE4BC68 : 0x956100) }

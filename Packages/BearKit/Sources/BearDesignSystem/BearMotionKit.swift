@@ -184,7 +184,7 @@ private struct BearFace: View {
                     }.foregroundStyle(ink).offset(y: -side * 0.025)
                         .background(Ellipse().fill(BearTheme.caramel).frame(width: side * 0.5, height: side * 0.09).offset(y: -side * 0.025))
                     Text("z").font(.system(size: side * 0.2, weight: .bold, design: .rounded))
-                        .foregroundStyle(BearTheme.caramel.opacity(0.8)).offset(x: side * 0.45, y: -side * 0.42)
+                        .foregroundStyle(BearTheme.caramel).offset(x: side * 0.45, y: -side * 0.42)
                     case .urgent:
                     Circle().fill(Color(red: 0.55, green: 0.75, blue: 0.95)).frame(width: side * 0.08, height: side * 0.11)
                         .offset(x: side * 0.33, y: -side * 0.05)
@@ -210,9 +210,10 @@ public struct BearGlassCard: ViewModifier {
                     colors: BearTheme.meshStops(tint: tint, scheme))
                     .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             }
+                // 材质仅作用于背景，不让系统 vibrancy 降低正文的实际对比度。
+                .glassEffect(.regular.tint(tint.opacity(scheme == .dark ? 0.08 : 0.04)),
+                    in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
-            .glassEffect(.regular.tint(tint.opacity(scheme == .dark ? 0.08 : 0.04)),
-            in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .strokeBorder(BearTheme.text(scheme).opacity(scheme == .dark ? 0.08 : 0.05), lineWidth: 0.5)

@@ -39,7 +39,8 @@ struct WindowResetTimeline: View {
                         }.padding(.bottom, index == presentation.resetTimeline.count - 1 ? 0 : 20)
                     }.accessibilityElement(children: .combine)
                 }
-            }.padding(18).bearGlassCard(tint: series, cornerRadius: 22)
+            }.frame(maxWidth: .infinity, alignment: .leading)
+                .padding(18).bearGlassCard(tint: series, cornerRadius: 22)
         }.foregroundStyle(BearTheme.text(scheme)).accessibilityIdentifier("reset-timeline")
     }
 }
