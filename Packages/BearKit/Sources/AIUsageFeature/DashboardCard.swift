@@ -116,7 +116,15 @@ struct UsageWindowRow: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("已用 " + ProviderPresentation.percent(window.window.usedPercent))
                 Spacer(minLength: 4)
-                Text(resetLabel).multilineTextAlignment(.trailing)
+                if let reset = window.window.resetsAt, reset > Date() {
+                    HStack(spacing: 3) {
+                        Text("重置倒计时")
+                        Text(timerInterval: Date()...reset, countsDown: true)
+                            .monospacedDigit().multilineTextAlignment(.trailing).frame(maxWidth: 110)
+                    }
+                } else {
+                    Text(resetLabel).multilineTextAlignment(.trailing)
+                }
             }.font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme))
         }
         .foregroundStyle(BearTheme.text(scheme))
@@ -141,8 +149,18 @@ struct BalanceBreakdown: View {
                 BearCompositionBar(fractions: parts.map(\.fraction), color: color)
                     .modifier(MeterGeometry(id: "balance." + balance.id, namespace: namespace))
             }
-            LabeledContent("赠送余额", value: balance.balance.granted.map { ProviderPresentation.money($0, currency: balance.balance.currency) } ?? "未提供")
-            LabeledContent("充值余额", value: balance.balance.toppedUp.map { ProviderPresentation.money($0, currency: balance.balance.currency) } ?? "未提供")
+            LabeledContent {
+                Text(balance.balance.granted.map { ProviderPresentation.money($0, currency: balance.balance.currency) } ?? "未提供")
+            } label: {
+                Label { Text("赠送余额") } icon: { Circle().fill(color).frame(width: 8, height: 8) }
+            }
+            LabeledContent {
+                Text(balance.balance.toppedUp.map { ProviderPresentation.money($0, currency: balance.balance.currency) } ?? "未提供")
+            } label: {
+                Label { Text("充值余额") } icon: {
+                    Circle().fill(color.opacity(scheme == .dark ? 0.45 : 0.25)).frame(width: 8, height: 8)
+                }
+            }
             if balance.parts == nil {
                 Text(balance.balance.total == 0 ? "余额为零" : "当前数据不适合绘制组成比例")
                     .font(.caption).foregroundStyle(BearTheme.secondaryText(scheme))

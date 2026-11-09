@@ -78,6 +78,13 @@ public struct ProviderDashboardPresentation: Equatable, Sendable {
             $0.element.remaining == $1.element.remaining ? $0.offset < $1.offset : $0.element.remaining < $1.element.remaining
         }?.element
     }
+    /// 已知重置时间升序；未知时间不伪造刻度，在各窗口原位说明。
+    public var resetTimeline: [UsageWindowPresentation] {
+        windows.filter { $0.window.resetsAt != nil }.sorted {
+            if $0.window.resetsAt == $1.window.resetsAt { return $0.id < $1.id }
+            return $0.window.resetsAt! < $1.window.resetsAt!
+        }
+    }
     public var compactWindows: [UsageWindowPresentation] {
         Array((generalWindows.isEmpty ? windows : generalWindows).prefix(2))
     }

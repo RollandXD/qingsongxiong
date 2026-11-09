@@ -55,12 +55,21 @@ struct DashboardHero: View {
             }
                 .frame(maxWidth: .infinity, alignment: .leading)
             if !lanes.isEmpty {
-                BearOrbit(lanes: lanes, lineWidth: 9, gap: 4)
-                    .frame(width: 118, height: 118)
-                    .animation(reduceMotion ? BearMotion.quiet : BearMotion.entrance, value: lanes)
+                VStack(spacing: 10) {
+                    BearOrbit(lanes: lanes, lineWidth: 9, gap: 4)
+                        .frame(width: 104, height: 104)
+                        .animation(reduceMotion ? BearMotion.quiet : BearMotion.entrance, value: lanes)
+                    ForEach(lanes) { lane in
+                        HStack(spacing: 5) {
+                            Circle().fill(lane.color).frame(width: 5, height: 5)
+                            Text(lane.id == ProviderID.codex.rawValue ? "Codex" : "Claude")
+                                .foregroundStyle(BearTheme.secondaryText(scheme))
+                        }.font(.caption2)
+                    }
+                }.accessibilityHidden(true)
             }
-        }
-            .padding(22)
+        }.frame(maxWidth: .infinity, alignment: .leading)
+            .padding(20)
             .bearGlassCard(tint: BearTheme.accent(scheme), cornerRadius: 30)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(overview.moodLabel + "，" + overview.summary(at: Date()))

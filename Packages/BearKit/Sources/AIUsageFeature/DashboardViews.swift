@@ -174,6 +174,9 @@ struct ProviderDetail: View {
                         .font(.subheadline).foregroundStyle(BearTheme.warning(scheme))
                 }
                 if !presentation.windows.isEmpty { windows }
+                if !presentation.resetTimeline.isEmpty {
+                    WindowResetTimeline(presentation: presentation)
+                }
                 if !presentation.balances.isEmpty { balances }
                 if (presentation.state?.snapshot == nil && presentation.state?.connection != .connected) || presentation.state?.connection == .reconnectRequired { connection }
                 if let snapshot = presentation.state?.snapshot {
@@ -188,9 +191,9 @@ struct ProviderDetail: View {
                     .font(.footnote).foregroundStyle(BearTheme.secondaryText(scheme))
             }.padding(20)
         }
-                                                                .scrollEdgeEffectStyle(.soft, for: .top)
-                                                                .background(BearTheme.paper(scheme).ignoresSafeArea())
-                                                                .foregroundStyle(BearTheme.text(scheme))
+        .scrollEdgeEffectStyle(.soft, for: .top)
+        .background(BearTheme.paper(scheme).ignoresSafeArea())
+        .foregroundStyle(BearTheme.text(scheme))
         .navigationTitle(ProviderPresentation.name(provider))
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -233,10 +236,11 @@ struct ProviderDetail: View {
             HStack(spacing: 24) {
                 DashboardMetric(presentation: presentation, focused: nil, large: true)
                 if let window = presentation.summaryWindow {
-      BearRing(fraction: window.fraction,
-        color: BearTheme.quotaColor(window.remaining, series: ProviderPresentation.paletteIndex(provider), scheme: scheme),
- stale: presentation.isStale, lineWidth: 11).frame(width: 112, height: 112)
-   .accessibilityHidden(true)
+                    BearRing(fraction: window.fraction,
+                             color: BearTheme.quotaColor(window.remaining, series: ProviderPresentation.paletteIndex(provider), scheme: scheme),
+                             stale: presentation.isStale, lineWidth: 11)
+                        .frame(width: 112, height: 112)
+                        .accessibilityHidden(true)
                 }
             }
             if let window = presentation.summaryWindow {

@@ -32,8 +32,11 @@ final class BootstrapUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", "-bear.appearance", "light"]
         app.launch()
-        XCTAssertTrue(app.buttons["provider-deepseek"].waitForExistence(timeout: 10))
-        app.buttons["provider-deepseek"].tap()
+        let provider = app.buttons["provider-deepseek"]
+        XCTAssertTrue(provider.waitForExistence(timeout: 10))
+        for _ in 0..<4 where !provider.isHittable { app.swipeUp() }
+        XCTAssertTrue(provider.isHittable)
+        provider.tap()
         app.buttons["connect-deepseek"].tap()
         XCTAssertTrue(app.secureTextFields["deepseek-api-key"].waitForExistence(timeout: 5))
         attach(app, name: "deepseek-secure-entry-empty")

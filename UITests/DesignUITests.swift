@@ -18,10 +18,31 @@ final class DesignUITests: XCTestCase {
     func testConnectedOverviewLightAndDark() throws {
         for appearance in ["light", "dark"] {
             let app = launch(appearance)
-            XCTAssertTrue(app.buttons["provider-deepseek"].isHittable, "常规字号下三家的主要指标应同屏")
+            XCTAssertTrue(app.otherElements["dashboard-hero"].exists || app.staticTexts["dashboard-hero"].exists)
             attach(app, "dashboard-" + appearance)
             try app.performAccessibilityAudit(for: [.sufficientElementDescription, .trait, .textClipped, .contrast])
+            app.swipeUp()
+            XCTAssertTrue(app.buttons["provider-deepseek"].isHittable, "首页下半部可滚动抵达余额卡")
+            attach(app, "dashboard-balance-" + appearance)
             app.terminate()
+        }
+    }
+
+    @MainActor
+    func testProviderDetailsLightAndDark() throws {
+        for appearance in ["light", "dark"] {
+            for provider in ["codex", "claude", "deepseek"] {
+                let app = launch(appearance)
+                tap("provider-" + provider, app)
+                let name = provider == "codex" ? "Codex" : provider == "claude" ? "Claude" : "DeepSeek"
+                XCTAssertTrue(app.navigationBars[name].waitForExistence(timeout: 5))
+                attach(app, "detail-" + provider + "-" + appearance)
+                try app.performAccessibilityAudit(for: [.sufficientElementDescription, .trait, .textClipped, .contrast])
+                app.swipeUp()
+                attach(app, "detail-bottom-" + provider + "-" + appearance)
+                if provider != "deepseek" { XCTAssertTrue(app.staticTexts["接下来的重置"].exists) }
+                app.terminate()
+            }
         }
     }
 
