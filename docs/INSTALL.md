@@ -2,6 +2,16 @@
 
 目标设备：iOS 27.0.1 iPhone，日常使用 Shadowrocket。
 
+## 日常覆盖更新
+
+已安装轻松熊时，以 [README 的当前版本入口](../README.md) 和 [交付状态](STATUS.md) 为准；**不要重新安装下方历史 `verification.2` 或 `preview.2` 包**。这些章节只保留首次签名、共享能力和故障处理依据。
+
+1. 下载当前发布版 `QingSongXiong-needs-signing.ipa`，用原 SideStore 账号覆盖安装，保留 Widget 扩展及共享权限；不要先卸载旧版。
+2. 更新后先确认原账户、读数与组件选择仍在，再添加中转账户。中转 Key 仅输入手机安全字段，不发到聊天或 CI。
+3. 新版主屏交互刷新和三种锁屏组件可按需添加；15 分钟时间线和 BGAppRefresh 都是系统调度申请，不是精确周期保证。
+4. 真机读数、覆盖安装、系统着色、后台频率和 120Hz 手感分别核实；模拟器通过不替代新版本的真机结果。后台效果观察 1–2 天即可，不要求额外手动测试无障碍模式。
+5. 若出现安装或共享权限错误，保留错误文本并停止；不要删数据、撤销证书或移除扩展来凑成功。已实机验收的 `v0.2.0-preview.1` 是恢复参考，恢复也用同账号覆盖。
+
 ## 1. 首次准备
 
 按 [SideStore 官方前置条件](https://docs.sidestore.io/docs/installation/prerequisites) 与 [官方安装流程](https://docs.sidestore.io/docs/installation/install) 使用 Linux 版 iloader 的 **Install SideStore (Stable)** 入口。不要把 GitHub 的 latest 标签自动等同于稳定频道。

@@ -2,17 +2,17 @@
 
 温暖、精致的 Apple 个人工具箱。AI 额度监控是第一个功能模块，支持 Codex、Claude 订阅额度与 DeepSeek API 余额。
 
-**当前开发分支 `codex/ios-polish-relay`：0.3.0/7 验证候选，尚未发布。** 新版加入温润纸感与玻璃层次、一次性状态动效、APIKEY.FAN 独立中转账户、锁屏组件与交互刷新。Apple 编译、完整原生回归和截图/影片仍需逐项验收，不能把代码候选当成已完成交付。
+**当前发布：v0.3.0-preview.1（0.3.0/7）**，来源分支 `codex/ios-polish-relay`。新版加入温润纸感与玻璃层次、一次性状态动效、APIKEY.FAN 独立中转账户、锁屏组件与交互刷新。完整 Apple 流水线通过：87 项 Swift 包测试、19 项原生 UI 测试、Release 与待重签 IPA 校验，合成数据浅深色截图及动效已人工检查。**本版真机覆盖安装与真实中转余额仍待验证**。
 
-上个稳定设计预览 **v0.2.0-preview.1（0.2.0/6）** 已发布。iPhone 16 Pro / iOS 27.0 原生回归、63 项包测试、14 项 UI 测试与安装包校验全部通过。iPhone 16 Pro 真机覆盖更新、账户/读数、两类组件与日常交互也已通过用户确认。
+[下载与扫码入口](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.3.0-preview.1) · [直接下载 IPA](https://github.com/RollandXD/qingsongxiong/releases/download/v0.3.0-preview.1/QingSongXiong-needs-signing.ipa) · [原速影片](https://github.com/RollandXD/qingsongxiong/releases/download/v0.3.0-preview.1/iphone16pro-native-motion-1x.mp4) · [浅深色截图](https://github.com/RollandXD/qingsongxiong/releases/download/v0.3.0-preview.1/iphone16pro-light-dark.png)。媒体均为合成数据；Widget 图片是共享原生布局预览，不是系统宿主实拍。
 
-[下载设计预览与扫码入口](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.2.0-preview.1) · [原速动效影片](https://github.com/RollandXD/qingsongxiong/releases/download/v0.2.0-preview.1/iphone16pro-native-motion-1x.mp4) · [浅深色截图](https://github.com/RollandXD/qingsongxiong/releases/download/v0.2.0-preview.1/iphone16pro-light-dark.png)。演示媒体均为合成数据。
+上一已实机验收版本 [v0.2.0-preview.1（0.2.0/6）](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.2.0-preview.1) 保留为恢复参考；其 iPhone 16 Pro 覆盖更新、账户/读数、两类组件与日常交互已由用户确认，不将历史真机结果套用于本版。
 
 使用同一 SideStore 账号覆盖安装并保留全部 Widget 扩展。Codex、Claude 在官方页面授权；DeepSeek 只在手机安全字段输入 API Key。凭据不进入聊天或 CI。
 
 此前 preview.3 已实机通过三家取数、账户与读数保留、两类组件及日常功能。每日续签自动化完整流程已试跑成功；真实定时触发、锁屏及跨七天观察仍 UNKNOWN。
 
-## 0.3.0 验证候选的刷新与中转
+## 0.3.0 的刷新与中转
 
 - 前台每 5 分钟检查；主 App 仅在读数、可用性、账户或失败状态变化时定向通知两类组件，时间戳变化不触发额外 reload。
 - 组件申请 15 分钟时间线；倒计时由系统文字自行更新。主屏刷新按钮主动取数，受限 Reader 不续期 token、不写共享快照。订阅 token 过期仍需打开 App。
