@@ -45,7 +45,8 @@ def export(directory: Path) -> None:
     if not shutil.which("ffmpeg"):
         raise SystemExit("动效影片需要 ffmpeg；未导出原速/慢放影片。")
     subprocess.run(["ffmpeg", "-version"], check=True, stdout=subprocess.DEVNULL)
-    common = ["-an", "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
+    # simctl 是变帧率录像：既保留 PTS，也使用原始时间基，不能按静止段猜成 4 秒精度。
+    common = ["-an", "-fps_mode", "vfr", "-enc_time_base", "demux", "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
     normal = directory / "motion-tour-1x.mp4"
     slow = directory / "motion-tour-025x.mp4"
     subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-ss", str(bounds[0]), "-i", str(source),
@@ -53,7 +54,7 @@ def export(directory: Path) -> None:
     subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(normal),
                     "-vf", "setpts=4*(PTS-STARTPTS)", *common, str(slow)], check=True)
     (directory / "motion-tour.json").write_text(json.dumps({"data": "synthetic", "offset": bounds[0],
-        "duration": bounds[1], "recordingCreationTime": created, "speeds": [1, 0.25], "files": [normal.name, slow.name]}, indent=2) + "\n")
+        "duration": bounds[1], "recordingCreationTime": created, "frameTiming": "variable-preserved", "speeds": [1, 0.25], "files": [normal.name, slow.name]}, indent=2) + "\n")
     print("已导出合成动效巡览：1× 与 0.25×，未变更原始录像。")
 
 
