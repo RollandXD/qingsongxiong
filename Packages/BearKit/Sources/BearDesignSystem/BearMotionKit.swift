@@ -170,6 +170,7 @@ public struct BearMoodMark: View {
 
 private struct BearFace: View {
     let mood: BearMood
+    @Environment(\.colorScheme) private var scheme
     var body: some View {
         GeometryReader { geo in
             let side = min(geo.size.width, geo.size.height)
@@ -184,7 +185,7 @@ private struct BearFace: View {
                     }.foregroundStyle(ink).offset(y: -side * 0.025)
                         .background(Ellipse().fill(BearTheme.caramel).frame(width: side * 0.5, height: side * 0.09).offset(y: -side * 0.025))
                     Text("z").font(.system(size: side * 0.2, weight: .bold, design: .rounded))
-                        .foregroundStyle(BearTheme.caramel).offset(x: side * 0.45, y: -side * 0.42)
+                        .foregroundStyle(BearTheme.secondaryText(scheme)).offset(x: side * 0.45, y: -side * 0.42)
                     case .urgent:
                     Circle().fill(Color(red: 0.55, green: 0.75, blue: 0.95)).frame(width: side * 0.08, height: side * 0.11)
                         .offset(x: side * 0.33, y: -side * 0.05)
