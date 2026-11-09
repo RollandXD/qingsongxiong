@@ -44,6 +44,16 @@ Debug 构建带 `--counter-proof` 启动参数时注册本地计数工具；UI �
 
 Keychain 共享组的团队前缀优先从本 App 的安装描述文件解析，必要时查询系统默认访问组，不硬编码作者的 Team ID。App Group 先尝试描述文件中匹配本项目命名空间的组，再兼容签名工具的 `ALTAppGroups` 元数据与原始组名；只使用系统授予的容器。描述文件中的账号和设备列表不进入诊断或日志。
 
+## 刷新协调与中转（0.3.0 候选）
+
+- `AIUsageFeature/WidgetReloadPolicy.swift` 对平台按 windows、balances、availability、connection、failure 和 sessionID 生成语义签名；仅刷新时间变化不通知 Widget。`RelayModel` 同样比较账户、余额、可用性和失败，不因普通轮询反复 reload。组合根仅定向刷新 `QingSongXiong.Overview` / `QingSongXiong.Provider`，不使用 `reloadAllTimelines`。
+- App 的 `Scene.backgroundTask(.appRefresh(...))` 在启动阶段注册后台处理，SwiftUI 将系统到期映射为 Task cancellation；仓储取消底层请求并拒绝迟到写回。进入后台和每次任务开始时申请下一次，`earliestBeginDate` 为 15 分钟而非实际执行承诺。iOS 27 使用 `submitTaskRequest(_:)` 捕获完整提交错误。
+- 中转保留在既有 AI 额度领域内，不扩展三家的 `ProviderID`。`RelayAccount` 的 UUID 为稳定账户 ID，sessionID 是每次凭据替换的新代次；手机先请求验证，再提交新凭据槽和账户目录，失败不替换旧账户。
+- 共享 `relay-states.json` 含 schemaVersion、账户和快照，不含 Key。Key 存独立 Keychain service `io.github.rollandxd.qingsongxiong.ai-usage.relay`。退役与待提交凭据槽有持久化恢复目录：先记目录再写 Key，最终提交才激活；提交和回滚同时失败仍可由隐私清除重试，不能遗失新槽。
+- `RelayBalanceAdapter` 固定 APIKEY.FAN origin 与两个白名单端点；生产客户端禁用重定向，解析 Decimal 和显式可用状态，401/403 要求换 Key，429 复用 Retry-After。错误不展示服务器原文。
+- `WidgetRelayReader` 与 `WidgetUsageReader` 只拿只读存储协议：可网络取数和维护进程内缓存，但不能续期或写共享快照；返回前再次确认账户代次。AppEntity 只暴露账户 ID 与名称，不暴露密钥。
+- `BearDesignSystem/EnvironmentValues.bearReduceMotion` 合并系统只读辅助功能与可写测试覆盖值；测试只能加强减弱动效，不能关闭用户启用的系统偏好。关键帧使用值捕获，不在 Sendable 闭包中读取 MainActor 隔离属性。
+
 ## 演进
 
 首版只声明 iPhone 支持。将来可共享领域与数据核心，分别设计 iPad、Mac 的界面与平台适配。只有已出现的跨功能能力进入共享层，不预建数据库、动态插件或账号后台。

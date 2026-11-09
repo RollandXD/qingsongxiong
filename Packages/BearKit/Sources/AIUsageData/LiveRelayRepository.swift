@@ -17,8 +17,8 @@ public actor LiveRelayRepository: RelayRepository {
     }
     public func states() async throws -> [RelayState] { try records() }
     private func records() throws -> [RelayState] { try store.load()?.states ?? [] }
-    private func persist(_ values: [RelayState], retiring: [RelayAccount] = []) throws {
-        let retired = (try store.load()?.retiredAccounts ?? []) + retiring
+    private func persist(_ values: [RelayState], retiring: [RelayAccount] = [], activating: RelayAccount? = nil) throws {
+        let retired = ((try store.load()?.retiredAccounts ?? []) + retiring).filter { $0 != activating }
         try store.save(RelayRecord(states: values, retiredAccounts: retired, updatedAt: clock.now()))
     }
     /// 旧槽清理是可恢复的；清理失败的槽仍有目录引用，不遗失在 Keychain 中。
@@ -54,12 +54,15 @@ public actor LiveRelayRepository: RelayRepository {
         var values = try records()
         guard id == nil || values.contains(where: { $0.account == previous?.account }) else { throw CancellationError() }
         guard values.count < 12 || previous != nil else { throw UsageFailure.unavailable }
-        try credentials.save(key, for: account)
+        // 先落恢复目录，再写新凭据：提交与回滚同时失败、甚至进程中断，也不会留下无目录的密钥。
+        try persist(values, retiring: [account])
         let state = RelayState(account: account, snapshot: snapshot, updatedAt: clock.now())
-        if let index = values.firstIndex(where: { $0.id == account.id }) { values[index] = state } else { values.append(state) }
-        do { try persist(values, retiring: previous.map { [$0.account] } ?? []) }
-        catch {
-            try credentials.remove(account)
+        do {
+            try credentials.save(key, for: account)
+            if let index = values.firstIndex(where: { $0.id == account.id }) { values[index] = state } else { values.append(state) }
+            try persist(values, retiring: previous.map { [$0.account] } ?? [], activating: account)
+        } catch {
+            try? cleanupRetired() // 清理失败保留恢复目录；旧账户不变，clear() 可再次处理。
             throw UsageFailure.unavailable
         }
         try? cleanupRetired() // 提交已成功；清理失败由持久化退役列表承接，clear() 强制重试。

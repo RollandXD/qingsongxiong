@@ -6,6 +6,7 @@ checks() {
   swift --version
   python3 scripts/check_architecture.py
   python3 scripts/check_repository.py
+  python3 -m unittest discover -s scripts -p 'test_*.py'
   swift test --package-path Packages/BearKit --parallel
 }
 

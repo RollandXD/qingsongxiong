@@ -128,6 +128,12 @@ final class DesignUITests: XCTestCase {
             attach(app, "widgets-single-" + appearance)
             app.swipeUp()
             attach(app, "widgets-balance-" + appearance)
+            for _ in 0..<3 where !app.staticTexts["锁屏 · 圆形"].isHittable { app.swipeUp() }
+            XCTAssertTrue(app.staticTexts["锁屏 · 圆形"].exists)
+            attach(app, "widgets-lockscreen-" + appearance)
+            for _ in 0..<3 where !app.staticTexts["中转 · 小号"].isHittable { app.swipeUp() }
+            XCTAssertTrue(app.staticTexts["中转 · 小号"].isHittable)
+            attach(app, "widgets-relay-" + appearance)
             app.terminate()
         }
     }
@@ -210,9 +216,10 @@ final class DesignUITests: XCTestCase {
         key.tap(); key.typeText("invalid-demo")
         app.buttons["relay-save"].tap()
         XCTAssertTrue(app.staticTexts["relay-error"].waitForExistence(timeout: 5))
-        attach(app, "relay-validation-failure")
         key.tap()
-        key.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 20) + "fixture-only")
+        key.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 20))
+        attach(app, "relay-validation-failure") // 安全字段清空后才保存截图。
+        key.typeText("fixture-only")
         app.buttons["relay-save"].tap()
         XCTAssertTrue(app.navigationBars["中转账户"].waitForExistence(timeout: 5))
         let created = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'relay-list-' AND label CONTAINS 'Demo Relay'")).firstMatch

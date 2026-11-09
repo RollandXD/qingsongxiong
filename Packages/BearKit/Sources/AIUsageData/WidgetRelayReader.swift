@@ -18,10 +18,15 @@ public actor WidgetRelayReader {
     public func state(_ id: UUID, refresh: Bool, force: Bool = false) async -> RelayState? {
         guard let disk = try? store.load()?.states.first(where: { $0.id == id }),
               let key = try? credentials.load(disk.account) else { memory[id] = nil; return nil }
-        let cached = memory[id].flatMap { $0.account.sessionID == disk.account.sessionID && ($0.snapshot?.fetchedAt ?? .distantPast) > (disk.snapshot?.fetchedAt ?? .distantPast) ? $0 : nil } ?? disk
+        let remembered = memory[id].flatMap { $0.account.sessionID == disk.account.sessionID ? $0 : nil }
+        let cached = remembered.flatMap { value -> RelayState? in
+            let localDate = value.snapshot?.fetchedAt ?? .distantPast
+            let diskDate = disk.snapshot?.fetchedAt ?? .distantPast
+            return localDate > diskDate || (localDate == diskDate && value.updatedAt >= disk.updatedAt) ? value : nil
+        } ?? disk
         guard refresh else { return cached }
         if disk.failure == .reconnectRequired { return disk }
-        let retryAt = [disk, cached].compactMap { state -> Date? in
+        let retryAt = ([disk, cached] + (remembered.map { [$0] } ?? [])).compactMap { state -> Date? in
             guard case .rateLimited(let date) = state.failure, let date, date > clock.now() else { return nil }; return date
         }.max()
         if let retryAt { return RelayState(account: disk.account, snapshot: cached.snapshot, failure: .rateLimited(retryAt: retryAt), updatedAt: clock.now()) }

@@ -77,15 +77,31 @@ private final class RelayRecords: RelayRecordStoring, @unchecked Sendable {
     private let lock = NSLock()
     private var value: RelayRecord?
     var reject = false
+    var savesUntilRejection: Int?
     func load() throws -> RelayRecord? { lock.withLock { value } }
-    func save(_ record: RelayRecord) throws { try lock.withLock { if reject { throw UsageFailure.unavailable }; value = record } }
+    func save(_ record: RelayRecord) throws {
+        try lock.withLock {
+            if reject { throw UsageFailure.unavailable }
+            if let remaining = savesUntilRejection {
+                if remaining == 0 { savesUntilRejection = nil; throw UsageFailure.unavailable }
+                savesUntilRejection = remaining - 1
+            }
+            value = record
+        }
+    }
 }
 private final class RelayKeys: RelayCredentialStoring, @unchecked Sendable {
     private let lock = NSLock()
     private var values: [UUID: String] = [:]
+    var rejectRemoval = false
     func load(_ account: RelayAccount) throws -> String? { lock.withLock { values[account.sessionID] } }
     func save(_ key: String, for account: RelayAccount) throws { lock.withLock { values[account.sessionID] = key } }
-    func remove(_ account: RelayAccount) throws { lock.withLock { values[account.sessionID] = nil } }
+    func remove(_ account: RelayAccount) throws {
+        try lock.withLock {
+            if rejectRemoval { throw UsageFailure.unavailable }
+            values[account.sessionID] = nil
+        }
+    }
     var count: Int { lock.withLock { values.count } }
 }
 @Test func relayFailedReplacementKeepsOriginalAccountAndKeyAndDeleteClearsThem() async throws {
@@ -121,6 +137,26 @@ private final class RelayKeys: RelayCredentialStoring, @unchecked Sendable {
     #expect(keys.count == 1)
     #expect(try keys.load(old.account) == "old-fixture")
 }
+@Test func relayCommitAndRollbackFailureKeepsRecoverableCredentialJournal() async throws {
+    let records = RelayRecords(); let keys = RelayKeys()
+    let repository = LiveRelayRepository(store: records, credentials: keys, adapter: RelayBalanceAdapter(client: RelayClient()))
+    try await repository.save(id: nil, name: "原账户", endpoint: .balance, key: "old-fixture")
+    let old = try #require(try await repository.states().first)
+    records.savesUntilRejection = 1 // 恢复目录成功，最终提交失败。
+    keys.rejectRemoval = true // 连回滚也失败，不能遗失新凭据的目录。
+    await #expect(throws: UsageFailure.unavailable) {
+        try await repository.save(id: old.id, name: "未提交", endpoint: .balance, key: "new-fixture")
+    }
+    #expect(try await repository.states().first == old)
+    #expect(keys.count == 2)
+    #expect(try records.load()?.retiredAccounts?.count == 1)
+    keys.rejectRemoval = false
+    try await repository.clear()
+    #expect(keys.count == 0)
+    #expect(try await repository.states().isEmpty)
+    #expect(try records.load()?.retiredAccounts?.isEmpty ?? true)
+}
+
 @Test func relayWidgetReadsWithoutWritingAndHidesDeletedAccounts() async throws {
     let records = RelayRecords(); let keys = RelayKeys(); let client = RelayClient()
     let repository = LiveRelayRepository(store: records, credentials: keys, adapter: RelayBalanceAdapter(client: client))
@@ -133,4 +169,24 @@ private final class RelayKeys: RelayCredentialStoring, @unchecked Sendable {
     #expect(try records.load() == initial)
     try await repository.delete(state.id)
     #expect(await reader.state(state.id, refresh: false) == nil)
+}
+
+@Test func relayWidgetKeepsRateLimitEvenWhenSnapshotTimestampDoesNotChange() async throws {
+    let records = RelayRecords(); let keys = RelayKeys(); let client = RelayClient()
+    let adapter = RelayBalanceAdapter(client: client, clock: RelayClock())
+    let repository = LiveRelayRepository(store: records, credentials: keys, adapter: adapter, clock: RelayClock())
+    try await repository.save(id: nil, name: "限流合成账户", endpoint: .balance, key: "fixture-key")
+    let saved = try #require(try records.load())
+    let account = try #require(saved.states.first)
+    let reader = WidgetRelayReader(store: records, credentials: keys, adapter: adapter, clock: RelayClock())
+    await client.set(429)
+    let first = try #require(await reader.state(account.id, refresh: true, force: true))
+    #expect(first.snapshot == account.snapshot)
+    #expect(first.failure == .rateLimited(retryAt: RelayContractFixtures.date.addingTimeInterval(300)))
+    let count = await client.requests.count
+    let second = await reader.state(account.id, refresh: true, force: true)
+    #expect(second?.failure == first.failure)
+    #expect(await client.requests.count == count)
+    #expect(await reader.state(account.id, refresh: false)?.failure == first.failure)
+    #expect(try records.load() == saved)
 }
