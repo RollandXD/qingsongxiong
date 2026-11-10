@@ -11,7 +11,10 @@ func auditRenderedAccessibility(_ app: XCUIApplication, test: XCTestCase) throws
             print("BEAR_AUDIT_UNRESOLVED \(issue.compactDescription) \(issue.element?.label ?? "nil")")
             return false
         }
-        guard let image = app.screenshot().image.cgImage,
+        // 原生审计也可能返回 ScrollView 中尚未完整进入屏幕的页脚。
+        // 先把真实元素滚入视口，再采完整截图；绝不裁掉越界部分或直接忽略。
+        guard revealForContrast(element, in: app, test: test),
+              let image = app.screenshot().image.cgImage,
               let result = RenderedContrast.measure(image, rect: element.frame, screen: app.frame) else {
             print("BEAR_RENDERED_UNRESOLVED \(element.label) frame=\(element.frame)")
             return false
@@ -23,6 +26,34 @@ func auditRenderedAccessibility(_ app: XCUIApplication, test: XCTestCase) throws
         print("BEAR_RENDERED_CONTRAST \(result.ratio) inkPixels=\(result.inkPixels) \(element.label)")
         return true
     }
+}
+
+/// 最多滚动三次；仍越界、尺寸异常或没有滚动容器时保持审计失败。
+@MainActor
+private func revealForContrast(_ element: XCUIElement, in app: XCUIApplication, test: XCTestCase) -> Bool {
+    let original = element.frame
+    for attempt in 0...3 {
+        let screen = app.frame
+        let frame = element.frame
+        guard frame.width > 2, frame.height > 2,
+              frame.width <= screen.width, frame.height <= screen.height else { return false }
+        if screen.contains(frame) {
+            if attempt > 0 {
+                print("BEAR_AUDIT_REVEALED \(element.label) from=\(original) to=\(frame)")
+                let attachment = XCTAttachment(screenshot: app.screenshot())
+                attachment.name = "contrast-revealed-element"
+                attachment.lifetime = .keepAlways
+                test.add(attachment)
+            }
+            return true
+        }
+        let scroll = app.scrollViews.firstMatch
+        guard attempt < 3, scroll.exists else { return false }
+        if frame.maxY > screen.maxY { scroll.swipeUp() }
+        else if frame.minY < screen.minY { scroll.swipeDown() }
+        else { return false }
+    }
+    return false
 }
 
 @MainActor
@@ -58,6 +89,12 @@ final class RenderedContrastTests: XCTestCase {
         let lowContrast = RenderedContrast.measure(image(ink: ink, background: .darkGray), rect: rect, screen: rect)
         XCTAssertLessThan(lowContrast?.ratio ?? 0, 4.5)
         XCTAssertNil(RenderedContrast.measure(image(ink: .lightGray, background: .white), rect: rect, screen: rect))
+        // 即使图片本身可读，也不能只裁可见部分来放过越界的元素。
+        let readableImage = image(ink: ink, background: .white)
+        for offscreen in [rect.offsetBy(dx: 0, dy: 1), rect.offsetBy(dx: 0, dy: -1),
+                          rect.offsetBy(dx: 1, dy: 0), rect.offsetBy(dx: -1, dy: 0)] {
+            XCTAssertNil(RenderedContrast.measure(readableImage, rect: offscreen, screen: rect))
+        }
     }
 }
 
