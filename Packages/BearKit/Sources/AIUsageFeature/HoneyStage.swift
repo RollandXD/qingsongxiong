@@ -12,9 +12,14 @@ extension HoneyJarPresentation {
         [(fiveHour, "5 小时"), (weekly, "本周")].map { window, label in
             guard let window, isConnected else { return BearHoneyJar.Cell(level: 0, warn: false, value: nil, label: label) }
             let remaining = ScrubForecast.remainingPercent(window, now: now, offset: offset)
+            // 参考线只标“此刻的均匀配速”：读数过期或已经拖到未来时不画，免得把旧线当结论。
+            let reference: Double? = (label == "本周" && offset < 60 && !dashboard.isStale)
+                ? QuotaPaceCalculator.pace(for: window.window, now: now).map { $0.referenceRemainingPercent / 100 }
+                : nil
             return BearHoneyJar.Cell(level: remaining / 100,
                                      warn: QuotaThresholds.level(remainingPercent: remaining) != .normal,
-                                     value: String(Int(remaining.rounded())), label: label)
+                                     value: String(Int(remaining.rounded())), label: label,
+                                     reference: reference)
         }
     }
 
@@ -87,7 +92,7 @@ struct HoneyJarCard: View {
             }
             .padding(.horizontal, 2)
             BearHoneyJar(cells: jar.cells(now: now, offset: offset), stale: jar.dashboard.isStale && jar.isConnected,
-                         asleep: !jar.isConnected)
+                         asleep: !jar.isConnected, numberSize: 22)
                 .aspectRatio(156 / 220, contentMode: .fit)
             HStack(spacing: 0) {
                 countdown(jar.fiveHour)
@@ -110,12 +115,12 @@ struct HoneyJarCard: View {
     }
 
     /// 周窗口的配速参考。拖动时间尺预览未来、未连接、读数过期时不显示。
+    /// 一周只剩一行字的位置：罐里已经有参考线，这里只补一个数值，详情页再说“多/少多少”。
     private var paceNote: String? {
         guard offset == 0, jar.isConnected, !jar.dashboard.isStale,
               let window = jar.weekly?.window,
               let pace = QuotaPaceCalculator.pace(for: window, now: now) else { return nil }
         return "本周参考剩 " + ProviderPresentation.percent(pace.referenceRemainingPercent)
-            + " · " + pace.comparison
     }
 
     @ViewBuilder private func countdown(_ window: UsageWindowPresentation?) -> some View {
@@ -162,11 +167,8 @@ struct TimeScrubber: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(offset < 60 ? "回满预览" : ResetCountdown.moment(now.addingTimeInterval(offset), now: now))
-                    .font(.subheadline.weight(.semibold)).monospacedDigit()
-                    .foregroundStyle(BearTheme.text(scheme))
-                    .contentTransition(.numericText())
+            // 标题留给外层分节头，这里只保留操作提示，避免同一张卡两个标题。
+            HStack {
                 Spacer()
                 Text(!enabled ? "连接后可用" : offset < 60 ? "按住拖动" : "假设之后不再使用")
                     .font(.footnote).foregroundStyle(BearTheme.secondaryText(scheme))
@@ -175,23 +177,24 @@ struct TimeScrubber: View {
                 let width = geometry.size.width
                 let x = width * min(1, max(0, offset / Self.range))
                 ZStack(alignment: .topLeading) {
-                    Capsule().fill(BearTheme.track(scheme)).frame(height: 4).offset(y: 20)
-                    Capsule().fill(BearTheme.accent(scheme)).frame(width: x, height: 4).offset(y: 20)
+                    Capsule().fill(BearTheme.track(scheme)).frame(height: 4).offset(y: 24)
+                    Capsule().fill(BearTheme.accent(scheme)).frame(width: x, height: 4).offset(y: 24)
                     ForEach(dayTicks, id: \.offset) { tick in
                         Text(tick.name).font(.caption2).foregroundStyle(BearTheme.secondaryText(scheme))
                             .fixedSize()
-                            .position(x: width * tick.offset / Self.range, y: 40)
+                            .position(x: width * tick.offset / Self.range, y: 48)
                     }
+                    // 重置点单独一条车道（日期刻度下方）：贴着轨道会被滑块盖住，叠在上面又会压住拖动手柄。
                     ForEach(Array(placedMarks.enumerated()), id: \.element.mark.id) { _, placed in
                         Circle().fill(placed.mark.color).frame(width: 8, height: 8)
-                            .position(x: width * placed.mark.offset / Self.range, y: 10 - CGFloat(placed.lift) * 10)
+                            .position(x: width * placed.mark.offset / Self.range, y: 64 + CGFloat(placed.lift) * 9)
                     }
                     Circle().fill(.white)
                         .frame(width: 26, height: 26)
                         .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
                         .glassEffect(.regular.interactive(), in: .circle)
                         .scaleEffect(dragging && !reduceMotion ? 1.15 : 1)
-                        .position(x: min(width - 13, max(13, x)), y: 22)
+                        .position(x: min(width - 13, max(13, x)), y: 26)
                 }
                 .contentShape(.rect)
                 .gesture(DragGesture(minimumDistance: 0)
@@ -204,7 +207,7 @@ struct TimeScrubber: View {
                         withAnimation(reduceMotion ? BearMotion.quiet : BearMotion.smooth) { offset = 0; dragging = false }
                     })
             }
-            .frame(height: 50)
+            .frame(height: 80)
         }
         // 禁用的是交互，不降低文字可读性。
         .sensoryFeedback(.selection, trigger: crossed)
@@ -253,7 +256,8 @@ struct TimeScrubber: View {
         var placed: [(mark: Mark, lift: Int)] = []
         for mark in marks.sorted(by: { $0.offset < $1.offset }) {
             var lift = 0
-            while placed.contains(where: { abs($0.mark.offset - mark.offset) < Self.range * 0.025 && $0.lift == lift }) { lift += 1 }
+            // 最多叠一层：再多的点会被卡底裁掉，车道只够两行。
+            while lift < 1 && placed.contains(where: { abs($0.mark.offset - mark.offset) < Self.range * 0.025 && $0.lift == lift }) { lift += 1 }
             placed.append((mark, lift))
         }
         return placed

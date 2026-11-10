@@ -274,8 +274,11 @@ final class DesignUITests: XCTestCase {
             attach(app, "home-cards-" + appearance)
 
             let timeline = app.descendants(matching: .any)["usage-timeline"].firstMatch
-            for _ in 0..<5 where !timeline.exists { app.scrollViews.firstMatch.swipeUp() }
-            XCTAssertTrue(timeline.exists, "过去用量时间线可达")
+            XCTAssertTrue(timeline.exists, "时间线存在")
+            // exists 不够：ScrollView 里的 VStack 是即时渲染，没滚到也会返回 true，
+            // 截图会拍到首屏。这里按“元素真的进了屏幕”滚动，才能真的验到时间线。
+            for _ in 0..<6 where !onScreen(timeline, in: app) { app.swipeUp() }
+            XCTAssertTrue(onScreen(timeline, in: app), "时间线滚动后进入屏幕")
             attach(app, "usage-timeline-" + appearance)
             try auditRenderedAccessibility(app, test: self)
             app.terminate()
@@ -381,6 +384,14 @@ final class DesignUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    /// 元素是否已真的落在屏幕里（ScrollView 的即时渲染会让 exists 提前为真）。
+    private func onScreen(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame
+        guard frame.height > 0, frame.width > 0 else { return false }
+        return frame.minY >= app.frame.minY && frame.maxY <= app.frame.maxY
     }
 
     /// 断言找不到元素时把无障碍树里相关行打出来：一次就能看出是“没有这个元素”还是“名字/层级不对”。

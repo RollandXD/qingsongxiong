@@ -74,8 +74,12 @@ public struct BearHoneyJar: View {
         /// 罐内数字（不含 %）；nil 显示「–」。
         public var value: String?
         public var label: String
-        public init(level: Double, warn: Bool, value: String?, label: String) {
+        /// “按节奏刚好耗完”的参考位置 0...1；nil 不画参考线。
+        /// 只画线不说教：线在液面之上就是还宽裕，之下就是已经超前。
+        public var reference: Double?
+        public init(level: Double, warn: Bool, value: String?, label: String, reference: Double? = nil) {
             self.level = min(1, max(0, level)); self.warn = warn; self.value = value; self.label = label
+            self.reference = reference.map { min(1, max(0, $0)) }
         }
     }
     public enum Shell: Sendable { case glass, plain }
@@ -116,6 +120,19 @@ public struct BearHoneyJar: View {
                         Rectangle().fill(BearTheme.surface(scheme))
                             .frame(width: 3, height: geometry.size.height)
                             .offset(x: CGFloat(index) * width - 1.5)
+                    }
+                    // 参考线：先用浅色描一道再压深色，无论泡在蜂蜜里还是空罐上都看得见。
+                    ForEach(cells.indices, id: \.self) { index in
+                        if let reference = cells[index].reference, !asleep {
+                            let y = (1 - reference) * geometry.size.height
+                            let lineWidth = max(0, width - 12)
+                            Rectangle().fill(BearTheme.surface(scheme).opacity(0.9))
+                                .frame(width: lineWidth, height: 3.5)
+                                .offset(x: CGFloat(index) * width + 6, y: y - 1)
+                            Rectangle().fill(BearTheme.text(scheme).opacity(0.6))
+                                .frame(width: lineWidth, height: 1.5)
+                                .offset(x: CGFloat(index) * width + 6, y: y)
+                        }
                     }
                 }
             }
@@ -213,7 +230,7 @@ public struct BearHoneyJar: View {
                         }
                     }
                         .lineLimit(1).minimumScaleFactor(0.6)
-                        .padding(.horizontal, 5).padding(.vertical, 2)
+                        .padding(.horizontal, 4).padding(.vertical, 2)
                         .background(BearTheme.surface(scheme), in: .rect(cornerRadius: 8))
                     Spacer(minLength: 4)
                     Text(cell.label)
