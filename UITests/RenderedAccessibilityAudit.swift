@@ -8,7 +8,14 @@ import XCTest
 func auditRenderedAccessibility(_ app: XCUIApplication, test: XCTestCase) throws {
     try app.performAccessibilityAudit(for: [.sufficientElementDescription, .trait, .textClipped, .contrast]) { issue in
         guard issue.auditType == .contrast, let element = issue.element else {
-            print("BEAR_AUDIT_UNRESOLVED \(issue.compactDescription) \(issue.element?.label ?? "nil")")
+            // 不只报 label：把 frame、标识和屏幕尺寸一起打出来，
+            // 否则 “Text clipped Claude” 这种信息只能靠猜是哪一个 Claude。
+            let target = issue.element
+            print("BEAR_AUDIT_UNRESOLVED \(issue.compactDescription)"
+                + " element=\(target?.label ?? "nil")"
+                + " id=\(target?.identifier ?? "nil")"
+                + " frame=\(target?.frame.debugDescription ?? "nil")"
+                + " screen=\(Int(app.frame.width))x\(Int(app.frame.height))")
             return false
         }
         // 原生审计也可能返回 ScrollView 中尚未完整进入屏幕的页脚。

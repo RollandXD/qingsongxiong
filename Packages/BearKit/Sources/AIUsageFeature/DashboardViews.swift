@@ -107,11 +107,19 @@ public struct AIUsageHome: View {
             homeCardsSection
             recoveryPreview
             UsageTimelineSection(model: model, now: now, primary: model.dashboard.cards.compactMap { $0 }.first)
+            walletSection
             otherAccountsSection
         }
         .padding(.horizontal, 16)
         .padding(.top, 4)
         .padding(.bottom, 32)
+    }
+
+    /// 余额与中转：金额是主角，单独成区，不和百分比混排。
+    private var walletSection: some View {
+        HoneyWalletList(deepseek: dashboard(.deepseek), relay: relay,
+                        onDeepSeek: { open(.provider(.deepseek)) },
+                        onRelay: { id in navigation.path = []; navigation.relayID = id })
     }
 
     private var otherAccountsSection: some View {

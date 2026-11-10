@@ -197,6 +197,9 @@ struct UnconnectedProviderTile: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(BearTheme.text(scheme))
                     .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    // 窄卡里名字优先占位，不让右侧图标把它挤成截断。
+                    .layoutPriority(1)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
                 Image(systemName: "chevron.right")
@@ -387,15 +390,14 @@ struct OtherAccountsList: View {
     private var rows: [AccountRef] {
         let shown = Set(model.dashboard.selectedRefs)
         // 未连接的厂商也要留入口：否则第三个账户在首页既不上卡也无法连接，就彻底找不到了。
+        // 余额区的 DeepSeek 不在此重复，避免同一个账户在无障碍树里出现两次。
         let providers = ProviderID.allCases.compactMap { provider -> AccountRef? in
+            guard provider != .deepseek else { return nil }
             let ref = AccountRef.provider(provider)
             return shown.contains(ref) ? nil : ref
         }
-        let relays = (relay?.states ?? []).compactMap { state -> AccountRef? in
-            let ref = AccountRef.relay(state.id)
-            return shown.contains(ref) ? nil : ref
-        }
-        return providers + relays
+        // 中转账户已在余额区逐行展示，不在此重复。
+        return providers
     }
 
     var body: some View {

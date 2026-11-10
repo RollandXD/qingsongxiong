@@ -72,6 +72,11 @@ struct HoneyJarCard: View {
                 Circle().fill(BearTheme.series(ProviderPresentation.paletteIndex(jar.provider), scheme)).frame(width: 8, height: 8)
                 Text(ProviderPresentation.name(jar.provider)).font(.subheadline.weight(.semibold))
                     .foregroundStyle(BearTheme.text(scheme))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    // 窄卡标题优先：右侧“连接”/箭头不能让名字被压成省略号。
+                    .layoutPriority(1)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
                 if jar.isConnected {
                     Image(systemName: "chevron.right").font(.footnote.weight(.semibold))
