@@ -2,9 +2,9 @@
 
 温暖、精致的 Apple 个人工具箱。AI 额度监控是第一个功能模块，支持 Codex、Claude 订阅额度与 DeepSeek API 余额。
 
-**当前发布：v0.3.0-preview.1（0.3.0/7）**，来源分支 `codex/ios-polish-relay`。新版加入温润纸感与玻璃层次、一次性状态动效、APIKEY.FAN 独立中转账户、锁屏组件与交互刷新。完整 Apple 流水线通过：87 项 Swift 包测试、19 项原生 UI 测试、Release 与待重签 IPA 校验，合成数据浅深色截图及动效已人工检查。**本版真机覆盖安装与真实中转余额仍待验证**。
+**当前发布：v0.4.0-preview.1（0.4.0/8）**，来源分支 `claude/ios-honey-redesign`。本版以双格蜜罐、回满预览时间尺和余额列表重做首页，设置移到右上角，详情与小组件同步调整。完整 Apple 流水线通过：103 项 Swift 包测试、19 项原生 UI 测试、Release 与待重签 IPA 校验；61 张合成数据原生截图及动效抽帧已检查。**本版真机覆盖安装与真实中转余额仍待验证**。
 
-[下载与扫码入口](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.3.0-preview.1) · [直接下载 IPA](https://github.com/RollandXD/qingsongxiong/releases/download/v0.3.0-preview.1/QingSongXiong-needs-signing.ipa) · [原速影片](https://github.com/RollandXD/qingsongxiong/releases/download/v0.3.0-preview.1/iphone16pro-native-motion-1x.mp4) · [浅深色截图](https://github.com/RollandXD/qingsongxiong/releases/download/v0.3.0-preview.1/iphone16pro-light-dark.png)。媒体均为合成数据；Widget 图片是共享原生布局预览，不是系统宿主实拍。
+[下载与扫码入口](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.4.0-preview.1) · [直接下载 IPA](https://github.com/RollandXD/qingsongxiong/releases/download/v0.4.0-preview.1/QingSongXiong-needs-signing.ipa) · [原速影片](https://github.com/RollandXD/qingsongxiong/releases/download/v0.4.0-preview.1/iphone16pro-native-motion-1x.mp4) · [浅深色截图](https://github.com/RollandXD/qingsongxiong/releases/download/v0.4.0-preview.1/iphone16pro-light-dark.png)。媒体均为合成数据；Widget 图片是共享原生布局预览，不是系统宿主实拍。精选截图包共 57 张，已移除原始设备标识。
 
 上一已实机验收版本 [v0.2.0-preview.1（0.2.0/6）](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.2.0-preview.1) 保留为恢复参考；其 iPhone 16 Pro 覆盖更新、账户/读数、两类组件与日常交互已由用户确认，不将历史真机结果套用于本版。
 
@@ -12,7 +12,15 @@
 
 此前 preview.3 已实机通过三家取数、账户与读数保留、两类组件及日常功能。每日续签自动化完整流程已试跑成功；真实定时触发、锁屏及跨七天观察仍 UNKNOWN。
 
-## 0.3.0 的刷新与中转
+## 0.4.0 的蜜罐首页
+
+- Codex / Claude 每家一只双格蜜罐，5 小时与本周额度独立表达，不把比例相加；状态卡提示当前最紧窗口。
+- 按住回满时间尺预览未来状态，松手恢复实测读数；已过重置时间的缓存仅提示「待刷新确认」，不自动冒充 100% 已回满。
+- 余额列表保留账户与币种边界；设置位于右上角，移除底部 TabView。三家详情与主屏小组件沿用同一展示规则。
+- 说明及倒计时支持换行，蜜罐文字稳定底色；原生审计保留 4.5:1 门槛，越界元素先有限滚动，再按完整截图复核。
+- [完整 CI 42769159302](https://github.com/RollandXD/qingsongxiong/actions/runs/42769159302) 对应构建 `f3ba5895e95c9974409bfd2c5807779a06aed021`；tag 固定到此提交，不指向后续文档。原速 51.26 秒、0.25× 205.03 秒，均为 1,399 帧；不据此声称真机 120Hz 达标。
+
+## 延续 0.3.0 的刷新与中转
 
 - 前台每 5 分钟检查；主 App 仅在读数、可用性、账户或失败状态变化时定向通知两类组件，时间戳变化不触发额外 reload。
 - 组件申请 15 分钟时间线；倒计时由系统文字自行更新。主屏刷新按钮主动取数，受限 Reader 不续期 token、不写共享快照。订阅 token 过期仍需打开 App。

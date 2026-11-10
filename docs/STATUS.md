@@ -1,30 +1,46 @@
 # 交付状态
 
-当前已发布：**v0.3.0-preview.1（0.3.0/7）**，来源分支 **`codex/ios-polish-relay`**。完整原生回归、Release IPA 和合成数据视觉验收已通过；**本版真机覆盖安装及真实中转余额尚未验证**，不把模拟器验收冒充真机结果。
+当前已发布：**v0.4.0-preview.1（0.4.0/8）**，来源分支 **`claude/ios-honey-redesign`**。完整原生回归、Release IPA 和合成数据视觉验收已通过，公开下载已回验；**本版真机覆盖安装及真实中转余额尚未验证**，不把模拟器验收冒充真机结果。
 
-[下载与扫码入口](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.3.0-preview.1) · [机器可读验收](https://github.com/RollandXD/qingsongxiong/releases/download/v0.3.0-preview.1/verification.json)
+[下载与扫码入口](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.4.0-preview.1) · [机器可读验收](https://github.com/RollandXD/qingsongxiong/releases/download/v0.4.0-preview.1/verification.json)
 
-## 0.4.0 蜜罐改版（开发中，2026-11-09）
+## 0.4.0 蜜罐预览 1（2026-11-10 已发布）
 
-分支 `claude/ios-honey-redesign`。范围：首页改为状态卡 + 每家双格蜜罐（5 小时 / 本周）+ 回满预览时间尺 + 余额列表；详情页订阅额度 / 附加限额两组蜜条；三弹簧动效体系；纸白底 + 系统色；去 TabView；冷启动先落缓存与中转；小组件全族换蜜罐。设计基准：`design/prototype-honey/index.html`。
+分支 `claude/ios-honey-redesign`。范围：首页改为状态卡 + 每家双格蜜罐（5 小时 / 本周）+ 回满预览时间尺 + 余额列表；详情页订阅额度 / 附加限额两组蜜条；三弹簧动效体系；纸白底 + 系统色；去 TabView，设置移到右上角；冷启动先落缓存与中转；小组件同步蜜罐视觉。设计基准：`design/prototype-honey/index.html`。
 
-| 项目 | 结果 |
-|---|---|
-| Linux 架构/凭据/脚本检查 | PASS |
-| Swift 包测试、原生 UI 回归、截图与录像对照原型 | run 42765322207：Swift/设备构建 PASS；19 项 UI 剩 2 条越界元素对比度复核失败；审计修复后待全量重跑 |
-| 真机覆盖安装 | UNKNOWN |
+来源提交 `f3ba5895e95c9974409bfd2c5807779a06aed021`，源码树 `ec9a04c0cbdf4a15d6a2ba8b6331de7a45188019`；发布 tag 固定到实际构建提交。Xcode 27.1，iPhone 16 Pro 模拟器实际 iOS 27.2，截图 1206×2622，最低 iOS 27.0。
 
-### 接续修复（2026-11-10）
+| 验证 | 当前证据 |
+| --- | --- |
+| Linux 架构、源码凭据、Shell 语法与 Python 媒体测试 | PASS；Python 6/6 |
+| Swift 包测试 | 103/103 PASS（7 个并行子进程计数求和） |
+| 原生 UI | 19/19 PASS，完整 run 成功；DesignUITests 11 项、RenderedContrastTests 1 项包含其中 |
+| Release iPhone IPA | App / Widget 均 0.4.0/8；包校验 PASS，仍需用户重签 |
+| 浅深色首页/三家详情、币种、异常、大字体、中转与组件布局 | 61 张合成数据原生截图复核 PASS；精选公开 57 张 |
+| 原速与 0.25× 动效 | 同次 CI 导出，51.26 / 205.03 秒，均 1,399 帧；动作与密集时间尺抽帧复核 PASS，不据此声称真机 120Hz 达标 |
+| 发布附件 | 12/12 远端 digest 与本地 SHA-256 一致；无认证公开下载 IPA、验收 JSON、校验和与二维码回验通过 |
+| 新版真机覆盖安装、原账户/读数保留、真实中转余额 | UNKNOWN |
+| 系统着色、组件实际交互与免费签名 BG 频率 | UNKNOWN；观察 1–2 天，15 分钟只是申请 |
+| 低电量行为、120Hz 真机手感 | UNKNOWN |
 
-交付目标：沿用蜜罐设计完成自动回归、截图/动效复核与可安装预览发布；当前仍开发中，不替换上方已发布版本。
+证据：[完整 CI 42769159302](https://github.com/RollandXD/qingsongxiong/actions/runs/42769159302)、[发布页](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.4.0-preview.1)、随包 `verification.json` / `SHA256SUMS.txt`。IPA SHA-256：`283918b089929f09d682af8cc8ee5cd97112ee5c24c6ceb0141a599e85be94ec`。
 
-- 基线 `019edc2` 的 [CI 42760925607](https://github.com/RollandXD/qingsongxiong/actions/runs/42760925607) 在两项首页审计产生 64 条失败断言；附件说明文字在较大 Dynamic Type 下可能截断，另有未连接时间尺整体透明度及蜜罐文字对比度问题。
-- 修复余额说明与倒计时的单行约束；禁用时间尺保留文字不透明；蜜罐数字/窗口标签加实色小底，避免液位跨过字形时浅深色对比度失效。不删除或放宽原生审计。
-- 额外修复：重置时间已过的缓存不再自动画成 100%，显示「待刷新确认」；只有未来时间尺预览可以显示「预计回满」。补过期、零偏移与非有限偏移回归。
-- 本机架构、源码凭据、6 项 Python 测试及 Shell 语法通过；本机没有 Swift 编译器，Swift/原生验收以新 CI 为准。
-- 修复后的 [CI 42765322207](https://github.com/RollandXD/qingsongxiong/actions/runs/42765322207) 完整运行结束但仍为 FAIL：Swift 与设备构建 PASS；DesignUITests 11 项及 RenderedContrastTests 1 项通过；19 项 UI 仅余未连接首页浅深色审计的 2 条 `Contrast failed`。失败元素是页脚「各窗口独立计算，比例不能相加。」，框 `(32.0, 869.1282051282051, 187.66666666666666, 15.666666666666629)` 超出 874pt 屏幕，截图确认未完整入屏，不能据此判定其颜色不合格或已通过。
-- 审计修复：仅对原生 contrast 报错元素先最多 3 次滚动令其完整入屏，再保存现场截图并按原门槛 4.5:1 采样复核；仍越界、没有容器、墨色不足或低对比均保持失败。补四边越界图像必须拒绝的回归，不裁可见部分、不屏蔽错误。不改 App/Widget，本轮完整 CI 仍须重跑，失败 run 不发布。
-- 用户批准仅在轻松熊分支接续，助理仓库同步分叉另案处理，不写其现场。下一步由开发助手跑完整 CI，复核截图和原速影片，再发布；真机安装由用户同账号覆盖，不先卸载。
+媒体只使用合成数据；公开截图清单已移除设备标识和原始附件编号。Widget 图是共享原生布局预览，不是系统主屏或锁屏实拍。原生对比度审计与像素回退范围见 [测试说明](TESTING.md)，不宣称整页 WCAG 认证。
+
+### 接续修复与失败记录
+
+- 基线 `019edc2` 的 [CI 42760925607](https://github.com/RollandXD/qingsongxiong/actions/runs/42760925607) 首页审计有 64 条失败断言。修复说明/倒计时单行约束、未连接时间尺整体透明度及蜜罐文字对比度；不删除或放宽审计。
+- 提交 `1e506698` 额外修复过期缓存误显 100%：保留实测读数并提示「待刷新确认」，只有未来时间尺可以显示「预计回满」；补过期、零偏移与非有限偏移回归。
+- [CI 42765322207](https://github.com/RollandXD/qingsongxiong/actions/runs/42765322207) Swift / 构建通过，UI 尚有 2 条 `Contrast failed`，均为未连接首页页脚「各窗口独立计算，比例不能相加。」；元素 y=869.1282、h=15.6667 超出 874pt 屏幕，不能据此认定颜色合格或不合格。失败 run 不发布。
+- `f3ba5895` 将报错元素最多滚动 3 次令其完整入屏，再保存截图并按原 4.5:1 门槛采样；仍越界、无容器、墨色不足或低对比保持失败，新增四边越界必须拒绝的回归。绿灯 run 中页脚滚到 y=792.4615，对比度 5.4543 / 6.9856，均通过；没有裁掉越界部分或屏蔽错误。
+
+### 后续与恢复
+
+交付编号 `qingsongxiong-ios-honey-redesign`：开发助手已完成实现修复、自动回归、模拟器视觉验收和可下载安装包发布；后续文档提交不改变上述构建来源。下一步由用户同一 SideStore 账号**覆盖安装，不先卸载**，确认原账户、真实读数与组件选择，再观察后台 1–2 天；无需额外手动测试无障碍模式。
+
+上一已实机验收的 `v0.2.0-preview.1` 继续作为恢复参考，恢复同样原账号覆盖。`device-gate.json` 保留历史签名/共享能力结论，未将 0.4.0 的 UNKNOWN 改成 verified。
+
+本分支提交并推送，不合并 `main`，不改写历史。用户批准独立项目隔离继续，不写助理仓库；本页和发布附件承担交接。既有未跟踪 `.pi-lens-probe-home/` 是本轮 LSP 探针运行态，不进提交、不影响构建；保留给本地诊断工具，后续若清理须先核对无活动进程。
 
 ## 0.3.0 设计与刷新预览 1（2026-11-09）
 
