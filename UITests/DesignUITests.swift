@@ -41,6 +41,10 @@ final class DesignUITests: XCTestCase {
             let app = launch(appearance)
             XCTAssertTrue(app.otherElements["dashboard-hero"].exists || app.staticTexts["dashboard-hero"].exists)
             XCTAssertTrue(app.descendants(matching: .any)["honey-stage"].firstMatch.exists)
+            if !app.descendants(matching: .any)["time-scrubber"].firstMatch.exists {
+                dumpElements(app, keywords: ["scrub", "回满", "恢复", "recovery", "preview"],
+                             label: "time-scrubber-" + appearance)
+            }
             XCTAssertTrue(app.descendants(matching: .any)["time-scrubber"].firstMatch.exists)
             attach(app, "dashboard-" + appearance)
             attach(app, "honey-stage-" + appearance)
@@ -283,7 +287,13 @@ final class DesignUITests: XCTestCase {
         tap("provider-codex", app)
         // 详情页整行被 children:.combine 合并，配速文案就在行的 label 里。
         let windowRow = app.descendants(matching: .any)["window-codex-five_hour"].firstMatch
-        XCTAssertTrue(windowRow.waitForExistence(timeout: 8))
+        if !windowRow.waitForExistence(timeout: 8) {
+            dumpElements(app, keywords: ["window-", "参考", "five"], label: "codex-window-row")
+        }
+        XCTAssertTrue(windowRow.exists)
+        if !windowRow.label.contains("参考剩") {
+            dumpElements(app, keywords: ["window-codex"], label: "codex-window-labels")
+        }
         XCTAssertTrue(windowRow.label.contains("参考剩"), windowRow.label)
         attach(app, "window-pace")
     }
@@ -364,5 +374,14 @@ final class DesignUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    /// 断言找不到元素时把无障碍树里相关行打出来：一次就能看出是“没有这个元素”还是“名字/层级不对”。
+    private func dumpElements(_ app: XCUIApplication, matching keywords: [String], label: String) {
+        let lines = app.debugDescription.split(separator: "\n").map(String.init)
+        let hits = lines.filter { line in keywords.contains { line.localizedCaseInsensitiveContains($0) } }
+        print("BEAR_TREE_START \(label) hits=\(hits.count)")
+        for line in hits.prefix(40) { print("BEAR_TREE \(line.trimmingCharacters(in: .whitespaces))" ) }
+        print("BEAR_TREE_END \(label)")
     }
 }
