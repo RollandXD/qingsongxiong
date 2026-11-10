@@ -8,11 +8,14 @@ import SwiftUI
 enum HomeCardSource: Equatable {
     case provider(HoneyJarPresentation)
     case relay(RelayPresentation)
+    /// 用户选了这个账户但还没连接：卡要留着，否则首次安装首页无可点之处。
+    case unconnected(ProviderID)
 
     var ref: AccountRef {
         switch self {
         case .provider(let jar): .provider(jar.provider)
         case .relay(let presentation): .relay(presentation.state.id)
+        case .unconnected(let provider): .provider(provider)
         }
     }
 
@@ -20,6 +23,7 @@ enum HomeCardSource: Equatable {
         switch self {
         case .provider(let jar): jar.isConnected
         case .relay(let presentation): presentation.state.snapshot != nil
+        case .unconnected: false
         }
     }
 }
@@ -46,7 +50,10 @@ struct HomeCardsSection: View {
         guard let ref else { return nil }
         switch ref {
         case .provider(let provider):
-            guard let state = model.states[provider], state.connection == .connected else { return nil }
+            // 未连接也照样占位：点进去就是连接入口，不会出现“首页什么都不能点”。
+            guard let state = model.states[provider], state.connection == .connected else {
+                return .unconnected(provider)
+            }
             return .provider(HoneyJarPresentation(ProviderDashboardPresentation(provider: provider, state: state, at: now)))
         case .relay(let id):
             guard let state = relay?.states.first(where: { $0.id == id }) else { return nil }
@@ -124,6 +131,9 @@ struct HomeCardsSection: View {
         case .relay(let presentation):
             RelayHomeTile(presentation: presentation)
                 .frame(maxWidth: .infinity)
+        case .unconnected(let provider):
+            UnconnectedProviderTile(provider: provider)
+                .frame(maxWidth: .infinity)
         }
     }
 
@@ -131,6 +141,7 @@ struct HomeCardsSection: View {
         switch source {
         case .provider(let jar): jar.accessibilitySummary
         case .relay(let presentation): presentation.headline + "，" + presentation.status
+        case .unconnected(let provider): ProviderPresentation.name(provider) + " 未连接"
         }
     }
 
@@ -167,6 +178,56 @@ struct HomeCardsSection: View {
 private struct HomeSlot: Identifiable {
     let id: Int
     init(_ id: Int) { self.id = id }
+}
+
+/// 未连接厂商卡：占住用户选的位置，明确指出去哪连接。
+///
+/// 尺寸与蜜罐卡一致，避免未连接时首页突然塌陷成两行小字。
+struct UnconnectedProviderTile: View {
+    let provider: ProviderID
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Circle()
+                    .strokeBorder(BearTheme.secondaryText(scheme), lineWidth: 1.5)
+                    .frame(width: 8, height: 8)
+                Text(ProviderPresentation.name(provider))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(BearTheme.text(scheme))
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(BearTheme.secondaryText(scheme))
+            }
+            .padding(.horizontal, 2)
+
+            Spacer(minLength: 0)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("未连接")
+                    .font(.system(size: 26, weight: .semibold, design: .rounded))
+                    .foregroundStyle(BearTheme.text(scheme))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Text("点按完成连接")
+                    .font(.caption)
+                    .foregroundStyle(BearTheme.secondaryText(scheme))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 150, alignment: .leading)
+        .padding(14)
+        .background(BearTheme.surface(scheme).opacity(0.55),
+                    in: .rect(cornerRadius: 24, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(BearTheme.separator(scheme), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+        }
+    }
 }
 
 /// 中转主卡：金额当主角，跟蜜罐同一体量与节奏，不假装成百分比。

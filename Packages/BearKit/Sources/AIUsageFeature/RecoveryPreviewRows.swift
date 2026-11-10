@@ -39,26 +39,35 @@ struct RecoveryPreviewRows: View {
         return ProviderDashboardPresentation(provider: provider, state: state, at: now).windows
     }
 
+    /// 一行一个窗口：左侧名称、右侧百分比，回满时间单独一行。
+    ///
+    /// 名字和倒计时都真实存在长文本（“Codex · 7 天”“回满于 48 小时后”），
+    /// 挤在同一行会被原生审计判为裁切，所以上下分行并允许缩放。
     private func row(provider: ProviderID, window: UsageWindowPresentation) -> some View {
         let target = now.addingTimeInterval(offset)
         let resetsAt = window.window.resetsAt
         let refilled = resetsAt.map { $0 <= target } ?? false
         let remaining = refilled ? 100.0 : window.remaining
-        return HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Circle()
-                .fill(BearTheme.series(ProviderPresentation.paletteIndex(provider), scheme))
-                .frame(width: 6, height: 6)
-                .accessibilityHidden(true)
-            Text(ProviderPresentation.name(provider) + " · " + window.label)
-                .font(.footnote)
-                .lineLimit(1)
-            Spacer(minLength: 6)
-            Text(ProviderPresentation.percent(remaining))
-                .font(.system(.footnote, design: .rounded).weight(.semibold)).monospacedDigit()
+        return VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Circle()
+                    .fill(BearTheme.series(ProviderPresentation.paletteIndex(provider), scheme))
+                    .frame(width: 6, height: 6)
+                    .accessibilityHidden(true)
+                Text(ProviderPresentation.name(provider) + " · " + window.label)
+                    .font(.footnote)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Text(ProviderPresentation.percent(remaining))
+                    .font(.system(.footnote, design: .rounded).weight(.semibold))
+                    .monospacedDigit()
+                    .layoutPriority(1)
+            }
             Text(refilled ? "已回满" : "回满于 " + (resetsAt.map { Self.time($0, at: target) } ?? "未知"))
                 .font(.caption2)
                 .foregroundStyle(BearTheme.secondaryText(scheme))
-                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.leading, 14)
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("recovery-" + provider.rawValue + "-" + window.id)
