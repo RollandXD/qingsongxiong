@@ -42,10 +42,16 @@ final class DesignUITests: XCTestCase {
             // 套件整体跑时机器更忙，数据落盘晚一点；用等待而不是裸 exists，避免用例顺序造成的假失败。
             let hero = app.descendants(matching: .any)["dashboard-hero"].firstMatch
             XCTAssertTrue(hero.waitForExistence(timeout: 15))
-            let stage = app.descendants(matching: .any)["honey-stage"].firstMatch
-            let stageOK = stage.waitForExistence(timeout: 15)
-            if !stageOK { dumpScaffold(app, label: "honey-stage-" + appearance) }
-            XCTAssertTrue(stageOK, "首页蜜位")
+            // 主卡整张是按钮，内部 children:.contain 的容器（旧 honey-stage）会被按钮吞掉；
+            // 这里改验卡上真有的东西：两张可选主卡、每张都报出两只蜜罐（5 小时 + 本周）的读数。
+            XCTAssertTrue(app.descendants(matching: .any)["home-cards"].firstMatch.waitForExistence(timeout: 15))
+            let cardPredicate = NSPredicate(format: "identifier BEGINSWITH %@", "home-card-")
+            XCTAssertEqual(app.descendants(matching: .any).matching(cardPredicate).count, 2, "首页两张可选主卡")
+            let codexCard = app.buttons["provider-codex"]
+            XCTAssertTrue(codexCard.waitForExistence(timeout: 15))
+            let readings = codexCard.value as? String ?? ""
+            XCTAssertTrue(readings.contains("5 小时剩"), readings)
+            XCTAssertTrue(readings.contains("本周剩"), readings)
             XCTAssertTrue(app.descendants(matching: .any)["time-scrubber"].firstMatch.waitForExistence(timeout: 15))
             attach(app, "dashboard-" + appearance)
             attach(app, "honey-stage-" + appearance)
