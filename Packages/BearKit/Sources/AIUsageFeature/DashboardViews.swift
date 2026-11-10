@@ -106,7 +106,7 @@ public struct AIUsageHome: View {
             HoneyStatusCard(overview: overview, hero: hero)
             homeCardsSection
             recoveryPreview
-            UsageTimelineSection(model: model, now: now, primary: dashboard.cards.compactMap { $0 }.first)
+            UsageTimelineSection(model: model, now: now, primary: model.dashboard.cards.compactMap { $0 }.first)
             otherAccountsSection
         }
         .padding(.horizontal, 16)
