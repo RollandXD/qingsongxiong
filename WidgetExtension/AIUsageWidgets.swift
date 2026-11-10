@@ -124,9 +124,13 @@ struct UsageWidgetView: View {
     let entry: UsageEntry
     @Environment(\.widgetFamily) private var family
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.widgetRenderingMode) private var renderingMode
     private var refreshControl: AnyView {
         AnyView(Button(intent: RefreshUsageIntent(provider: entry.provider, relayID: entry.relayID)) {
-            Image(systemName: "arrow.clockwise").font(.caption).padding(5)
+            Image(systemName: "arrow.clockwise").font(.system(size: 11, weight: .bold))
+                .foregroundStyle(renderingMode == .fullColor ? BearTheme.accentInk(scheme) : Color.primary)
+                .frame(width: 24, height: 24)
+                .background(renderingMode == .fullColor ? BearTheme.track(scheme) : Color.primary.opacity(0.14), in: Circle())
         }.buttonStyle(.plain).invalidatableContent().accessibilityLabel("刷新额度"))
     }
     var body: some View {
@@ -139,9 +143,7 @@ struct UsageWidgetView: View {
                     family: family, relays: entry.relays, refreshControl: refreshControl)
                     .widgetURL(URL(string: "qingsongxiong://ai-usage/provider/" + (entry.provider?.rawValue ?? "codex")))
             }
-        }.containerBackground(for: .widget) {
-            BearTheme.paper(scheme)
-        }
+        }.containerBackground(BearTheme.surface(scheme), for: .widget)
     }
 }
 struct OverviewWidget: Widget {

@@ -29,9 +29,9 @@ struct WidgetDemoScreen: View {
                     preview("锁屏 · 单行", family: .accessoryInline, provider: .codex, width: 338, height: 40)
                     VStack(alignment: .leading, spacing: 7) {
                         Text("中转 · 小号").font(.caption)
-                        RelayWidgetMetric(state: relays.first, date: Date(), family: .systemSmall)
+                        RelayWidgetMetric(state: relays.first, date: Date(), family: .systemSmall, refreshControl: AnyView(staticRefresh))
                             .padding(16).frame(width: 158, height: 158)
-                            .background(BearTheme.surface(scheme), in: RoundedRectangle(cornerRadius: 24))
+                            .background(BearTheme.surface(scheme), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
                     }
                 }.padding(18)
             }.background(BearTheme.background(scheme))
@@ -42,6 +42,14 @@ struct WidgetDemoScreen: View {
                 }
         }.preferredColorScheme(appearance == "dark" ? .dark : appearance == "light" ? .light : nil)
     }
+    /// 真实组件里是 Button(intent:)；App 内演示只摆同样大小的图标，不触发任何刷新。
+    private var staticRefresh: some View {
+        Image(systemName: "arrow.clockwise").font(.system(size: 11, weight: .bold))
+            .foregroundStyle(BearTheme.accentInk(scheme))
+            .frame(width: 24, height: 24)
+            .background(BearTheme.track(scheme), in: Circle())
+            .accessibilityHidden(true)
+    }
     private func preview(_ title: String, family: WidgetFamily, provider: ProviderID?, width: CGFloat, height: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title).font(.caption).foregroundStyle(BearTheme.secondaryText(scheme))
@@ -49,7 +57,7 @@ struct WidgetDemoScreen: View {
                                 provider: provider, date: Date(), family: family, relays: provider == nil ? relays : [])
                 .padding(family == .accessoryCircular || family == .accessoryRectangular || family == .accessoryInline ? 0 : 16)
                 .frame(width: width, height: height)
-                .background(BearTheme.surface(scheme), in: RoundedRectangle(cornerRadius: 24))
+                .background(BearTheme.surface(scheme), in: RoundedRectangle(cornerRadius: family == .accessoryCircular ? 36 : 24, style: .continuous))
                 .accessibilityIdentifier("widget-demo-" + (provider?.rawValue ?? "overview") + "-" + String(describing: family))
         }
     }
