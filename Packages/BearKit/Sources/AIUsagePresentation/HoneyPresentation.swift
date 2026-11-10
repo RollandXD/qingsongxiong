@@ -120,7 +120,9 @@ public enum ResetCountdown {
 /// 时间尺预览：假设之后不再使用，重置时间一到窗口即回满。
 public enum ScrubForecast {
     public static func remainingPercent(_ window: UsageWindowPresentation, now: Date, offset: TimeInterval) -> Double {
-        if let reset = window.window.resetsAt, reset <= now.addingTimeInterval(offset) { return 100 }
+        // 到点只是预测依据，不是服务端已重置的证据；现在和过期快照保留实测读数。
+        if offset.isFinite, offset > 0, let reset = window.window.resetsAt,
+           reset > now, reset <= now.addingTimeInterval(offset) { return 100 }
         return window.remaining
     }
 

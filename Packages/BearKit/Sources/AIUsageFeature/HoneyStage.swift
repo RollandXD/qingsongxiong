@@ -97,7 +97,8 @@ struct HoneyJarCard: View {
             if !jar.isConnected { Text("未连接") }
             else if let reset = window?.window.resetsAt {
                 let left = reset.timeIntervalSince(now) - offset
-                if left <= 0 { Text("已回满").fontWeight(.semibold).foregroundStyle(BearTheme.text(scheme)) }
+                if reset <= now { Text("待刷新确认") }
+                else if left <= 0 { Text("预计回满").fontWeight(.semibold).foregroundStyle(BearTheme.text(scheme)) }
                 else {
                     HStack(spacing: 3) {
                         Image(systemName: "clock")
@@ -108,7 +109,7 @@ struct HoneyJarCard: View {
         }
         .font(.caption).monospacedDigit()
         .foregroundStyle(BearTheme.secondaryText(scheme))
-        .lineLimit(1)
+        .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity)
         .contentTransition(.numericText())
     }
@@ -179,7 +180,7 @@ struct TimeScrubber: View {
             }
             .frame(height: 50)
         }
-        .opacity(enabled ? 1 : 0.4)
+        // 禁用的是交互，不降低文字可读性。
         .sensoryFeedback(.selection, trigger: crossed)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("回满预览")
@@ -328,9 +329,11 @@ struct HoneyWalletList: View {
                 .background(tint, in: .rect(cornerRadius: 8, style: .continuous))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.body).foregroundStyle(BearTheme.text(scheme)).lineLimit(1)
+                Text(title).font(.body).foregroundStyle(BearTheme.text(scheme))
+                    .fixedSize(horizontal: false, vertical: true)
                 if let detail {
-                    Text(detail).font(.caption).foregroundStyle(BearTheme.secondaryText(scheme)).lineLimit(1)
+                    Text(detail).font(.caption).foregroundStyle(BearTheme.secondaryText(scheme))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer(minLength: 8)

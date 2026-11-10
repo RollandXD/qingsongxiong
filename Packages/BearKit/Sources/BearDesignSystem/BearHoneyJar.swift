@@ -209,15 +209,19 @@ public struct BearHoneyJar: View {
                             .foregroundStyle(cell.warn && !asleep ? BearTheme.danger(scheme) : BearTheme.text(scheme))
                         if !asleep && cell.value != nil {
                             Text("%").font(.system(size: numberSize * 0.43, weight: .bold, design: .rounded))
-                                .foregroundStyle(BearTheme.secondaryText(scheme))
+                                .foregroundStyle(BearTheme.text(scheme))
                         }
                     }
                         .lineLimit(1).minimumScaleFactor(0.6)
-                    Spacer(minLength: 0)
+                        .padding(.horizontal, 5).padding(.vertical, 2)
+                        .background(BearTheme.surface(scheme), in: .rect(cornerRadius: 8))
+                    Spacer(minLength: 4)
                     Text(cell.label)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(labelColor(cell))
-                        .lineLimit(1)
+                        .foregroundStyle(BearTheme.text(scheme))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 5).padding(.vertical, 2)
+                        .background(BearTheme.surface(scheme), in: .rect(cornerRadius: 6))
                 }
                     .padding(.top, 14).padding(.bottom, 12)
                     .frame(maxWidth: .infinity)
@@ -226,10 +230,6 @@ public struct BearHoneyJar: View {
             .animation(BearMotion.snappy, value: cells)
     }
 
-    private func labelColor(_ cell: Cell) -> Color {
-        if asleep || cell.level < 0.16 { return BearTheme.secondaryText(scheme) }
-        return cell.warn ? .white : BearTheme.honeyInk(scheme)
-    }
 }
 
 /// 横向蜜条：详情页的窗口行用，液位用 fluid 弹簧补间。

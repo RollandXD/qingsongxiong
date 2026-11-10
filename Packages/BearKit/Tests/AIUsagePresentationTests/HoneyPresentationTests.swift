@@ -129,6 +129,19 @@ private func honeyHero(_ dashboards: [ProviderDashboardPresentation]) -> HeroPre
     #expect(ScrubForecast.remainingPercent(unknown, now: honeyNow, offset: 7 * 86_400) == 10)
 }
 
+@Test func forecastNeverTurnsExpiredReadingsIntoConfirmedFullQuota() throws {
+    for reset in [-60.0, 0.0] {
+        let window = UsageWindowPresentation(try honeyWindow("five_hour", used: 90, reset: reset), provider: .claude)
+        for offset in [0.0, 3_600, -1, Double.infinity, Double.nan] {
+            #expect(ScrubForecast.remainingPercent(window, now: honeyNow, offset: offset) == 10)
+        }
+    }
+    let future = UsageWindowPresentation(try honeyWindow("five_hour", used: 90, reset: 60), provider: .claude)
+    for offset in [-1.0, Double.infinity, Double.nan] {
+        #expect(ScrubForecast.remainingPercent(future, now: honeyNow, offset: offset) == 10)
+    }
+}
+
 @Test func resetOffsetsFilterRangeSortAndDeduplicate() throws {
     let windows = try [
         honeyWindow("a", used: 0, reset: 600),
