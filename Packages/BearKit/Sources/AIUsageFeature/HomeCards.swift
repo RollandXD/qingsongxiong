@@ -101,7 +101,7 @@ struct HomeCardsSection: View {
             .accessibilityValue(accessibilityValue(source))
             .accessibilityHint("查看详情；长按可更换卡片")
             // 按钮按“点开谁”命名，外层容器再标位置：两套读写互不覆盖。
-            .accessibilityIdentifier(HomeCardSlot.identifier(for: source.ref))
+            .accessibilityIdentifier(source.ref.accessibilityID)
             .contextMenu {
                 Button {
                     model.swapCards()
@@ -196,7 +196,8 @@ struct UnconnectedProviderTile: View {
                 Text(ProviderPresentation.name(provider))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(BearTheme.text(scheme))
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
@@ -242,7 +243,8 @@ struct RelayHomeTile: View {
                 Text(presentation.state.account.displayName)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(BearTheme.text(scheme))
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
                 Image(systemName: "chevron.right").font(.footnote.weight(.semibold))
                     .foregroundStyle(BearTheme.secondaryText(scheme))
@@ -252,12 +254,28 @@ struct RelayHomeTile: View {
             Spacer(minLength: 0)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(amountText)
-                    .font(.system(size: 30, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .minimumScaleFactor(0.5)
-                    .lineLimit(1)
-                    .foregroundStyle(BearTheme.text(scheme))
+                // 多币种不能合并成一个数：逐行保留币种代码与金额，否则用户会以为只掉了一种币。
+                if balances.count > 1 {
+                    ForEach(balances) { item in
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text(item.balance.currency)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(BearTheme.secondaryText(scheme))
+                            Text(Self.amount(item.balance.total))
+                                .font(.system(.title3, design: .rounded).weight(.semibold))
+                                .monospacedDigit()
+                                .foregroundStyle(BearTheme.text(scheme))
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                } else {
+                    Text(amountText)
+                        .font(.system(size: 30, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .minimumScaleFactor(0.5)
+                        .lineLimit(1)
+                        .foregroundStyle(BearTheme.text(scheme))
+                }
                 Text(presentation.state.account.site.displayName)
                     .font(.caption)
                     .foregroundStyle(BearTheme.secondaryText(scheme))
@@ -268,7 +286,7 @@ struct RelayHomeTile: View {
 
             HStack(spacing: 4) {
                 Image(systemName: presentation.isStale ? "clock.badge.exclamationmark" : "checkmark.circle")
-                Text(presentation.status).lineLimit(1)
+                Text(presentation.status).lineLimit(2)
             }
             .font(.caption)
             .foregroundStyle(presentation.isStale ? BearTheme.warning(scheme) : BearTheme.secondaryText(scheme))
@@ -278,6 +296,19 @@ struct RelayHomeTile: View {
     }
 
     /// 金额为主、币种随行；多币种时只显示第一个并在详情里看全。
+    private var balances: [BalancePresentation] {
+        presentation.state.snapshot?.balances ?? []
+    }
+
+    /// 金额只负责数字；币种代码是独立标签，两者都在无障碍树里各有一份。
+    private static func amount(_ value: Decimal) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSDecimalNumber(decimal: value)) ?? "—"
+    }
+
     private var amountText: String {
         guard let balance = presentation.state.snapshot?.balances.first else { return "—" }
         let formatter = NumberFormatter()
@@ -355,8 +386,8 @@ struct OtherAccountsList: View {
 
     private var rows: [AccountRef] {
         let shown = Set(model.dashboard.selectedRefs)
+        // 未连接的厂商也要留入口：否则第三个账户在首页既不上卡也无法连接，就彻底找不到了。
         let providers = ProviderID.allCases.compactMap { provider -> AccountRef? in
-            guard model.states[provider]?.connection == .connected else { return nil }
             let ref = AccountRef.provider(provider)
             return shown.contains(ref) ? nil : ref
         }
@@ -373,8 +404,8 @@ struct OtherAccountsList: View {
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, ref in
                     Button { onOpen(ref) } label: { row(ref) }
                         .buttonStyle(.plain)
-                        // 与其他位置同一套目标标识：不在首页主卡上的账户也能被直接点开。
-                        .accessibilityIdentifier(HomeCardSlot.identifier(for: ref))
+                        // 与主卡同一个账户标识：无论账户在上卡还是在列表里，都能按名字找到。
+                        .accessibilityIdentifier(ref.accessibilityID)
                     if index < rows.count - 1 {
                         Divider().overlay(BearTheme.separator(scheme)).padding(.leading, 42)
                     }
@@ -390,8 +421,12 @@ struct OtherAccountsList: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title(ref)).font(.subheadline)
                     .foregroundStyle(BearTheme.text(scheme))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(subtitle(ref)).font(.caption)
                     .foregroundStyle(BearTheme.secondaryText(scheme))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)
             Image(systemName: "chevron.right").font(.footnote.weight(.semibold))
@@ -420,6 +455,7 @@ struct OtherAccountsList: View {
         switch ref {
         case .provider(let provider):
             let dashboard = ProviderDashboardPresentation(provider: provider, state: model.states[provider], at: now)
+            guard model.states[provider]?.connection == .connected else { return "未连接 · 去连接" }
             guard let window = dashboard.summaryWindow else { return "已连接" }
             return "剩 " + ProviderPresentation.percent(window.remaining) + " · " + window.shortLabel
         case .relay(let id):

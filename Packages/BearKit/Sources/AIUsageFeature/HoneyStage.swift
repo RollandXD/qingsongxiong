@@ -100,6 +100,8 @@ struct HoneyJarCard: View {
             }
         }
         .contentShape(.rect)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("honey-stage")
     }
 
     /// 周窗口的配速参考。拖动时间尺预览未来、未连接、读数过期时不显示。

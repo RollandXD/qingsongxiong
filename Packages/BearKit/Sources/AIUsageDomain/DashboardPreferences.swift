@@ -41,6 +41,14 @@ public enum AccountRef: Codable, Equatable, Hashable, Sendable {
         }
     }
 
+    /// 无障碍标识：与用户看到的账户身份一致，主卡和列表用同一个名字，切换位置不改变含义。
+    public var accessibilityID: String {
+        switch self {
+        case .provider(let provider): "provider-" + provider.rawValue
+        case .relay(let id): "relay-" + id.uuidString
+        }
+    }
+
     public var providerID: ProviderID? {
         switch self {
         case .provider(let provider): provider
