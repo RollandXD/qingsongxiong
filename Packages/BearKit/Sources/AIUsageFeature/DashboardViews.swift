@@ -61,22 +61,7 @@ public struct AIUsageHome: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.large)
             #endif
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button { Task { await refreshAll() } } label: {
-                        BearRefreshGlyph(refreshing: !model.refreshing.isEmpty || !(relay?.refreshing.isEmpty ?? true), success: refreshHaptic, failure: failureHaptic)
-                    }
-                    .disabled(!canRefresh)
-                    .accessibilityLabel("刷新全部额度").accessibilityIdentifier("refresh-all")
-                }
-                if let openSettings {
-                    ToolbarSpacer(.fixed, placement: .primaryAction)
-                    ToolbarItem(placement: .primaryAction) {
-                        Button { openSettings() } label: { Image(systemName: "gearshape") }
-                            .accessibilityLabel("设置")
-                    }
-                }
-            }
+            .toolbar { homeToolbar }
             .bearPullToRefresh(enabled: canRefresh) { await refreshAll() }
             .navigationDestination(item: $navigation.relayID) { id in
                 if let relay { RelayDetail(id: id, model: relay) }
@@ -121,6 +106,38 @@ public struct AIUsageHome: View {
         .alert("暂未完成", isPresented: Binding(get: { navigation.path.isEmpty && model.message != nil }, set: { if !$0 { model.message = nil } })) {
             Button("好") { model.message = nil }
         } message: { Text(model.message ?? "") }
+    }
+
+    /// 工具栏单独成块：塞在 body 里会让整个 NavigationStack 表达式的类型推断超时。
+    @ToolbarContentBuilder
+    private var homeToolbar: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            Button(action: refreshAction) {
+                BearRefreshGlyph(refreshing: isRefreshing, success: refreshHaptic, failure: failureHaptic)
+            }
+            .disabled(!canRefresh)
+            .accessibilityLabel("刷新全部额度")
+            .accessibilityIdentifier("refresh-all")
+        }
+        if let openSettings {
+            ToolbarSpacer(.fixed, placement: .primaryAction)
+            ToolbarItem(placement: .primaryAction) {
+                Button(action: { openSettings() }) {
+                    Image(systemName: "gearshape")
+                }
+                .accessibilityLabel("设置")
+            }
+        }
+    }
+
+    /// 任一来源在刷新就算刷新中，避免两个旋转指示器打架。
+    private var isRefreshing: Bool {
+        if !model.refreshing.isEmpty { return true }
+        return !(relay?.refreshing.isEmpty ?? true)
+    }
+
+    private func refreshAction() {
+        Task { await refreshAll() }
     }
 
     private static let jarProviders: [ProviderID] = [.codex, .claude]

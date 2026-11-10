@@ -50,7 +50,7 @@ public final class AIUsageModel {
     /// 读取用户选择；坏文件或旧版本只回退到默认，不让首页打不开。
     public func loadDashboard() {
         // 读失败或还没有存过，都保持默认顺序：首页不能因为读偏好而打不开。
-        guard let stored = try? preferences.load(), let stored else { return }
+        guard let stored = try? preferences.load() else { return }
         dashboard = stored
     }
 
