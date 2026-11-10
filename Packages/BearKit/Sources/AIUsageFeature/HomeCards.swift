@@ -93,7 +93,8 @@ struct HomeCardsSection: View {
             .accessibilityLabel(name(for: source.ref))
             .accessibilityValue(accessibilityValue(source))
             .accessibilityHint("查看详情；长按可更换卡片")
-            .accessibilityIdentifier("home-card-" + String(slot))
+            // 按钮按“点开谁”命名，外层容器再标位置：两套读写互不覆盖。
+            .accessibilityIdentifier(HomeCardSlot.identifier(for: source.ref))
             .contextMenu {
                 Button {
                     model.swapCards()
@@ -105,11 +106,13 @@ struct HomeCardsSection: View {
                     model.setCard(nil, atSlot: slot)
                 } label: { Label("移出首页", systemImage: "minus.circle") }
             }
+            .slotFrame(slot)
         } else {
             Button { pickingSlot = slot } label: { emptySlot(ref) }
                 .buttonStyle(BearPressStyle())
                 .accessibilityLabel(ref == nil ? "选择账户" : name(for: ref!) + " 已不可用，点击更换")
                 .accessibilityIdentifier("home-card-empty-" + String(slot))
+                .slotFrame(slot)
         }
     }
 
@@ -309,7 +312,8 @@ struct OtherAccountsList: View {
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, ref in
                     Button { onOpen(ref) } label: { row(ref) }
                         .buttonStyle(.plain)
-                        .accessibilityIdentifier("other-account-" + ref.id)
+                        // 与其他位置同一套目标标识：不在首页主卡上的账户也能被直接点开。
+                        .accessibilityIdentifier(HomeCardSlot.identifier(for: ref))
                     if index < rows.count - 1 {
                         Divider().overlay(BearTheme.separator(scheme)).padding(.leading, 42)
                     }
@@ -362,4 +366,31 @@ struct OtherAccountsList: View {
             return RelayPresentation(state: state, at: now).headline
         }
     }
+}
+
+/// 主卡的两个身份：位置（第几张）与目标（点开哪个账户）。
+///
+/// 位置用于断言“两张同级、可交换”；目标沿用 0.4 的可达性探针
+/// （`provider-codex` 等），既有测试不必为了新信息架构而放宽。
+enum HomeCardSlot {
+    static func identifier(for ref: AccountRef) -> String {
+        switch ref {
+        case .provider(let provider): "provider-" + provider.rawValue
+        case .relay(let id): "relay-" + id.uuidString
+        }
+    }
+}
+
+private struct SlotFrame: ViewModifier {
+    let slot: Int
+    func body(content: Content) -> some View {
+        content
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("home-card-" + String(slot))
+    }
+}
+
+extension View {
+    /// 外层位置标识；与内部按钮的目标标识共存，不覆盖。
+    func slotFrame(_ slot: Int) -> some View { modifier(SlotFrame(slot: slot)) }
 }
