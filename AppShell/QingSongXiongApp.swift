@@ -113,7 +113,9 @@ final class AppComposition {
                     .flatMap { ISO8601DateFormatter().date(from: $0) }
                 : nil
             let repository = DemoUsageRepository(scenario: scenario, now: fixedNow)
-            return AIUsageModel(repository: repository, connector: repository)
+            return AIUsageModel(repository: repository, connector: repository,
+                                historyReader: DemoUsageHistoryReader(scenario: scenario,
+                                                                      now: fixedNow ?? Date()))
         }
         #endif
         let model: AIUsageModel
@@ -131,17 +133,21 @@ final class AppComposition {
             let client = URLSessionHTTPClient()
             let tokenClient = OAuthTokenClient(client: client)
             let repository = LiveAIUsageRepository(credentials: credentials, states: states,
-                fetchers: UsageAdapterRegistry.make(client: client), renewer: tokenClient)
+                fetchers: UsageAdapterRegistry.make(client: client), renewer: tokenClient,
+                history: AppServices.history)
             let connector = MobileAccountConnector(repository: repository, tokenClient: tokenClient,
       browser: SystemOAuthBrowser())
             model = AIUsageModel(repository: repository, connector: connector,
-    onDataChange: {
+                preferences: FileDashboardPreferencesStore(container: try shared.containerURL()),
+                historyReader: AppServices.history,
+                onDataChange: {
                     WidgetCenter.shared.reloadTimelines(ofKind: "QingSongXiong.Overview")
                     WidgetCenter.shared.reloadTimelines(ofKind: "QingSongXiong.Provider")
                 })
         } catch {
-            model = AIUsageModel(repository: VerificationGatedRepository(), connector: nil)
-            model.message = "共享存储不可用，请在设置中检查 App 与小组件共享能力。"
+            let fallback = AIUsageModel(repository: VerificationGatedRepository(), connector: nil)
+            fallback.message = "共享存储不可用，请在设置中检查 App 与小组件共享能力。"
+            return fallback
         }
         return model
     }
@@ -163,7 +169,8 @@ final class AppComposition {
             values = try shared.vault(service: "io.github.rollandxd.qingsongxiong.ai-usage.relay")
             #endif
             let repository = LiveRelayRepository(store: store, credentials: SecureRelayCredentials(values: values),
-                adapter: RelayBalanceAdapter(client: URLSessionHTTPClient(followRedirects: false)))
+                adapter: RelayBalanceAdapter(client: URLSessionHTTPClient(followRedirects: false)),
+                history: AppServices.history)
             return RelayModel(repository: repository, onDataChange: {
                 WidgetCenter.shared.reloadTimelines(ofKind: "QingSongXiong.Overview")
                 WidgetCenter.shared.reloadTimelines(ofKind: "QingSongXiong.Provider")

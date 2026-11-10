@@ -88,8 +88,27 @@ struct HoneyJarCard: View {
                 countdown(jar.fiveHour)
                 countdown(jar.weekly)
             }
+            if let note = paceNote {
+                // “按这条线走刚好耗完”：只说和参考线的位置关系，不说必须花完。
+                Text(note)
+                    .font(.caption2)
+                    .foregroundStyle(BearTheme.secondaryText(scheme))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentTransition(.opacity)
+                    .accessibilityIdentifier("jar-pace-" + jar.provider.rawValue)
+            }
         }
         .contentShape(.rect)
+    }
+
+    /// 周窗口的配速参考。拖动时间尺预览未来、未连接、读数过期时不显示。
+    private var paceNote: String? {
+        guard offset == 0, jar.isConnected, !jar.dashboard.isStale,
+              let window = jar.weekly?.window,
+              let pace = QuotaPaceCalculator.pace(for: window, now: now) else { return nil }
+        return "本周参考剩 " + ProviderPresentation.percent(pace.referenceRemainingPercent)
+            + " · " + pace.comparison
     }
 
     @ViewBuilder private func countdown(_ window: UsageWindowPresentation?) -> some View {

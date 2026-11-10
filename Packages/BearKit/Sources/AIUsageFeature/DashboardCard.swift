@@ -80,11 +80,27 @@ struct WindowMeter: View {
     let provider: ProviderID
     let stale: Bool
     var namespace: Namespace.ID?
+    /// 均匀配速参考点（剩余百分比）；nil 时不画刻度。
+    var referenceRemaining: Double?
     @Environment(\.colorScheme) private var scheme
     var body: some View {
         BearTickCapsule(fraction: window.fraction,
                         color: BearTheme.quotaColor(window.remaining, series: ProviderPresentation.paletteIndex(provider), scheme: scheme), stale: stale)
+            .overlay(alignment: .leading) { referenceTick }
             .modifier(MeterGeometry(id: provider.rawValue + "." + window.id, namespace: namespace))
+    }
+
+    /// 参考刻度：按参考线走，此刻应该剩这么多。细而短，不和实际填充抢注意力。
+    @ViewBuilder private var referenceTick: some View {
+        if let referenceRemaining {
+            GeometryReader { proxy in
+                Rectangle()
+                    .fill(BearTheme.text(scheme).opacity(0.45))
+                    .frame(width: 1.5)
+                    .offset(x: proxy.size.width * min(max(referenceRemaining / 100, 0), 1) - 0.75)
+            }
+            .allowsHitTesting(false)
+        }
     }
 }
 
@@ -115,7 +131,20 @@ struct UsageWindowRow: View {
                 Text(ProviderPresentation.percent(window.remaining)).font(.system(.title3, design: .rounded).weight(.semibold)).monospacedDigit()
                 if selected { Image(systemName: "checkmark.circle.fill").foregroundStyle(BearTheme.accent(scheme)) }
             }
-            WindowMeter(window: window, provider: provider, stale: stale, namespace: namespace)
+            WindowMeter(window: window, provider: provider, stale: stale, namespace: namespace,
+                        referenceRemaining: pace?.referenceRemainingPercent)
+            if let pace {
+                // “按这条线走刚好耗完”：只说位置对比，不说“必须花完”。
+                HStack(spacing: 4) {
+                    Image(systemName: "slash").font(.caption2)
+                    Text("参考剩 " + ProviderPresentation.percent(pace.referenceRemainingPercent)
+                         + " · " + pace.comparison)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .font(.caption2)
+                .foregroundStyle(BearTheme.secondaryText(scheme))
+                .accessibilityIdentifier("window-pace-" + provider.rawValue + "-" + window.id)
+            }
             HStack(alignment: .firstTextBaseline) {
                 Text("已用 " + ProviderPresentation.percent(window.window.usedPercent))
                 Spacer(minLength: 4)
@@ -138,6 +167,12 @@ struct UsageWindowRow: View {
     }
     private var resetLabel: String {
         window.resetLabel(at: Date())
+    }
+
+    /// 过期读数不给配速参考：旧数上的参考线比没有更误导。
+    private var pace: QuotaPace? {
+        guard !stale else { return nil }
+        return QuotaPaceCalculator.pace(for: window.window, now: Date())
     }
 }
 
@@ -178,7 +213,6 @@ struct DashboardProviderCard: View {
     let focusedID: String?
     let refreshing: Bool
     let feedback: String?
-    let navigationNamespace: Namespace.ID
     let onNavigate: () -> Void
     let onToggle: () -> Void
     let onFocus: @MainActor @Sendable (String) -> Void
@@ -230,7 +264,6 @@ struct DashboardProviderCard: View {
                 .accessibilityHidden(true)
         }
         .bearGlassCard(tint: series, cornerRadius: 26)
-        .matchedTransitionSource(id: provider, in: navigationNamespace)
         .animation(reduceMotion ? BearMotion.quiet : BearMotion.unfold, value: expanded)
         .sensoryFeedback(.selection, trigger: focusedID)
     }

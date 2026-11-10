@@ -7,13 +7,17 @@ public actor LiveRelayRepository: RelayRepository {
     private let credentials: any RelayCredentialStoring
     private let adapter: RelayBalanceAdapter
     private let clock: any BearClock
+    /// 成功刷新后的余额时间线；默认空实现。
+    private let history: any UsageHistoryRecording
     private var generations: [UUID: UInt64] = [:]
     private var epoch: UInt64 = 0
     private struct Request { let id: UUID; let task: Task<RelaySnapshot, any Error> }
     private var requests: [UUID: Request] = [:]
     public init(store: any RelayRecordStoring, credentials: any RelayCredentialStoring,
-                adapter: RelayBalanceAdapter, clock: any BearClock = SystemBearClock()) {
+                adapter: RelayBalanceAdapter, clock: any BearClock = SystemBearClock(),
+                history: any UsageHistoryRecording = DisabledUsageHistory()) {
         self.store = store; self.credentials = credentials; self.adapter = adapter; self.clock = clock
+        self.history = history
     }
     public func states() async throws -> [RelayState] { try records() }
     private func records() throws -> [RelayState] { try store.load()?.states ?? [] }
@@ -65,6 +69,13 @@ public actor LiveRelayRepository: RelayRepository {
             try? cleanupRetired() // 清理失败保留恢复目录；旧账户不变，clear() 可再次处理。
             throw UsageFailure.unavailable
         }
+        // 提交成功后再管历史：新账户从第 0 段开始，换密钥/换接口则断一段，避免旧曲线续到新账户上。
+        if previous == nil {
+            try? await history.record(balances: snapshot.balances, at: snapshot.fetchedAt, for: .relay(account.id))
+        } else {
+            try? await history.beginSegment(for: .relay(account.id))
+            try? await history.record(balances: snapshot.balances, at: snapshot.fetchedAt, for: .relay(account.id))
+        }
         try? cleanupRetired() // 提交已成功；清理失败由持久化退役列表承接，clear() 强制重试。
     }
     public func refresh(_ id: UUID) async throws -> RelaySnapshot {
@@ -88,6 +99,10 @@ public actor LiveRelayRepository: RelayRepository {
             let snapshot = try await adapter.fetch(endpoint: state.account.endpoint, key: key)
             try ensure(state.id, generation: generation)
             try update(state.account, snapshot: snapshot, failure: nil)
+            // 只记成功提交的余额读值；历史写失败不影响刷新结果。
+            if generations[state.id, default: 0] == generation {
+                try? await history.record(balances: snapshot.balances, at: snapshot.fetchedAt, for: .relay(state.id))
+            }
             return snapshot
         } catch {
             try ensure(state.id, generation: generation)
@@ -112,6 +127,7 @@ public actor LiveRelayRepository: RelayRepository {
         try credentials.remove(state.account)
         values.removeAll { $0.id == id }
         try persist(values)
+        try? await history.forget(.relay(id))
         try? cleanupRetired()
     }
     public func clear() async throws {
@@ -122,5 +138,7 @@ public actor LiveRelayRepository: RelayRepository {
             try credentials.remove(account)
         }
         try store.save(RelayRecord(states: [], updatedAt: clock.now()))
+        // 清空账户必须连带清掉它们的本地时间线，不留残留读数。
+        for state in record?.states ?? [] { try? await history.forget(.relay(state.id)) }
     }
 }

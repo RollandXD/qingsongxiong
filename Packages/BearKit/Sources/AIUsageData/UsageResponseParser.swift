@@ -48,12 +48,22 @@ public enum UsageResponseParser {
                 let title = label.isEmpty ? durationLabel(duration) : label + " · " + durationLabel(duration)
                 let reset = date(raw["reset_at"]) ?? number(raw["reset_after_seconds"])
                     .map { fetchedAt.addingTimeInterval(max(0, $0)) }
-                windows.append(try quota(id: key + "." + name, label: title, used: used, reset: reset))
+                windows.append(try quota(id: key + "." + name, label: title, used: used, reset: reset,
+                                         periodSeconds: periodSeconds(duration), basis: .serverReported))
             }
         }
         guard !windows.isEmpty else { throw UsageFailure.invalidResponse }
         return UsageSnapshot(provider: .codex, windows: windows, balances: [],
                              isAvailable: nil, fetchedAt: fetchedAt)
+    }
+
+    /// Claude 的窗口长度来自接口字段语义（`five_hour` / `seven_day*`），不是服务端逐次给出的时长。
+    private static func claudePeriod(_ key: String) -> Int? {
+        switch key {
+        case "five_hour": 5 * 3_600
+        case "seven_day", "seven_day_opus", "seven_day_sonnet": 7 * 86_400
+        default: nil
+        }
     }
 
     public static func claude(_ data: Data, fetchedAt: Date) throws -> UsageSnapshot {
@@ -66,16 +76,27 @@ public enum UsageResponseParser {
             guard let used = number(raw["utilization"]) ?? number(raw["percent"]) else {
                 throw UsageFailure.invalidResponse
             }
-            windows.append(try quota(id: key, label: label, used: used, reset: date(raw["resets_at"])))
+            windows.append(try quota(id: key, label: label, used: used, reset: date(raw["resets_at"]),
+                                     periodSeconds: claudePeriod(key), basis: .knownWindowRule))
         }
         guard !windows.isEmpty else { throw UsageFailure.invalidResponse }
         return UsageSnapshot(provider: .claude, windows: windows, balances: [],
                              isAvailable: nil, fetchedAt: fetchedAt)
     }
 
-    private static func quota(id: String, label: String, used: Double, reset: Date?) throws -> QuotaWindow {
-        do { return try QuotaWindow(id: id, label: label, usedPercent: used, resetsAt: reset) }
-        catch { throw UsageFailure.invalidResponse }
+    private static func quota(id: String, label: String, used: Double, reset: Date?,
+                              periodSeconds: Int?, basis: QuotaPeriodBasis) throws -> QuotaWindow {
+        do {
+            return try QuotaWindow(id: id, label: label, usedPercent: used, resetsAt: reset,
+                                   periodSeconds: periodSeconds, periodBasis: basis)
+        } catch { throw UsageFailure.invalidResponse }
+    }
+
+    /// 服务端窗口时长：只接受有限、正数、能放进 `Int` 的秒数，其余当作未知（不猜周期）。
+    private static func periodSeconds(_ value: Double?) -> Int? {
+        guard let value, value.isFinite, value > 0, value < Double(Int.max) else { return nil }
+        let seconds = Int(value.rounded())
+        return seconds > 0 ? seconds : nil
     }
 
     private static func object(_ data: Data) throws -> [String: Any] {

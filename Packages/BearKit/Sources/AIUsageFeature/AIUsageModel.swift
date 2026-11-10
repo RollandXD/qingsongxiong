@@ -13,16 +13,73 @@ public final class AIUsageModel {
     public private(set) var verifiedRefresh: Set<ProviderID> = []
     public var message: String?
     public private(set) var dataRevision = 0
+    /// 首页两张主卡的选择；加载完成前用默认顺序，避免首帧空白。
+    public private(set) var dashboard = DashboardPreferences.initial(at: Date())
+    /// 设备本地历史（过去用量时间线的数据源）；不进快照、不上传。
+    public private(set) var history = UsageHistoryArchive.empty(at: Date())
+    public private(set) var historyLoaded = false
     private let repository: any AIUsageRepository
     private let connector: (any AIUsageAccountConnecting)?
+    private let preferences: any DashboardPreferencesStoring
+    private let historyReader: (any UsageHistoryReading)?
     private let onDataChange: @MainActor @Sendable () -> Void
     private var revisions: [ProviderID: UInt64] = [:]
 
     public init(repository: any AIUsageRepository, connector: (any AIUsageAccountConnecting)?,
+                preferences: any DashboardPreferencesStoring = MemoryDashboardPreferencesStore(),
+                historyReader: (any UsageHistoryReading)? = nil,
                 onDataChange: @escaping @MainActor @Sendable () -> Void = {}) {
         self.repository = repository
         self.connector = connector
+        self.preferences = preferences
+        self.historyReader = historyReader
         self.onDataChange = onDataChange
+    }
+
+    /// 读一次本地历史。文件不存在或坏了就当没有历史，不能让首页因此打不开。
+    public func loadHistory() async {
+        guard let historyReader else { return }
+        let loaded = try? await historyReader.archive()
+        historyLoaded = true
+        guard let loaded else { return }
+        history = loaded
+    }
+
+    /// 读取用户选择；坏文件或旧版本只回退到默认，不让首页打不开。
+    public func loadDashboard() {
+        guard let stored = try? preferences.load() else { return }
+        guard let stored else { return }
+        dashboard = stored
+    }
+
+    /// 把某个位置换成指定账户/中转（已在另一位置则互换，绝不重复）。
+    public func setCard(_ ref: AccountRef?, atSlot slot: Int) {
+        let next = dashboard.setting(ref, atSlot: slot, at: Date())
+        guard next != dashboard else { return }
+        // 先改界面再落盘：写失败也不该让点击看起来没反应。
+        dashboard = next
+        try? preferences.save(next)
+        publishChange()
+    }
+
+    public func swapCards() {
+        let next = dashboard.swapping(0, 1, at: Date())
+        guard next != dashboard else { return }
+        dashboard = next
+        try? preferences.save(next)
+        publishChange()
+    }
+
+    /// 中转被删除后清掉指向它的空位；其他位置保持不动。
+    /// 只清理 `keeping` 里不存在的 id，所以调用方必须先确认中转列表已加载，否则会把用户的选择误清。
+    public func pruneRelayCards(keeping ids: Set<UUID>) {
+        let stale = Set(dashboard.cards.compactMap(\.relayID)).subtracting(ids)
+        guard !stale.isEmpty else { return }
+        var next = dashboard
+        for id in stale { next = next.removingRelay(id, at: Date()) }
+        guard next != dashboard else { return }
+        dashboard = next
+        try? preferences.save(next)
     }
 
     public func canConnect(_ provider: ProviderID) -> Bool { connector?.supports(provider) == true }

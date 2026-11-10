@@ -50,23 +50,29 @@ public actor DemoUsageRepository: AIUsageRepository, AIUsageAccountConnecting {
         let exhausted = scenario == "exhausted"
         let displayStep = scenario == "motion" ? min(3, step) : step
         let extraBalance = scenario == "motion" ? Decimal(displayStep * 3) : 0
-        func window(_ id: String, _ label: String, _ used: Double, reset: TimeInterval) -> QuotaWindow {
+        func window(_ id: String, _ label: String, _ used: Double, reset: TimeInterval,
+                    period: Int? = nil, basis: QuotaPeriodBasis = .knownWindowRule) -> QuotaWindow {
             let general = ["rate_limit.primary_window", "rate_limit.secondary_window", "five_hour", "seven_day"].contains(id)
             let amount = scenario == "motion" && general ? [25.0, 85, 100, 35][displayStep] : max(0, used + Double(displayStep % 5) * 2)
             return try! QuotaWindow(id: id, label: label, usedPercent: exhausted ? 100 : amount,
-                             resetsAt: (anchor ?? date).addingTimeInterval(reset))
+                             resetsAt: (anchor ?? date).addingTimeInterval(reset),
+                             periodSeconds: period, periodBasis: basis)
         }
+        // 演示数据给出与生产解析器一致的周期：Codex 用服务端时长，Claude 用已核实的 5 小时/7 天规则。
         let snapshots = [
             UsageSnapshot(provider: .codex,
-                windows: [window("rate_limit.primary_window", "5 小时", 28, reset: 7200),
-                          window("rate_limit.secondary_window", "7 天", 54, reset: 172800),
-                          window("code_review_rate_limit.primary_window", "代码审查 · 1 天", 97, reset: 36000)],
+                windows: [window("rate_limit.primary_window", "5 小时", 28, reset: 7200,
+                                 period: 5 * 3600, basis: .serverReported),
+                          window("rate_limit.secondary_window", "7 天", 54, reset: 172800,
+                                 period: 7 * 86400, basis: .serverReported),
+                          window("code_review_rate_limit.primary_window", "代码审查 · 1 天", 97, reset: 36000,
+                                 period: 86400, basis: .serverReported)],
                 balances: [], isAvailable: nil, fetchedAt: date),
             UsageSnapshot(provider: .claude,
-                windows: [window("five_hour", "5 小时", 21, reset: 5400),
-                          window("seven_day", "7 天 · 全部模型", 88, reset: 259200),
-                          window("seven_day_opus", "7 天 · Opus", 45, reset: 259200),
-                          window("seven_day_sonnet", "7 天 · Sonnet", 100, reset: 259200)],
+                windows: [window("five_hour", "5 小时", 21, reset: 5400, period: 5 * 3600),
+                          window("seven_day", "7 天 · 全部模型", 88, reset: 259200, period: 7 * 86400),
+                          window("seven_day_opus", "7 天 · Opus", 45, reset: 259200, period: 7 * 86400),
+                          window("seven_day_sonnet", "7 天 · Sonnet", 100, reset: 259200, period: 7 * 86400)],
                 balances: [], isAvailable: nil, fetchedAt: date),
             UsageSnapshot(provider: .deepseek, windows: [],
                 balances: [CurrencyBalance(currency: "CNY", total: exhausted ? 0 : Decimal(string: "128.36")! + extraBalance,

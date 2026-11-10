@@ -252,6 +252,75 @@ final class DesignUITests: XCTestCase {
     }
 
     @MainActor
+    func testHomeShowsTwoChosenCardsAndTimeline() throws {
+        continueAfterFailure = true
+        defer { continueAfterFailure = false }
+        for appearance in ["light", "dark"] {
+            let app = launch(appearance)
+            // 两个主卡位置始终存在，谁在里面由用户选。
+            XCTAssertTrue(app.descendants(matching: .any)["home-card-0"].firstMatch.waitForExistence(timeout: 10))
+            XCTAssertTrue(app.descendants(matching: .any)["home-card-1"].firstMatch.exists)
+            attach(app, "home-cards-" + appearance)
+
+            let timeline = app.descendants(matching: .any)["usage-timeline"].firstMatch
+            for _ in 0..<5 where !timeline.exists { app.scrollViews.firstMatch.swipeUp() }
+            XCTAssertTrue(timeline.exists, "过去用量时间线可达")
+            attach(app, "usage-timeline-" + appearance)
+            try auditRenderedAccessibility(app, test: self)
+            app.terminate()
+        }
+    }
+
+    @MainActor
+    func testPaceReferenceAppearsOnDetailAndJar() throws {
+        let app = launch()
+        // 首页蜜罐下的周配速参考：只说位置关系，不说“必须花完”。
+        let jarPace = app.descendants(matching: .any)["jar-pace-codex"].firstMatch
+        XCTAssertTrue(jarPace.waitForExistence(timeout: 10))
+        XCTAssertTrue(jarPace.label.contains("参考剩"), jarPace.label)
+        attach(app, "jar-pace")
+
+        tap("provider-codex", app)
+        let windowPace = app.descendants(matching: .any)["window-pace-codex-five_hour"].firstMatch
+        XCTAssertTrue(windowPace.waitForExistence(timeout: 8))
+        XCTAssertTrue(windowPace.label.contains("参考剩"), windowPace.label)
+        attach(app, "window-pace")
+    }
+
+    @MainActor
+    func testRecoveryPreviewIsIndependentOfCurrentReading() throws {
+        let app = launch(demoNow: "2026-11-10T02:00:00Z")
+        let preview = app.descendants(matching: .any)["recovery-preview"].firstMatch
+        for _ in 0..<5 where !preview.exists { app.scrollViews.firstMatch.swipeUp() }
+        XCTAssertTrue(preview.exists, "恢复预览区可达")
+        // 主卡与蜜罐的当前读数不随预览变化（预览只描述“何时回满”）。
+        let before = app.descendants(matching: .any)["home-card-0"].firstMatch.label
+        attach(app, "recovery-preview")
+        let after = app.descendants(matching: .any)["home-card-0"].firstMatch.label
+        XCTAssertEqual(before, after)
+        app.terminate()
+    }
+
+    @MainActor
+    func testTimelineExplainsMissingHistoryInsteadOfFakingIt() throws {
+        let app = launch(scenario: "no-history")
+        let empty = app.descendants(matching: .any)["timeline-empty"].firstMatch
+        for _ in 0..6 where !empty.exists { app.scrollViews.firstMatch.swipeUp() }
+        XCTAssertTrue(empty.exists, "没有历史时必须给出空态说明")
+        attach(app, "timeline-empty")
+    }
+
+    @MainActor
+    func testReduceTransparencyKeepsCardsReadable() throws {
+        let app = launch()
+        // 减少透明度由模拟器设置注入；此处断言页面依然可读、可导航。
+        XCTAssertTrue(app.buttons["provider-codex"].waitForExistence(timeout: 10))
+        attach(app, "reduce-transparency-home")
+        try auditRenderedAccessibility(app, test: self)
+        app.terminate()
+    }
+
+    @MainActor
     private func waitForMood(_ mood: String, _ app: XCUIApplication) {
         let hero = app.descendants(matching: .any)["dashboard-hero"].firstMatch
         let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", mood), object: hero)

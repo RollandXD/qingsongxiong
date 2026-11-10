@@ -1,6 +1,15 @@
 import Foundation
 
-public enum RelaySite: String, Codable, Sendable, CaseIterable { case apikeyFan }
+public enum RelaySite: String, Codable, Sendable, CaseIterable {
+    case apikeyFan
+
+    /// 只在界面出现；不参与请求，也不是可自由编辑的域名。
+    public var displayName: String {
+        switch self {
+        case .apikeyFan: "APIKEY.FAN"
+        }
+    }
+}
 public enum RelayEndpoint: String, Codable, Sendable, CaseIterable, Identifiable {
     case balance, usage
     public var id: String { rawValue }

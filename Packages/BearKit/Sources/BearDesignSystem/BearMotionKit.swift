@@ -224,19 +224,26 @@ public struct BearGlassCard: ViewModifier {
     let tint: Color
     let cornerRadius: CGFloat
     @Environment(\.colorScheme) private var scheme
+    /// 减少透明度模式下换成接近实心的表面：玻璃叠玻璃时正文才不糊。
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     public func body(content: Content) -> some View {
         content
             .background {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(BearTheme.surface(scheme).opacity(scheme == .dark ? 0.55 : 0.72))
-                .overlay {
-                MeshGradient(width: 2, height: 2, points: [[0, 0], [1, 0], [0, 1], [1, 1]],
-                    colors: BearTheme.meshStops(tint: tint, scheme))
-                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            if reduceTransparency {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(BearTheme.surface(scheme))
+            } else {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(BearTheme.surface(scheme).opacity(scheme == .dark ? 0.55 : 0.72))
+                    .overlay {
+                        MeshGradient(width: 2, height: 2, points: [[0, 0], [1, 0], [0, 1], [1, 1]],
+                            colors: BearTheme.meshStops(tint: tint, scheme))
+                            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                    }
+                    // 材质仅作用于背景，不让系统 vibrancy 降低正文的实际对比度。
+                    .glassEffect(.regular.tint(tint.opacity(scheme == .dark ? 0.08 : 0.04)),
+                        in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             }
-                // 材质仅作用于背景，不让系统 vibrancy 降低正文的实际对比度。
-                .glassEffect(.regular.tint(tint.opacity(scheme == .dark ? 0.08 : 0.04)),
-                    in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
             .overlay {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)

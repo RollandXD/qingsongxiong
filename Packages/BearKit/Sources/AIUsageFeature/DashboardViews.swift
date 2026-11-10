@@ -8,30 +8,15 @@ import SwiftUI
 public final class AIUsageNavigation {
     public var path: [ProviderID] = []
     public var relayID: UUID?
-    var cardSource: ProviderID?
     public init() {}
     public func handle(components: [String]) -> Bool {
         if components.count == 2, components[0] == "relay", let id = UUID(uuidString: components[1]) {
-            path = []; relayID = id; cardSource = nil; return true
+            path = []; relayID = id; return true
         }
         guard let provider = AIUsageRoute.provider(components: components) else { return false }
         relayID = nil
-        cardSource = nil
         path = [provider]
         return true
-    }
-}
-
-private struct ProviderNavigationTransition: ViewModifier {
-    let provider: ProviderID
-    let namespace: Namespace.ID?
-    @ViewBuilder func body(content: Content) -> some View {
-        #if os(iOS)
-        if let namespace { content.navigationTransition(.zoom(sourceID: provider, in: namespace)) }
-        else { content }
-        #else
-        content
-        #endif
     }
 }
 
@@ -44,7 +29,6 @@ public struct AIUsageHome: View {
     @State private var thresholdHaptic = 0
     @State private var now = Date.now
     @State private var scrub: TimeInterval = 0
-    @Namespace private var navigationNamespace
     @Environment(\.colorScheme) private var scheme
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.bearReduceMotion) private var reduceMotion
@@ -57,9 +41,17 @@ public struct AIUsageHome: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     HoneyStatusCard(overview: overview, hero: hero)
-                    subscriptionSection
-                    HoneyWalletList(deepseek: dashboard(.deepseek), relay: relay,
-                                    onDeepSeek: { open(.deepseek) }, onRelay: { navigation.relayID = $0 })
+                    homeCardsSection
+                    recoveryPreview
+                    UsageTimelineSection(model: model, now: now, primary: dashboard.cards.compactMap { $0 }.first)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("其他账户")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(BearTheme.secondaryText(scheme))
+                            .padding(.horizontal, 16)
+                        OtherAccountsList(model: model, relay: relay, now: now) { ref in open(ref) }
+                            .padding(.horizontal, 0)
+                    }
                 }
                 .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 32)
             }
@@ -91,8 +83,6 @@ public struct AIUsageHome: View {
             }
             .navigationDestination(for: ProviderID.self) { provider in
                 ProviderDetail(provider: provider, model: model)
-                    .modifier(ProviderNavigationTransition(provider: provider,
-                        namespace: navigation.cardSource == provider && !reduceMotion ? navigationNamespace : nil))
             }
         }
         .tint(BearTheme.accentInk(scheme))
@@ -105,8 +95,12 @@ public struct AIUsageHome: View {
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
             // 冷启动：先把本机缓存（含中转）落到首帧，再走网络；网络回来只动差值。
+            model.loadDashboard()
             await model.loadCached()
+            await model.loadHistory()
             await relay?.load()
+            // 中转列表真正加载完才清理指向已删账户的主卡；提前清会把用户的选择误抹。
+            if let relay { model.pruneRelayCards(keeping: Set(relay.states.map(\.id))) }
             now = .now
             await model.refreshIfNeeded()
             await relay?.refreshIfNeeded()
@@ -118,6 +112,7 @@ public struct AIUsageHome: View {
                 if ticks % 5 == 0 {
                     await model.refreshIfNeeded()
                     await relay?.refreshIfNeeded()
+                    await model.loadHistory()
                 }
             }
         }
@@ -137,47 +132,70 @@ public struct AIUsageHome: View {
     }
     private var hero: HeroPresentation { HeroPresentation(overview: overview, jars: jars, now: now) }
 
-    private var subscriptionSection: some View {
-        let jars = self.jars
-        return VStack(alignment: .leading, spacing: 8) {
+    /// 主页只保留一个主卡区：两张卡的位置由用户自己选，蜜罐与中转余额同等大小。
+    private var homeCardsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                Text("订阅额度").font(.footnote.weight(.semibold))
+                Text("额度与余额").font(.footnote.weight(.semibold))
                 Spacer()
                 Text(freshness).font(.footnote).monospacedDigit().contentTransition(.opacity)
             }
             .foregroundStyle(BearTheme.secondaryText(scheme))
             .padding(.horizontal, 16)
             VStack(alignment: .leading, spacing: 18) {
-                HStack(alignment: .top, spacing: 14) {
-                    ForEach(jars, id: \.provider) { jar in
-                        Button { open(jar.provider) } label: { HoneyJarCard(jar: jar, now: now, offset: scrub) }
-                            .buttonStyle(BearPressStyle())
-                            .matchedTransitionSource(id: jar.provider, in: navigationNamespace)
-                            .accessibilityLabel(ProviderPresentation.name(jar.provider))
-                            .accessibilityValue(jar.accessibilitySummary)
-                            .accessibilityHint("查看详情")
-                            .accessibilityIdentifier("provider-" + jar.provider.rawValue)
-                    }
-                }
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier("honey-stage")
-                TimeScrubber(offset: $scrub, now: now, marks: scrubMarks(jars),
-                             enabled: jars.contains { $0.isConnected })
+                HomeCardsSection(model: model, relay: relay, now: now, offset: 0) { ref in open(ref) }
+                TimeScrubber(offset: $scrub, now: now, marks: scrubMarks, enabled: hasConnectedProvider)
             }
             .padding(16)
             .background(BearTheme.surface(scheme), in: .rect(cornerRadius: 26, style: .continuous))
         }
     }
 
-    private func scrubMarks(_ jars: [HoneyJarPresentation]) -> [TimeScrubber.Mark] {
-        jars.filter(\.isConnected).flatMap { jar in
-            [jar.fiveHour, jar.weekly].compactMap { $0 }.compactMap { window -> TimeScrubber.Mark? in
+    /// 独立恢复预览：只预览“什么时候回满”，不改主卡的当前读数。
+    private var recoveryPreview: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("恢复预览").font(.footnote.weight(.semibold))
+                Spacer()
+                Text(scrub == 0 ? "现在" : Self.offsetLabel(scrub))
+                    .font(.footnote).monospacedDigit().contentTransition(.opacity)
+            }
+            .foregroundStyle(BearTheme.secondaryText(scheme))
+            .padding(.horizontal, 16)
+            VStack(alignment: .leading, spacing: 14) {
+                RecoveryPreviewRows(model: model, now: now, offset: scrub)
+                TimeScrubber(offset: $scrub, now: now, marks: scrubMarks, enabled: hasConnectedProvider)
+            }
+            .padding(16)
+            .background(BearTheme.surface(scheme), in: .rect(cornerRadius: 26, style: .continuous))
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("recovery-preview")
+    }
+
+    static func offsetLabel(_ offset: TimeInterval) -> String {
+        let minutes = Int((offset / 60).rounded())
+        if minutes < 60 { return "+ \(minutes) 分钟" }
+        let hours = minutes / 60, rest = minutes % 60
+        return rest == 0 ? "+ \(hours) 小时" : "+ \(hours) 小时 \(rest) 分"
+    }
+
+    /// 只给已连接、且不重复的厂商窗口画刻度；中转没有重置周期，不强行画。
+    private var scrubMarks: [TimeScrubber.Mark] {
+        ProviderID.allCases.reduce(into: [TimeScrubber.Mark]()) { marks, provider in
+            let jar = HoneyJarPresentation(dashboard(provider))
+            guard jar.isConnected else { return }
+            for window in [jar.fiveHour, jar.weekly].compactMap({ $0 }) {
                 guard let offset = window.window.resetsAt?.timeIntervalSince(now),
-                      offset > 0, offset <= TimeScrubber.range else { return nil }
-                return TimeScrubber.Mark(id: jar.provider.rawValue + "." + window.id, offset: offset,
-                    color: BearTheme.series(ProviderPresentation.paletteIndex(jar.provider), scheme))
+                      offset > 0, offset <= TimeScrubber.range else { continue }
+                marks.append(TimeScrubber.Mark(id: provider.rawValue + "." + window.id, offset: offset,
+                    color: BearTheme.series(ProviderPresentation.paletteIndex(provider), scheme)))
             }
         }
+    }
+
+    private var hasConnectedProvider: Bool {
+        ProviderID.allCases.contains { model.states[$0]?.connection == .connected }
     }
 
     /// 分节右上角：刷新反馈优先（失败优先于成功），否则显示最近读数的新鲜度。
@@ -191,9 +209,14 @@ public struct AIUsageHome: View {
         return minutes < 1 ? "刚刚更新" : "\(minutes) 分钟前"
     }
 
-    private func open(_ provider: ProviderID) {
-        navigation.cardSource = provider
-        navigation.path.append(provider)
+    private func open(_ ref: AccountRef) {
+        switch ref {
+        case .provider(let provider):
+            navigation.relayID = nil
+            navigation.path.append(provider)
+        case .relay(let id):
+            navigation.relayID = id
+        }
     }
 
     private var canRefresh: Bool {

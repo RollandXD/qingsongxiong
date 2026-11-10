@@ -30,6 +30,8 @@ public actor LiveAIUsageRepository: AIUsageRepository, AIUsageAccountConnecting 
     private let fetchers: [ProviderID: any UsageFetching]
     private let renewer: any UsageCredentialRenewing
     private let clock: any BearClock
+    /// 成功提交后的本地时间线；默认空实现，Widget/预览/测试不受影响。
+    private let history: any UsageHistoryRecording
     private var generations: [ProviderID: UInt64] = [:]
     private struct InFlight {
         let id: UUID
@@ -40,12 +42,14 @@ public actor LiveAIUsageRepository: AIUsageRepository, AIUsageAccountConnecting 
     public init(credentials: any UsageCredentialStore, states: any UsageStateStore,
                 fetchers: [ProviderID: any UsageFetching],
                 renewer: any UsageCredentialRenewing = ReconnectionRequiredRenewer(),
-                clock: any BearClock = SystemBearClock()) {
+                clock: any BearClock = SystemBearClock(),
+                history: any UsageHistoryRecording = DisabledUsageHistory()) {
         self.credentials = credentials
         self.states = states
         self.fetchers = fetchers
         self.renewer = renewer
         self.clock = clock
+        self.history = history
     }
 
     public func state(for provider: ProviderID) async throws -> ProviderState {
@@ -92,6 +96,9 @@ public actor LiveAIUsageRepository: AIUsageRepository, AIUsageAccountConnecting 
             } catch { throw UsageFailure.unavailable }
             throw error
         }
+        // 提交成功后才开新分段：回滚过的账户不能白多一段断点。
+        try? await history.beginSegment(for: .provider(provider))
+        try? await history.record(snapshot: snapshot, for: .provider(provider))
     }
 
     public func refresh(_ provider: ProviderID) async throws -> UsageSnapshot {
@@ -133,6 +140,10 @@ public actor LiveAIUsageRepository: AIUsageRepository, AIUsageAccountConnecting 
             guard snapshot.provider == provider else { throw UsageFailure.invalidResponse }
             try states.save(ProviderState(provider: provider, sessionID: credential.sessionID, connection: .connected,
                                           snapshot: snapshot, failure: nil, updatedAt: clock.now()))
+            // 只记成功提交的读数；历史写不进去也不能让刷新失败。
+            if generations[provider, default: 0] == generation {
+                try? await history.record(snapshot: snapshot, for: .provider(provider))
+            }
             return snapshot
         } catch {
             try ensureCurrent(provider, generation)
@@ -163,6 +174,7 @@ public actor LiveAIUsageRepository: AIUsageRepository, AIUsageAccountConnecting 
         var failure: (any Error)?
         do { try credentials.remove(provider) } catch { failure = error }
         do { try states.remove(provider) } catch { if failure == nil { failure = error } }
+        try? await history.forget(.provider(provider))
         if failure != nil { throw UsageFailure.unavailable }
     }
 
