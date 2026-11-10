@@ -305,7 +305,7 @@ final class DesignUITests: XCTestCase {
     func testTimelineExplainsMissingHistoryInsteadOfFakingIt() throws {
         let app = launch(scenario: "no-history")
         let empty = app.descendants(matching: .any)["timeline-empty"].firstMatch
-        for _ in 0..6 where !empty.exists { app.scrollViews.firstMatch.swipeUp() }
+        for _ in 0..<6 where !empty.exists { app.scrollViews.firstMatch.swipeUp() }
         XCTAssertTrue(empty.exists, "没有历史时必须给出空态说明")
         attach(app, "timeline-empty")
     }
