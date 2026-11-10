@@ -8,9 +8,13 @@ public actor DemoUsageRepository: AIUsageRepository, AIUsageAccountConnecting {
     private let scenario: String
     private let anchorDate: Date
     private var counts: [ProviderID: Int] = [:]
-    public init(scenario: String = "normal") {
+    /// 截图复现用的固定时刻：只影响本仓库生成的 fetchedAt / resetsAt / updatedAt。
+    /// 视图层的「现在」仍是真实时钟，所以固定时刻离真实时间超过 15 分钟时，界面会按旧读数呈现。
+    private let fixedNow: Date?
+    public init(scenario: String = "normal", now fixedNow: Date? = nil) {
         self.scenario = scenario
-        let now = Date()
+        self.fixedNow = fixedNow
+        let now = fixedNow ?? Date()
         anchorDate = now
         values = Self.fixtures(scenario: scenario, now: now, anchor: now)
     }
@@ -18,6 +22,7 @@ public actor DemoUsageRepository: AIUsageRepository, AIUsageAccountConnecting {
     public func state(for provider: ProviderID) async throws -> ProviderState { values[provider]! }
     public func cachedSnapshot(for provider: ProviderID) async throws -> UsageSnapshot? { values[provider]?.snapshot }
     public func allStates() -> [ProviderState] { ProviderID.allCases.compactMap { values[$0] } }
+    private func currentDate() -> Date { fixedNow ?? Date() }
     public func refresh(_ provider: ProviderID) async throws -> UsageSnapshot {
         try await Task.sleep(for: .milliseconds(420))
         try Task.checkCancellation()
@@ -25,20 +30,20 @@ public actor DemoUsageRepository: AIUsageRepository, AIUsageAccountConnecting {
         if scenario == "stale" || scenario == "missing" || (scenario == "partial" && provider == .claude) {
             let failure: UsageFailure = scenario == "missing" ? .invalidResponse : .network
             values[provider] = ProviderState(provider: provider, sessionID: old.sessionID, connection: .connected,
-                snapshot: old.snapshot, failure: failure, updatedAt: Date())
+                snapshot: old.snapshot, failure: failure, updatedAt: currentDate())
             throw failure
         }
         counts[provider, default: 0] += 1
-        let sample = Self.fixtures(scenario: scenario, step: counts[provider, default: 0], anchor: anchorDate)[provider]!.snapshot!
+        let sample = Self.fixtures(scenario: scenario, step: counts[provider, default: 0], now: currentDate(), anchor: anchorDate)[provider]!.snapshot!
         values[provider] = ProviderState(provider: provider, sessionID: old.sessionID, connection: .connected,
-            snapshot: sample, failure: nil, updatedAt: Date())
+            snapshot: sample, failure: nil, updatedAt: currentDate())
         return sample
     }
     public func connect(_ provider: ProviderID, apiKey: String?) async throws {
-        values[provider] = Self.fixtures(scenario: "normal")[provider]
+        values[provider] = Self.fixtures(scenario: "normal", now: currentDate())[provider]
     }
     public func cancel(_ provider: ProviderID) async {}
-    public func disconnect(_ provider: ProviderID) async throws { values[provider] = .disconnected(provider, at: Date()) }
+    public func disconnect(_ provider: ProviderID) async throws { values[provider] = .disconnected(provider, at: currentDate()) }
 
     private static func fixtures(scenario: String, step: Int = 0, now: Date = Date(), anchor: Date? = nil) -> [ProviderID: ProviderState] {
         let date = now.addingTimeInterval(scenario == "stale" || scenario == "reconnect" ? -1800 : 0)

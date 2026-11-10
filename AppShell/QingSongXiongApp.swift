@@ -106,7 +106,13 @@ final class AppComposition {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("--demo-usage") {
             let scenario = arguments.firstIndex(of: "--demo-scenario").flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil } ?? "normal"
-            let repository = DemoUsageRepository(scenario: scenario)
+            // 固定演示时钟仅在 UI 测试里生效：数据按该时刻生成，视图层仍用真实时钟。
+            let fixedNow = arguments.contains("--ui-testing")
+                ? arguments.firstIndex(of: "--demo-now")
+                    .flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
+                    .flatMap { ISO8601DateFormatter().date(from: $0) }
+                : nil
+            let repository = DemoUsageRepository(scenario: scenario, now: fixedNow)
             return AIUsageModel(repository: repository, connector: repository)
         }
         #endif

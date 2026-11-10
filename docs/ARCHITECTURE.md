@@ -62,6 +62,6 @@ Keychain 共享组的团队前缀优先从本 App 的安装描述文件解析，
 
 AIUsagePresentation 提供 Foundation-only 的窗口类别、最低剩余通用窗口、精确 Decimal 余额组成和明确时间参数的旧读数判断。模型/代码审查窗口独立标注，未知限制保留原名；无完整一致数据不绘制余额占比。
 
-BearDesignSystem 仅提供语义色、通用条形/弧形/组成图形与动效参数，不包含厂商规则。AIUsageFeature 的 DashboardInteraction 保存临时展开/焦点，账户 sessionID 改变时清空；数值动画限于同一账户、同一窗口。SharedUI/WidgetMetricContent.swift 同时编入 App 的 Debug 演示和 Widget，依赖白名单禁止访问仓储、授权或主 App 页面；数据由各组合根注入。
+BearDesignSystem 仅提供语义色、蜜罐/蜜条等通用图形与动效参数，不包含厂商规则。动效只有三个弹簧 token：`snappy`（0.28/0.86，按压、切换、标尺吸附）、`smooth`（0.48/1.0，布局、展开、转场）、`fluid`（0.70/0.72，液面），数值与 `design/prototype-honey/index.html` 原型一一对应；`BearHoneyJar` 用解析弹簧 `Spring.value/velocity` 逐帧求液位与速度，晃动幅度由速度推出，最长一段运动结束后暂停 TimelineView，静止零帧；旧状态无读数（冷启动、未连接）时直接落位不倒灌。额度阈值只在 `AIUsagePresentation/QuotaThresholds`（≤20 留意、≤5 告急）。首页无 TabView，设置经 `bearOpenSettings` 环境动作由 App 外壳以 sheet 呈现。SharedUI/WidgetMetricContent.swift 同时编入 App 的 Debug 演示和 Widget，依赖白名单禁止访问仓储、授权或主 App 页面；数据由各组合根注入。
 
 只有 Debug 模拟器的 --demo-usage / --widget-demo 会使用 DemoUsageRepository。该仓储只在内存生成合成数据，Release 不包含它，真机路径仍使用现有 Keychain 和共享缓存。

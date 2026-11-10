@@ -5,10 +5,13 @@ final class DesignUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
 
     @MainActor
-    private func launch(_ appearance: String = "light", scenario: String = "normal", widgets: Bool = false, reduceMotion: Bool = false) -> XCUIApplication {
+    private func launch(_ appearance: String = "light", scenario: String = "normal", widgets: Bool = false, reduceMotion: Bool = false, demoNow: String? = nil) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing", widgets ? "--widget-demo" : "--demo-usage",
                                "--demo-scenario", scenario, "-bear.appearance", appearance]
+        // 固定演示数据的生成时刻（仅数据；视图仍用真实时钟）。
+        // 数据读数 15 分钟后视图会判为旧读数，会让情绪词断言失效，所以默认不传，只在只截图的场景显式传入。
+        if let demoNow { app.launchArguments += ["--demo-now", demoNow] }
         if reduceMotion { app.launchArguments.append("--ui-reduce-motion") }
         app.launch()
         if !widgets { XCTAssertTrue(app.buttons["provider-codex"].waitForExistence(timeout: 10)) }
@@ -37,10 +40,13 @@ final class DesignUITests: XCTestCase {
         for appearance in ["light", "dark"] {
             let app = launch(appearance)
             XCTAssertTrue(app.otherElements["dashboard-hero"].exists || app.staticTexts["dashboard-hero"].exists)
+            XCTAssertTrue(app.descendants(matching: .any)["honey-stage"].firstMatch.exists)
+            XCTAssertTrue(app.descendants(matching: .any)["time-scrubber"].firstMatch.exists)
             attach(app, "dashboard-" + appearance)
+            attach(app, "honey-stage-" + appearance)
             try auditRenderedAccessibility(app, test: self)
             let balance = app.buttons["provider-deepseek"]
-            // 对准真实 ScrollView，多次滚动直到按钮离开浮动标签栏覆盖区。
+            // 对准真实 ScrollView，多次滚动直到余额行进入可点击区域。
             for _ in 0..<4 where !balance.isHittable { app.scrollViews.firstMatch.swipeUp() }
             XCTAssertTrue(balance.isHittable, "首页下半部可滚动抵达余额卡")
             attach(app, "dashboard-balance-" + appearance)
@@ -69,30 +75,25 @@ final class DesignUITests: XCTestCase {
     }
 
     @MainActor
-    func testWindowFocusAndSingleExpansion() {
+    func testCodexDetailShowsIndependentReviewWindow() {
         let app = launch()
-        tap("expand-codex", app)
-        let review = "window-codex-code_review_rate_limit.primary_window"
-        tap(review, app)
-        XCTAssertTrue(app.buttons[review].isSelected)
+        tap("provider-codex", app)
+        XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
+        // 窗口行现在是组合后的静态元素：不再可选，只断言存在。
+        let review = app.descendants(matching: .any)["window-codex-code_review_rate_limit.primary_window"].firstMatch
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
         attach(app, "codex-review-independent")
-        tap("expand-claude", app)
-        waitUntilGone(app.buttons[review])
-        tap("window-claude-seven_day_sonnet", app)
-        XCTAssertTrue(app.buttons["window-claude-seven_day_sonnet"].isSelected)
-        attach(app, "claude-model-limit")
-        tap("expand-claude", app)
-        waitUntilGone(app.buttons["window-claude-seven_day_sonnet"])
-        // 快速反向操作最终归位，不积累动画任务。
-        app.buttons["expand-claude"].tap(withNumberOfTaps: 2, numberOfTouches: 1)
-        XCTAssertTrue(app.buttons["provider-claude"].exists)
+        goBack(app)
+        XCTAssertTrue(app.buttons["provider-codex"].waitForExistence(timeout: 5))
     }
 
     @MainActor
     func testBalancesKeepCurrenciesSeparate() {
         let app = launch(scenario: "multi-currency")
-        tap("expand-deepseek", app)
-        XCTAssertTrue(app.staticTexts["CNY"].exists)
+        // 币种代码是余额行里独立的 Text；先滚到余额行再断言。
+        let cny = app.staticTexts["CNY"]
+        for _ in 0..<4 where !cny.isHittable { app.swipeUp() }
+        XCTAssertTrue(cny.exists)
         XCTAssertTrue(app.staticTexts["USD"].exists)
         attach(app, "balance-multiple-currencies")
         tap("provider-deepseek", app)
@@ -160,34 +161,25 @@ final class DesignUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["已核实，读数未变化"].firstMatch.waitForExistence(timeout: 5))
         attach(app, "motion-verified-unchanged")
         pause()
-        tap("expand-codex", app)
+        // 时间尺：按住从左侧拖到约 70% 处并停留，松手后回到「现在」。
+        // XCUITest 无法在手势保持期间截图，所以 motion-scrubber 抓的是保持结束后的画面。
+        attach(app, "honey-stage")
+        let scrubber = app.descendants(matching: .any)["time-scrubber"].firstMatch
+        XCTAssertTrue(scrubber.waitForExistence(timeout: 5))
+        scrubber.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5))
+            .press(forDuration: 0.1,
+                   thenDragTo: scrubber.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5)),
+                   withVelocity: .slow, thenHoldForDuration: 0.8)
         pause()
-        tap("window-codex-rate_limit.primary_window", app)
+        attach(app, "motion-scrubber")
         pause()
-        tap("window-codex-code_review_rate_limit.primary_window", app)
-        pause()
-        tap("expand-codex", app)
-        tap("expand-claude", app)
-        pause()
-        app.segmentedControls["window-picker-claude"].swipeLeft()
-        pause()
-        tap("expand-claude", app)
-        tap("expand-deepseek", app)
-        pause()
-        attach(app, "balance-composition-expanded")
-        tap("expand-deepseek", app)
         app.buttons["refresh-all"].tap()
         pause()
         tap("provider-codex", app)
         XCTAssertTrue(app.navigationBars["Codex"].waitForExistence(timeout: 5))
         attach(app, "codex-detail")
         pause()
-        if app.buttons["BackButton"].exists { app.buttons["BackButton"].tap() }
-        else if app.navigationBars.buttons["轻松熊"].exists { app.navigationBars.buttons["轻松熊"].tap() }
-        else {
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.5))
-                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5)))
-        }
+        goBack(app)
         XCTAssertTrue(app.buttons["provider-codex"].waitForExistence(timeout: 5))
         XCUIDevice.shared.press(.home)
         pause()
@@ -272,7 +264,7 @@ final class DesignUITests: XCTestCase {
     private func tap(_ identifier: String, _ app: XCUIApplication) {
         let button = app.buttons[identifier]
         XCTAssertTrue(button.waitForExistence(timeout: 5), identifier)
-        // 部分可见的 Glass 控件可能仍被 AX 标为可点击；先避开导航和标签栏覆盖区。
+        // 部分可见的 Glass 控件可能仍被 AX 标为可点击；先避开导航栏和底部安全区。
         for _ in 0..<8 {
             let center = button.frame.midY
             if center < 125 { app.swipeDown() }
@@ -284,13 +276,17 @@ final class DesignUITests: XCTestCase {
         button.tap()
     }
 
-    private func pause() { Thread.sleep(forTimeInterval: 0.9) }
-
     @MainActor
-    private func waitUntilGone(_ element: XCUIElement) {
-        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
-        XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 5), .completed)
+    private func goBack(_ app: XCUIApplication) {
+        if app.buttons["BackButton"].exists { app.buttons["BackButton"].tap() }
+        else if app.navigationBars.buttons["轻松熊"].exists { app.navigationBars.buttons["轻松熊"].tap() }
+        else {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.5))
+                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5)))
+        }
     }
+
+    private func pause() { Thread.sleep(forTimeInterval: 0.9) }
 
     @MainActor
     private func attach(_ app: XCUIApplication, _ name: String) {

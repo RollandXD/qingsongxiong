@@ -4,6 +4,16 @@
 
 [下载与扫码入口](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.3.0-preview.1) · [机器可读验收](https://github.com/RollandXD/qingsongxiong/releases/download/v0.3.0-preview.1/verification.json)
 
+## 0.4.0 蜜罐改版（开发中，2026-11-09）
+
+分支 `claude/ios-honey-redesign`。范围：首页改为状态卡 + 每家双格蜜罐（5 小时 / 本周）+ 回满预览时间尺 + 余额列表；详情页订阅额度 / 附加限额两组蜜条；三弹簧动效体系；纸白底 + 系统色；去 TabView；冷启动先落缓存与中转；小组件全族换蜜罐。设计基准：`design/prototype-honey/index.html`。
+
+| 项目 | 结果 |
+|---|---|
+| Linux 架构/凭据/脚本检查 | PASS |
+| Swift 包测试、原生 UI 回归、截图与录像对照原型 | UNKNOWN（待 CI） |
+| 真机覆盖安装 | UNKNOWN |
+
 ## 0.3.0 设计与刷新预览 1（2026-11-09）
 
 范围：温润纸感与玻璃首页/详情、一次性状态动效、主屏与锁屏组件、交互刷新、语义变化定向 reload、BGAppRefresh，以及 APIKEY.FAN 两个审核接口和手机内中转账户管理。

@@ -22,6 +22,8 @@ final class BootstrapUITests: XCTestCase {
         let settings = app.buttons["设置"]
         XCTAssertTrue(settings.waitForExistence(timeout: 10))
         settings.tap()
+        // 设置是 sheet，带「完成」按钮。
+        XCTAssertTrue(app.buttons["完成"].waitForExistence(timeout: 5))
         app.buttons["open-signing-verification"].tap()
         XCTAssertTrue(app.buttons["write-probe"].waitForExistence(timeout: 5))
         attach(app, name: "signing-dark")
