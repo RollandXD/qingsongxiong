@@ -10,8 +10,9 @@ struct WindowResetTimeline: View {
     private var series: Color { BearTheme.series(ProviderPresentation.paletteIndex(presentation.provider), scheme) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("接下来的重置").font(.title3.bold()).accessibilityAddTraits(.isHeader)
+        VStack(alignment: .leading, spacing: 8) {
+            Text("接下来的重置").font(.footnote.weight(.semibold)).foregroundStyle(BearTheme.secondaryText(scheme))
+                .padding(.horizontal, 16).accessibilityAddTraits(.isHeader)
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(presentation.resetTimeline.enumerated()), id: \.element.id) { index, window in
                     HStack(alignment: .top, spacing: 12) {
@@ -40,7 +41,7 @@ struct WindowResetTimeline: View {
                     }.accessibilityElement(children: .combine)
                 }
             }.frame(maxWidth: .infinity, alignment: .leading)
-                .padding(18).bearGlassCard(tint: series, cornerRadius: 22)
+                .padding(16).background(BearTheme.surface(scheme), in: .rect(cornerRadius: 26, style: .continuous))
         }.foregroundStyle(BearTheme.text(scheme)).accessibilityIdentifier("reset-timeline")
     }
 }

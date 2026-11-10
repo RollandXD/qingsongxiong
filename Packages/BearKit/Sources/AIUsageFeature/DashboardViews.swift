@@ -39,49 +39,35 @@ public struct AIUsageHome: View {
     @Bindable private var model: AIUsageModel
     @Bindable private var navigation: AIUsageNavigation
     private let relay: RelayModel?
-    @State private var interaction = DashboardInteraction()
     @State private var refreshHaptic = 0
     @State private var failureHaptic = 0
     @State private var thresholdHaptic = 0
-    @State private var appeared = false
+    @State private var now = Date.now
+    @State private var scrub: TimeInterval = 0
     @Namespace private var navigationNamespace
     @Environment(\.colorScheme) private var scheme
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.bearReduceMotion) private var reduceMotion
+    @Environment(\.bearOpenSettings) private var openSettings
     public init(model: AIUsageModel, navigation: AIUsageNavigation, relay: RelayModel? = nil) {
         self.model = model; self.navigation = navigation; self.relay = relay
     }
     public var body: some View {
         NavigationStack(path: $navigation.path) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text("AI 额度").font(.title2.bold()).foregroundStyle(BearTheme.text(scheme))
-                            .accessibilityAddTraits(.isHeader)
-                        Spacer()
-                    }.padding(.horizontal, 3).padding(.bottom, 3)
-                    DashboardHero(overview: overview, entered: appeared)
-                        .opacity(appeared ? 1 : 0)
-                        .transition(.blurReplace)
-                        .offset(y: appeared || reduceMotion ? 0 : 10)
-                        .padding(.bottom, 4)
-                    ForEach(Array(ProviderID.allCases.enumerated()), id: \.element) { index, provider in
-                        card(provider)
-                            .opacity(appeared ? 1 : 0)
-                            .transition(.blurReplace)
-                            .offset(y: appeared || reduceMotion ? 0 : 12)
-                            .animation(BearMotion.choose(BearMotion.entrance, reduceMotion: reduceMotion)
-                                .delay(reduceMotion ? 0 : Double(index + 1) * BearMotion.stagger * 2), value: appeared)
-                    }
-                    if let relay { RelayHomeSection(model: relay, onSelect: { navigation.relayID = $0 }) }
+                VStack(alignment: .leading, spacing: 22) {
+                    HoneyStatusCard(overview: overview, hero: hero)
+                    subscriptionSection
+                    HoneyWalletList(deepseek: dashboard(.deepseek), relay: relay,
+                                    onDeepSeek: { open(.deepseek) }, onRelay: { navigation.relayID = $0 })
                 }
-                .padding(.horizontal, 18).padding(.top, 8).padding(.bottom, 24)
+                .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 32)
             }
             .scrollEdgeEffectStyle(.soft, for: .top)
-            .background(BearTheme.paper(scheme).ignoresSafeArea())
+            .background(BearTheme.background(scheme).ignoresSafeArea())
             .navigationTitle("轻松熊")
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             #endif
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -90,6 +76,13 @@ public struct AIUsageHome: View {
                     }
                     .disabled(!canRefresh)
                     .accessibilityLabel("刷新全部额度").accessibilityIdentifier("refresh-all")
+                }
+                if let openSettings {
+                    ToolbarSpacer(.fixed, placement: .primaryAction)
+                    ToolbarItem(placement: .primaryAction) {
+                        Button { openSettings() } label: { Image(systemName: "gearshape") }
+                            .accessibilityLabel("设置")
+                    }
                 }
             }
             .bearPullToRefresh(enabled: canRefresh) { await refreshAll() }
@@ -102,56 +95,107 @@ public struct AIUsageHome: View {
                         namespace: navigation.cardSource == provider && !reduceMotion ? navigationNamespace : nil))
             }
         }
-        .tint(BearTheme.accent(scheme))
+        .tint(BearTheme.accentInk(scheme))
         .sensoryFeedback(.success, trigger: refreshHaptic)
         .sensoryFeedback(.warning, trigger: failureHaptic)
         .sensoryFeedback(.warning, trigger: thresholdHaptic)
         .onChange(of: overview.mood) { old, new in
             if old != .asleep && new == .urgent && scenePhase == .active { thresholdHaptic &+= 1 }
         }
-        .onChange(of: model.states) { _, states in interaction.reconcile(states) }
-        .onChange(of: scenePhase) { _, phase in if phase != .active { appeared = true } }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
+            // 冷启动：先把本机缓存（含中转）落到首帧，再走网络；网络回来只动差值。
             await model.loadCached()
-            interaction.reconcile(model.states)
-            withAnimation(BearMotion.choose(BearMotion.entrance, reduceMotion: reduceMotion)) { appeared = true }
+            await relay?.load()
+            now = .now
             await model.refreshIfNeeded()
             await relay?.refreshIfNeeded()
+            var ticks = 0
             while !Task.isCancelled {
-                do { try await Task.sleep(for: .seconds(300)) } catch { return }
-                await model.refreshIfNeeded()
-                await relay?.refreshIfNeeded()
+                do { try await Task.sleep(for: .seconds(60)) } catch { return }
+                now = .now
+                ticks += 1
+                if ticks % 5 == 0 {
+                    await model.refreshIfNeeded()
+                    await relay?.refreshIfNeeded()
+                }
             }
         }
         .alert("暂未完成", isPresented: Binding(get: { navigation.path.isEmpty && model.message != nil }, set: { if !$0 { model.message = nil } })) {
             Button("好") { model.message = nil }
         } message: { Text(model.message ?? "") }
     }
+
+    private static let jarProviders: [ProviderID] = [.codex, .claude]
+
+    private func dashboard(_ provider: ProviderID) -> ProviderDashboardPresentation {
+        ProviderDashboardPresentation(provider: provider, state: model.states[provider], at: now)
+    }
+    private var jars: [HoneyJarPresentation] { Self.jarProviders.map { HoneyJarPresentation(dashboard($0)) } }
     private var overview: DashboardOverviewPresentation {
-        DashboardOverviewPresentation(providers: ProviderID.allCases.map {
-            ProviderDashboardPresentation(provider: $0, state: model.states[$0], at: Date())
-        })
+        DashboardOverviewPresentation(providers: ProviderID.allCases.map(dashboard))
     }
-    private func card(_ provider: ProviderID) -> some View {
-        let state = model.states[provider]
-        let presentation = ProviderDashboardPresentation(provider: provider, state: state, at: Date())
-        return DashboardProviderCard(presentation: presentation,
-            expanded: interaction.expandedProvider == provider, focusedID: interaction.focusedWindows[provider],
-            refreshing: model.refreshing.contains(provider), feedback: model.refreshFeedback[provider],
-            navigationNamespace: navigationNamespace,
-            onNavigate: { navigation.cardSource = provider; navigation.path.append(provider) },
-            onToggle: {
-                withAnimation(reduceMotion ? BearMotion.quiet : BearMotion.unfold) { interaction.toggle(provider) }
-            },
-            onFocus: { id in
-                withAnimation(reduceMotion ? BearMotion.quiet : BearMotion.unfold) { interaction.focus(id, for: provider) }
-            })
-            .id(provider)
-            .animation(model.animatedRefresh.contains(provider) ? (reduceMotion ? BearMotion.quiet : BearMotion.data) : nil,
-                       value: state?.snapshot?.fetchedAt)
-            .animation(reduceMotion ? BearMotion.quiet : BearMotion.unfold, value: state?.connection)
+    private var hero: HeroPresentation { HeroPresentation(overview: overview, jars: jars, now: now) }
+
+    private var subscriptionSection: some View {
+        let jars = self.jars
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("订阅额度").font(.footnote.weight(.semibold))
+                Spacer()
+                Text(freshness).font(.footnote).monospacedDigit().contentTransition(.opacity)
+            }
+            .foregroundStyle(BearTheme.secondaryText(scheme))
+            .padding(.horizontal, 16)
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .top, spacing: 14) {
+                    ForEach(jars, id: \.provider) { jar in
+                        Button { open(jar.provider) } label: { HoneyJarCard(jar: jar, now: now, offset: scrub) }
+                            .buttonStyle(BearPressStyle())
+                            .matchedTransitionSource(id: jar.provider, in: navigationNamespace)
+                            .accessibilityLabel(ProviderPresentation.name(jar.provider))
+                            .accessibilityValue(jar.accessibilitySummary)
+                            .accessibilityHint("查看详情")
+                            .accessibilityIdentifier("provider-" + jar.provider.rawValue)
+                    }
+                }
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("honey-stage")
+                TimeScrubber(offset: $scrub, now: now, marks: scrubMarks(jars),
+                             enabled: jars.contains { $0.isConnected })
+            }
+            .padding(16)
+            .background(BearTheme.surface(scheme), in: .rect(cornerRadius: 26, style: .continuous))
+        }
     }
+
+    private func scrubMarks(_ jars: [HoneyJarPresentation]) -> [TimeScrubber.Mark] {
+        jars.filter(\.isConnected).flatMap { jar in
+            [jar.fiveHour, jar.weekly].compactMap { $0 }.compactMap { window -> TimeScrubber.Mark? in
+                guard let offset = window.window.resetsAt?.timeIntervalSince(now),
+                      offset > 0, offset <= TimeScrubber.range else { return nil }
+                return TimeScrubber.Mark(id: jar.provider.rawValue + "." + window.id, offset: offset,
+                    color: BearTheme.series(ProviderPresentation.paletteIndex(jar.provider), scheme))
+            }
+        }
+    }
+
+    /// 分节右上角：刷新反馈优先（失败优先于成功），否则显示最近读数的新鲜度。
+    private var freshness: String {
+        let feedback = ProviderID.allCases.compactMap { model.refreshFeedback[$0] }
+        if let failed = feedback.first(where: { $0.contains("未完成") }) { return failed }
+        if let first = feedback.first { return first }
+        let fetched = Self.jarProviders.compactMap { model.states[$0]?.snapshot?.fetchedAt }.max()
+        guard let fetched else { return "" }
+        let minutes = Int(now.timeIntervalSince(fetched) / 60)
+        return minutes < 1 ? "刚刚更新" : "\(minutes) 分钟前"
+    }
+
+    private func open(_ provider: ProviderID) {
+        navigation.cardSource = provider
+        navigation.path.append(provider)
+    }
+
     private var canRefresh: Bool {
         let hasAccounts = model.states.values.contains(where: { $0.connection == .connected }) || !(relay?.states.isEmpty ?? true)
         return hasAccounts && model.refreshing.isEmpty && model.connecting.isEmpty && !model.clearing
@@ -206,13 +250,13 @@ struct ProviderDetail: View {
     }
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                hero
+            VStack(alignment: .leading, spacing: 22) {
                 if let failure = presentation.state?.failure {
                     Label(AIUsageModel.explanation(failure), systemImage: "exclamationmark.circle")
                         .font(.subheadline).foregroundStyle(BearTheme.warning(scheme))
                 }
                 if !presentation.windows.isEmpty { windows }
+                if !jar.extras.isEmpty { extras }
                 if !presentation.resetTimeline.isEmpty {
                     WindowResetTimeline(presentation: presentation)
                 }
@@ -226,12 +270,14 @@ struct ProviderDetail: View {
                         if let feedback = model.refreshFeedback[provider] { Text(feedback) }
                     }.font(.footnote).foregroundStyle(BearTheme.secondaryText(scheme))
                 }
-                Text(provider == .deepseek ? "DeepSeek 官方 API 余额，与聊天会员分开计算。" : "各额度窗口独立计算。模型专属限制不代表全部模型的可用额度。")
-                    .font(.footnote).foregroundStyle(BearTheme.secondaryText(scheme))
-            }.padding(20)
+                if provider == .deepseek {
+                    Text("DeepSeek 官方 API 余额，与聊天会员分开计算。")
+                        .font(.footnote).foregroundStyle(BearTheme.secondaryText(scheme))
+                }
+            }.padding(.horizontal, 16).padding(.vertical, 12)
         }
         .scrollEdgeEffectStyle(.soft, for: .top)
-        .background(BearTheme.paper(scheme).ignoresSafeArea())
+        .background(BearTheme.background(scheme).ignoresSafeArea())
         .foregroundStyle(BearTheme.text(scheme))
         .navigationTitle(ProviderPresentation.name(provider))
         .toolbar {
@@ -272,32 +318,24 @@ struct ProviderDetail: View {
         }
     }
     private var series: Color { BearTheme.series(ProviderPresentation.paletteIndex(provider), scheme) }
-    private var hero: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            ProviderIdentity(presentation: presentation, refreshing: model.refreshing.contains(provider))
-            HStack(spacing: 24) {
-                DashboardMetric(presentation: presentation, focused: nil, large: true)
-                if let window = presentation.summaryWindow {
-                    BearRing(fraction: window.fraction,
-                             color: BearTheme.quotaColor(window.remaining, series: ProviderPresentation.paletteIndex(provider), scheme: scheme),
-                             stale: presentation.isStale, lineWidth: 11)
-                        .frame(width: 112, height: 112)
-                        .accessibilityHidden(true)
+    private var jar: HoneyJarPresentation { HoneyJarPresentation(presentation) }
+    @ViewBuilder private var windows: some View {
+        let jar = self.jar
+        if jar.fiveHour != nil || jar.weekly != nil {
+            HoneyGroup("订阅额度", footer: "各窗口独立计算，比例不能相加。") {
+                if let window = jar.fiveHour {
+                    HoneyWindowRow(window: window, title: "5 小时", provider: provider, stale: presentation.isStale, now: Date())
+                }
+                if let window = jar.weekly {
+                    HoneyWindowRow(window: window, title: "本周", provider: provider, stale: presentation.isStale, now: Date())
                 }
             }
-            if let window = presentation.summaryWindow {
-                Text(window.role == .general ? "通用窗口中剩余比例最低" : window.role.label)
-                    .font(.caption).foregroundStyle(BearTheme.secondaryText(scheme))
-            }
-        }.padding(22).bearGlassCard(tint: series, cornerRadius: 30)
+        }
     }
-    private var windows: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("独立额度窗口").font(.title3.bold())
-            ForEach(presentation.windows) { window in
-                UsageWindowRow(window: window, provider: provider, stale: presentation.isStale,
-                               selected: presentation.summaryWindow?.id == window.id)
-                    .bearGlassCard(tint: series, cornerRadius: 20)
+    private var extras: some View {
+        HoneyGroup("附加限额", footer: "模型专属限制不代表全部模型的可用额度。") {
+            ForEach(jar.extras) { window in
+                HoneyWindowRow(window: window, title: window.shortLabel, provider: provider, stale: presentation.isStale, now: Date())
             }
         }
     }
@@ -308,7 +346,7 @@ struct ProviderDetail: View {
                 VStack(alignment: .leading, spacing: 14) {
                     Text(ProviderPresentation.money(balance.balance.total, currency: balance.balance.currency)).font(.headline).textSelection(.enabled)
                     BalanceBreakdown(balance: balance, color: BearTheme.series(ProviderPresentation.paletteIndex(provider), scheme))
-                }.padding(18).bearGlassCard(tint: series, cornerRadius: 22)
+                }.padding(18).background(BearTheme.surface(scheme), in: .rect(cornerRadius: 26, style: .continuous))
             }
             if let available = presentation.state?.snapshot?.isAvailable {
                 Label((presentation.isStale ? "上次读取：" : "") + (available ? "余额可继续调用" : "余额不足以继续调用"),

@@ -187,35 +187,43 @@ private struct AppRoot: View {
     @AppStorage("bear.appearance") private var appearance = "system"
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @State private var selectedTab = "home"
+    @State private var showSettings = false
 
     private var preferredScheme: ColorScheme? {
         switch appearance { case "light": .light; case "dark": .dark; default: nil }
     }
 
+    // 只有一个首页时不要 TabView：设置收进导航栏按钮，以 sheet 呈现，首页独占全屏。
     var body: some View {
-        TabView(selection: $selectedTab) {
-            Tab("首页", systemImage: "house", value: "home") {
-                if composition.entries.count == 1, let entry = composition.entries.first {
-                    entry.home
-                } else {
-                    NavigationStack {
-                        List(composition.entries, id: \.descriptor.id) { entry in
-                            NavigationLink(entry.descriptor.title) { entry.home }
-    .accessibilityIdentifier("feature-" + entry.descriptor.id)
-                        }.navigationTitle("轻松熊")
+        Group {
+            if composition.entries.count == 1, let entry = composition.entries.first {
+                entry.home
+            } else {
+                NavigationStack {
+                    List(composition.entries, id: \.descriptor.id) { entry in
+                        NavigationLink(entry.descriptor.title) { entry.home }
+                            .accessibilityIdentifier("feature-" + entry.descriptor.id)
+                    }
+                    .navigationTitle("轻松熊")
+                    .toolbar {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button { showSettings = true } label: { Image(systemName: "gearshape") }
+                                .accessibilityLabel("设置")
+                        }
                     }
                 }
             }
-            Tab("设置", systemImage: "gearshape", value: "settings") {
-                SettingsScreen(appearance: $appearance, entries: composition.entries)
-            }
         }
-        .tint(BearTheme.accent(colorScheme))
+        .environment(\.bearOpenSettings, BearOpenSettingsAction { showSettings = true })
+        .sheet(isPresented: $showSettings) {
+            SettingsScreen(appearance: $appearance, entries: composition.entries)
+                .preferredColorScheme(preferredScheme)
+        }
+        .tint(BearTheme.accentInk(colorScheme))
         .preferredColorScheme(preferredScheme)
         .environment(\.dynamicTypeSize, usesLargeTypeFixture ? .accessibility3 : dynamicTypeSize)
         .environment(\.bearReduceMotion, usesReducedMotionFixture)
-        .onOpenURL { url in selectedTab = "home"; composition.open(url) }
+        .onOpenURL { url in showSettings = false; composition.open(url) }
     }
 
     private var usesReducedMotionFixture: Bool {
@@ -239,6 +247,7 @@ private struct SettingsScreen: View {
     @Binding var appearance: String
     let entries: [AppFeatureEntry]
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
             Form {
@@ -274,6 +283,14 @@ private struct SettingsScreen: View {
             .scrollContentBackground(.hidden)
             .background(BearTheme.background(scheme))
             .navigationTitle("设置")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成", systemImage: "checkmark") { dismiss() }
+                }
+            }
         }
     }
 
