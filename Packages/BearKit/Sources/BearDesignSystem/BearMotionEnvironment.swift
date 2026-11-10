@@ -11,3 +11,14 @@ public extension EnvironmentValues {
         set { self[BearReducedMotionOverride.self] = newValue }
     }
 }
+
+/// 打开 App 设置的动作：App 外壳注入，各功能首页在导航栏放置「设置」按钮调用。
+public struct BearOpenSettingsAction: Sendable {
+    private let action: @MainActor @Sendable () -> Void
+    public init(_ action: @escaping @MainActor @Sendable () -> Void) { self.action = action }
+    @MainActor public func callAsFunction() { action() }
+}
+
+public extension EnvironmentValues {
+    @Entry var bearOpenSettings: BearOpenSettingsAction? = nil
+}

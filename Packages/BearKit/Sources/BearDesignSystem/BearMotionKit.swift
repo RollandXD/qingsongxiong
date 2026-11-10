@@ -6,9 +6,9 @@ public extension BearMotion {
     static let stagger: Double = 0.04
     /// 展开时窗口行错峰（秒）。
     static let rowStagger: Double = 0.03
-    static let entrance = Animation.spring(duration: 0.62, bounce: 0.12)
-    static let press = Animation.spring(duration: 0.22, bounce: 0.3)
-    static let alert = Animation.spring(duration: 0.3, bounce: 0.5)
+    static let entrance = smooth
+    static let press = snappy
+    static let alert = snappy
 
     /// Reduce Motion 下统一降级为淡入淡出。
     static func choose(_ animation: Animation, reduceMotion: Bool) -> Animation {

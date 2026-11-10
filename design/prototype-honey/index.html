@@ -1,0 +1,873 @@
+<title>轻松熊 蜜位原型</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap">
+<style>
+/* 第三稿：iOS 原生化。分组背景 + inset grouped 卡片 + 大标题导航 + Liquid Glass 工具栏与罐壳；颜色全部取 iOS 系统色 */
+:root{
+  --page: #E8E5DC;
+  --bg: #F4F2EC;                 /* 纸白底（近似 Claude 的暖纸色） */
+  --card: #FBFAF7;               /* 卡片：比底色亮一级的纸白 */
+  --fill: rgba(120,120,128,.12); /* tertiarySystemFill */
+  --ink: #000000;                /* label */
+  --ink-2: rgba(60,60,67,.6);    /* secondaryLabel */
+  --ink-3: rgba(60,60,67,.3);    /* tertiaryLabel */
+  --line: rgba(60,60,67,.18);    /* separator */
+  --tint: #FF9500;               /* App 强调色 = systemOrange */
+  --honey-hi: #FFCC00;           /* systemYellow */
+  --honey-lo: #FF9500;           /* systemOrange */
+  --honey-ink: rgba(60,30,0,.62);
+  --ember-hi: #FF6961;
+  --ember-lo: #FF3B30;           /* systemRed */
+  --ember-ink: #FF3B30;
+  --codex: #34C759;              /* systemGreen */
+  --claude: #A2845E;             /* systemBrown */
+  --deepseek: #5856D6;           /* systemIndigo */
+  --relay: #32ADE6;              /* systemCyan */
+  --glass: rgba(255,255,255,.62);
+  --glass-rim: rgba(255,255,255,.95);
+  --glass-shade: rgba(0,0,0,.07);
+  --glass-in: rgba(120,120,128,.08);
+  --sheen: rgba(255,255,255,.7);
+  --bear: #A2845E; --bear-muzzle: #E9D9C2;
+  --ctrl: rgba(255,255,255,.7); --ctrl-on: #1C1C1E; --ctrl-on-ink: #FFFFFF;
+  --wall-a: #C9B79C; --wall-b: #6D7FA6; --widget: #FBFAF7;
+  --num: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif;
+  --text: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --page: #1A1A19; --bg: #262624; --card: #30302E; --fill: rgba(118,118,128,.24);
+  --ink: #FFFFFF; --ink-2: rgba(235,235,245,.6); --ink-3: rgba(235,235,245,.3); --line: rgba(84,84,88,.6);
+  --tint: #FF9F0A; --honey-hi: #FFD60A; --honey-lo: #FF9F0A; --honey-ink: rgba(50,25,0,.7);
+  --ember-hi: #FF6B60; --ember-lo: #FF453A; --ember-ink: #FF453A;
+  --codex: #30D158; --claude: #AC8E68; --deepseek: #5E5CE6; --relay: #64D2FF;
+  --glass: rgba(255,255,255,.07); --glass-rim: rgba(255,255,255,.22); --glass-shade: rgba(0,0,0,.4); --glass-in: rgba(255,255,255,.04);
+  --sheen: rgba(255,255,255,.35); --bear: #AC8E68; --bear-muzzle: #E9D9C2;
+  --ctrl: rgba(44,44,46,.8); --ctrl-on: #F2F2F7; --ctrl-on-ink: #000000;
+  --wall-a: #4A3E30; --wall-b: #1D2433; --widget: #30302E; color-scheme: dark}}
+:root[data-theme="dark"]{
+  --page: #1A1A19; --bg: #262624; --card: #30302E; --fill: rgba(118,118,128,.24);
+  --ink: #FFFFFF; --ink-2: rgba(235,235,245,.6); --ink-3: rgba(235,235,245,.3); --line: rgba(84,84,88,.6);
+  --tint: #FF9F0A; --honey-hi: #FFD60A; --honey-lo: #FF9F0A; --honey-ink: rgba(50,25,0,.7);
+  --ember-hi: #FF6B60; --ember-lo: #FF453A; --ember-ink: #FF453A;
+  --codex: #30D158; --claude: #AC8E68; --deepseek: #5E5CE6; --relay: #64D2FF;
+  --glass: rgba(255,255,255,.07); --glass-rim: rgba(255,255,255,.22); --glass-shade: rgba(0,0,0,.4); --glass-in: rgba(255,255,255,.04);
+  --sheen: rgba(255,255,255,.35); --bear: #AC8E68; --bear-muzzle: #E9D9C2;
+  --ctrl: rgba(44,44,46,.8); --ctrl-on: #F2F2F7; --ctrl-on-ink: #000000;
+  --wall-a: #4A3E30; --wall-b: #1D2433; --widget: #30302E; color-scheme: dark}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--page);color:var(--ink);font-family:var(--text);-webkit-font-smoothing:antialiased;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--tint);outline-offset:2px}
+.wrap{display:grid;grid-template-columns:minmax(0,300px) 390px;gap:40px;justify-content:center;align-items:start;padding-block:28px}
+@media (max-width:760px){.wrap{grid-template-columns:minmax(0,1fr);gap:12px;padding-block:10px}}
+
+/* ---------- 控制面板 ---------- */
+.panel{display:flex;flex-direction:column;gap:18px;position:sticky;top:28px}
+.brand h1{font-size:22px;margin:0 0 4px}
+.brand p{margin:0;color:var(--ink-2);font-size:13px;line-height:1.6}
+.grp{display:flex;flex-direction:column;gap:6px}
+.grp>span{font-size:12px;color:var(--ink-2)}
+.seg{display:flex;flex-wrap:wrap;gap:2px;background:var(--fill);padding:2px;border-radius:9px}
+.seg button{flex:1 1 auto;border:0;background:transparent;padding:6px 9px;border-radius:7px;font-size:13px;cursor:pointer;white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.12);font-weight:600}
+.tune{border-radius:12px;background:var(--card);padding:10px 12px}
+.tune summary{cursor:pointer;font-size:13px;font-weight:600}
+.tune .row{display:grid;grid-template-columns:64px 1fr 44px;gap:8px;align-items:center;font-size:12px;margin-top:8px}
+.tune .row output{font-family:var(--num);font-variant-numeric:tabular-nums;text-align:right}
+.tune input{width:100%;accent-color:var(--tint)}
+.tune .k{font-size:11px;color:var(--ink-2);margin-top:10px;line-height:1.5}
+.tune .copy{margin-top:8px;border:0;background:var(--fill);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;color:var(--tint);font-weight:600}
+@media (max-width:760px){
+  .panel{position:static;gap:10px}
+  .brand{display:none}
+  .ctrls{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+  .ctrls .grp{flex:0 0 auto}
+  .ctrls .grp>span{display:none}
+  .tune-desk{display:none}
+}
+@media (min-width:761px){.tune-mob{display:none}.ctrls{display:flex;flex-direction:column;gap:14px}}
+
+/* ---------- 机身 ---------- */
+.device{width:390px;height:844px;border-radius:55px;background:var(--bg);position:relative;overflow:hidden;
+  box-shadow:0 0 0 10px #1a1a1c,0 30px 60px -20px rgba(0,0,0,.45);isolation:isolate}
+@media (max-width:760px){.device{width:100%;height:min(844px,calc(100dvh - 70px));border-radius:28px;box-shadow:0 0 0 1px var(--line)}}
+.statusbar{position:absolute;inset:0 0 auto;height:50px;display:flex;justify-content:space-between;align-items:center;padding:0 32px;font:600 16px var(--text);z-index:30;pointer-events:none}
+@media (max-width:760px){.statusbar{display:none}}
+.island{width:122px;height:35px;border-radius:20px;background:#000}
+.view{position:absolute;inset:0}
+.home{transform-origin:50% 40%}
+.scroller{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:none;padding-top:54px}
+@media (max-width:760px){.scroller{padding-top:6px}}
+.scroller::-webkit-scrollbar{display:none}
+.content{padding:0 16px 40px}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.3);opacity:0;pointer-events:none;z-index:5}
+
+/* Liquid Glass 工具栏按钮 */
+.glassbtn{width:44px;height:44px;border-radius:22px;border:0;display:grid;place-items:center;cursor:pointer;
+  background:var(--glass);backdrop-filter:blur(18px) saturate(1.8);-webkit-backdrop-filter:blur(18px) saturate(1.8);
+  box-shadow:inset 0 0 0 .5px var(--glass-rim),inset 0 1px 0 var(--glass-rim),0 2px 10px var(--glass-shade)}
+.glassbtn svg{width:20px;height:20px;stroke:var(--ink);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.spin svg{animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* 导航：大标题 → 滚动后收成内联标题 + 玻璃栏 */
+.navbar{position:absolute;left:0;right:0;top:0;z-index:8;height:106px;pointer-events:none}
+@media (max-width:760px){.navbar{height:58px}}
+.navbar .barbg{position:absolute;inset:0;background:color-mix(in srgb,var(--bg) 72%,transparent);backdrop-filter:blur(20px) saturate(1.8);-webkit-backdrop-filter:blur(20px) saturate(1.8);
+  opacity:0;border-bottom:.5px solid var(--line)}
+.navbar .row{position:absolute;left:16px;right:16px;bottom:8px;height:44px;display:flex;align-items:center;justify-content:space-between}
+.navbar .inline{position:absolute;left:0;right:0;text-align:center;font-size:17px;font-weight:600;opacity:0}
+.navbar .btns{margin-left:auto;display:flex;gap:10px;pointer-events:auto}
+.largetitle{font-size:34px;line-height:41px;font-weight:700;letter-spacing:.01em;margin:52px 4px 14px;transform-origin:0 50%}
+@media (max-width:760px){.largetitle{margin-top:52px}}
+
+/* inset grouped 卡片 */
+.card{background:var(--card);border-radius:26px;padding:16px}
+.shead{font-size:13px;color:var(--ink-2);margin:26px 16px 8px;display:flex;justify-content:space-between}
+.status{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+.status .say{font-size:22px;line-height:28px;font-weight:700;text-wrap:balance}
+.status .say em{font-style:normal;color:var(--ember-ink)}
+.nb{white-space:nowrap;display:inline-block;margin-right:.3em}
+.clk{width:11px;height:11px;vertical-align:-1px;margin-right:3px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round}
+.status .sub{font-size:15px;line-height:20px;color:var(--ink-2);margin-top:4px;font-variant-numeric:tabular-nums}
+.bear{width:56px;height:56px;transform-origin:50% 90%}
+
+/* 双格蜜罐（罐壳 = Liquid Glass） */
+.jars{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.jarbtn{border:0;background:transparent;padding:0;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;min-width:0}
+.jhead{display:flex;align-items:center;gap:6px;font-size:15px;font-weight:600;margin:0 2px 8px;height:20px}
+.jhead i{width:8px;height:8px;border-radius:4px;flex:none}
+.jhead .tag{margin-left:auto;font-size:13px;font-weight:400;color:var(--ink-2)}
+.jhead svg{margin-left:auto;width:13px;height:13px;stroke:var(--ink-3);fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.jar{position:relative;border-radius:28px;box-shadow:0 1px 2px var(--glass-shade),0 8px 22px -12px var(--glass-shade)}
+.jar svg{display:block;width:100%;height:auto}
+.jar svg stop{transition:stop-color .45s ease}
+.cells{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr;pointer-events:none}
+.cell{display:flex;flex-direction:column;justify-content:space-between;align-items:center;padding:14px 0 12px}
+.cell .n{font-family:var(--num);font-weight:800;font-size:30px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.cell .n small{font-size:13px;font-weight:700;margin-left:1px;color:var(--ink-2)}
+.cell .n.warn{color:var(--ember-ink)}
+.cell .lab{font-size:12px;font-weight:600;color:var(--honey-ink)}
+.cell .lab.onwarn{color:rgba(255,255,255,.95)}
+.cell .lab.dry{color:var(--ink-2)}
+.under{display:grid;grid-template-columns:1fr 1fr;margin-top:8px}
+.under span{text-align:center;font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.under span b{font-weight:600;color:var(--ink)}
+
+/* 时间尺（卡片内） */
+.ruler{margin-top:18px;padding-top:14px;border-top:.5px solid var(--line);user-select:none;-webkit-user-select:none}
+.rhead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;gap:8px}
+.rhead b{font-size:15px;font-weight:600;white-space:nowrap}
+.rhead span{color:var(--ink-2);font-size:13px;white-space:nowrap}
+.track{position:relative;height:48px;touch-action:none;cursor:grab}
+.track .base{position:absolute;left:0;right:0;top:20px;height:6px;border-radius:3px;background:var(--fill)}
+.track .past{position:absolute;left:0;top:20px;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--honey-hi),var(--honey-lo))}
+.mid{position:absolute;top:20px;width:1.5px;height:6px;background:var(--card)}
+.tick{position:absolute;top:32px;font-size:11px;color:var(--ink-2);transform:translateX(-50%);white-space:nowrap}
+.rdot{position:absolute;width:9px;height:9px;border-radius:5px;transform:translate(-50%,-50%);box-shadow:0 0 0 2px var(--card)}
+.thumb{position:absolute;top:0;height:48px;width:0}
+.thumb .knob{position:absolute;left:-14px;top:9px;width:28px;height:28px;border-radius:14px;background:#FFFEFB;box-shadow:0 .5px 4px rgba(0,0,0,.12),0 6px 13px rgba(0,0,0,.12)}
+
+/* 余额：设置 App 式列表 */
+.list{background:var(--card);border-radius:26px;overflow:hidden}
+.lrow{display:grid;grid-template-columns:30px 1fr auto 14px;gap:12px;align-items:center;padding:11px 16px;border:0;background:transparent;width:100%;text-align:left;cursor:pointer;min-height:60px;position:relative}
+.lrow+.lrow::before{content:"";position:absolute;top:0;left:58px;right:0;height:.5px;background:var(--line)}
+.lrow .ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;font-size:14px;font-weight:700}
+.lrow .who{font-size:17px;min-width:0}
+.lrow .who span{display:block;font-size:13px;color:var(--ink-2);margin-top:1px}
+.lrow .amt{font-family:var(--num);font-weight:700;font-size:20px;font-variant-numeric:tabular-nums}
+.lrow .amt small{font-size:14px;color:var(--ink-2);margin-right:1px}
+.lrow .chev{width:8px;height:14px;stroke:var(--ink-3);fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.lrow.add .who{color:var(--tint)}
+.foot{font-size:13px;color:var(--ink-2);margin:8px 16px 0;line-height:18px}
+
+/* 下拉 */
+.pull{position:absolute;left:50%;top:100px;width:34px;height:34px;margin-left:-17px;z-index:1;opacity:0;pointer-events:none}
+@media (max-width:760px){.pull{top:52px}}
+
+/* 详情 */
+.detail{position:absolute;inset:0;z-index:10;background:var(--bg);display:none}
+.detail .inner{will-change:opacity,transform}
+.dnav{position:absolute;left:16px;right:16px;top:54px;height:44px;display:flex;align-items:center;z-index:2}
+@media (max-width:760px){.dnav{top:6px}}
+.dnav h2{position:absolute;left:0;right:0;text-align:center;font-size:17px;font-weight:600;margin:0;pointer-events:none}
+.detail .content{padding-top:56px}
+.dsay{font-size:22px;line-height:28px;font-weight:700;text-wrap:balance}
+.dsay em{font-style:normal;color:var(--ember-ink)}
+.dsub{font-size:15px;color:var(--ink-2);margin-top:4px}
+.bar{padding:14px 0}
+.bar+.bar{border-top:.5px solid var(--line)}
+.bar .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.bar .top b{font-size:17px;font-weight:600}
+.bar .top b small{font-weight:400;color:var(--ink-2);font-size:13px;margin-left:6px}
+.bar .top .v{font-family:var(--num);font-weight:800;font-size:28px;line-height:1}
+.bar .top .v small{font-size:13px;color:var(--ink-2)}
+.bar .top .v.warn{color:var(--ember-ink)}
+.bar .meta{display:flex;justify-content:space-between;font-size:13px;color:var(--ink-2);margin-top:8px;font-variant-numeric:tabular-nums}
+.bar.minor .top b{font-size:15px}
+.bar.minor .top .v{font-size:20px}
+.card.tight{padding-block:2px}
+.edge{position:absolute;left:0;top:0;bottom:0;width:22px;z-index:12;touch-action:none}
+
+/* 触觉提示 */
+.hap{position:absolute;z-index:40;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:22px;border:2px solid var(--tint);pointer-events:none;animation:hap .5s ease-out forwards}
+.hap.success{border-color:var(--relay)} .hap.warning{border-color:var(--ember-lo)}
+@keyframes hap{from{transform:scale(.3);opacity:.9}to{transform:scale(1.3);opacity:0}}
+.hapchip{position:absolute;z-index:41;top:58px;left:50%;transform:translateX(-50%);background:var(--ctrl-on);color:var(--ctrl-on-ink);font-size:11px;padding:3px 9px;border-radius:10px;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+@media (max-width:760px){.hapchip{top:8px}}
+.toast{position:absolute;z-index:41;bottom:30px;left:50%;transform:translateX(-50%);background:var(--glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:inset 0 0 0 .5px var(--glass-rim),0 4px 16px var(--glass-shade);font-size:14px;font-weight:600;padding:10px 16px;border-radius:22px;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+
+/* ---------- 小组件画廊 ---------- */
+.gallery{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;background:linear-gradient(165deg,var(--wall-a),var(--wall-b));padding:62px 13px 40px;display:none}
+@media (max-width:760px){.gallery{padding-top:14px}}
+.gallery h3{color:rgba(255,255,255,.9);font-size:13px;font-weight:600;margin:6px 6px 8px}
+.wgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.w{background:var(--widget);border-radius:24px;padding:14px;aspect-ratio:1;position:relative;overflow:hidden;color:var(--ink);min-width:0;max-width:100%;display:flex;flex-direction:column;gap:8px}
+.w.m{grid-column:span 2;aspect-ratio:auto;height:170px}
+.w.l{grid-column:span 2;aspect-ratio:auto;height:370px}
+.wh{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;height:20px}
+.wh i{width:7px;height:7px;border-radius:4px}
+.wh .rf{margin-left:auto;width:24px;height:24px;border-radius:12px;border:0;background:var(--fill);display:grid;place-items:center;cursor:pointer;padding:0}
+.wh .rf svg{width:12px;height:12px;stroke:var(--tint);fill:none;stroke-width:2.4;stroke-linecap:round}
+.w .jar{box-shadow:none;border-radius:16px}
+.w .jar .cell{padding:8px 0 7px}
+.w .jar .cell .n{font-size:19px}
+.w .jar .cell .n small{font-size:10px}
+.w .jar .cell .lab{font-size:10px}
+.w.l .jar .cell{padding:14px 0 12px}
+.w.l .jar .cell .n{font-size:28px}
+.w.l .jar .cell .lab{font-size:12px}
+.wsm{font-size:12px;color:var(--ink-2);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wsm b{color:var(--ink);font-weight:600}
+.wbig{font-family:var(--num);font-weight:800;font-size:30px;line-height:1;font-variant-numeric:tabular-nums}
+.wbig small{font-size:15px;color:var(--ink-2)}
+.slot{display:inline-block;overflow:hidden;vertical-align:bottom}
+.slot>span{display:inline-block}
+.slot.push>span{animation:push .42s cubic-bezier(.2,.8,.2,1)}
+@keyframes push{from{transform:translateY(70%);opacity:0}to{transform:none;opacity:1}}
+.wrow{display:grid;grid-template-columns:1fr 1fr;gap:12px;min-width:0}
+.lock{display:grid;grid-template-columns:76px 1fr;gap:14px;align-items:center;margin-bottom:12px}
+.lc{width:76px;height:76px;border-radius:38px;background:rgba(255,255,255,.16);backdrop-filter:blur(10px);display:grid;place-items:center;color:#fff;position:relative}
+.lc svg{position:absolute;inset:6px;width:64px;height:64px}
+.lc b{font-family:var(--num);font-size:21px;font-weight:800;margin-top:7px}
+.lc .g{position:absolute;top:17px;font-size:8px;font-weight:700;opacity:.85}
+.lr{height:76px;border-radius:18px;background:rgba(255,255,255,.16);backdrop-filter:blur(10px);color:#fff;padding:9px 12px;display:flex;flex-direction:column;justify-content:center;gap:5px;min-width:0}
+.lr .t{font-size:13px;font-weight:700}
+.lr .ln{display:grid;grid-template-columns:30px 1fr 34px;gap:6px;align-items:center;font-size:12px}
+.lr .ln b{font-family:var(--num);font-weight:800;text-align:right;font-size:14px}
+.lr .gauge{height:5px;border-radius:3px;background:rgba(255,255,255,.25);overflow:hidden}
+.lr .gauge i{display:block;height:100%;background:#fff;border-radius:3px}
+.li{color:#fff;font-size:15px;font-weight:600;text-align:center;opacity:.92;margin:2px 0 16px}
+.tinted .w{background:rgba(40,40,44,.5);backdrop-filter:blur(16px);color:rgba(255,255,255,.95);
+  --ink:rgba(255,255,255,.95);--ink-2:rgba(255,255,255,.65);--ink-3:rgba(255,255,255,.4);--glass:rgba(255,255,255,.08);--glass-in:rgba(255,255,255,.04);--glass-rim:rgba(255,255,255,.3);--fill:rgba(255,255,255,.14);
+  --honey-hi:rgba(255,255,255,.34);--honey-lo:rgba(255,255,255,.26);--honey-ink:rgba(255,255,255,.9);--ember-hi:rgba(255,255,255,.34);--ember-lo:rgba(255,255,255,.26);--ember-ink:rgba(255,255,255,.95);
+  --codex:rgba(255,255,255,.8);--claude:rgba(255,255,255,.8);--relay:rgba(255,255,255,.8);--tint:rgba(255,255,255,.9);--line:rgba(255,255,255,.2);--sheen:rgba(255,255,255,.1);--card:rgba(40,40,44,.5)}
+
+@media (prefers-reduced-motion: reduce){.slot.push>span,.hap{animation:none}.spin svg{animation-duration:2.4s}}
+</style>
+
+<div class="wrap">
+  <aside class="panel">
+    <div class="brand">
+      <h1>蜜位 · 第四稿</h1>
+      <p>iOS 原生化：分组背景、大标题导航、Liquid Glass 工具栏与罐壳、inset grouped 卡片、系统色。每家一只双格蜜罐（5 小时 / 本周）。按住时间尺往右拖，看何时回满；点罐子进详情，左边缘右滑返回；下拉刷新。数据均为合成数据。</p>
+    </div>
+    <div class="ctrls">
+      <div class="grp"><span>页面</span><div class="seg" id="segView">
+        <button data-v="app" aria-pressed="true">App</button><button data-v="widgets" aria-pressed="false">小组件</button></div></div>
+      <div class="grp"><span>场景</span><div class="seg" id="segScene">
+        <button data-v="calm" aria-pressed="false">充足</button><button data-v="watch" aria-pressed="true">留意</button><button data-v="urgent" aria-pressed="false">告急</button><button data-v="stale" aria-pressed="false">旧读数</button><button data-v="asleep" aria-pressed="false">未连接</button></div></div>
+      <div class="grp"><span>中转站</span><div class="seg" id="segRelay">
+        <button data-v="on" aria-pressed="true">有</button><button data-v="off" aria-pressed="false">无</button></div></div>
+      <div class="grp"><span>速度</span><div class="seg" id="segSpeed">
+        <button data-v="1" aria-pressed="true">1×</button><button data-v="0.25" aria-pressed="false">0.25×</button></div></div>
+      <div class="grp"><span>减弱动态效果</span><div class="seg" id="segRM">
+        <button data-v="off" aria-pressed="true">关</button><button data-v="on" aria-pressed="false">开</button></div></div>
+      <div class="grp"><span>外观</span><div class="seg" id="segTheme">
+        <button data-v="auto" aria-pressed="true">跟随</button><button data-v="light" aria-pressed="false">浅</button><button data-v="dark" aria-pressed="false">深</button></div></div>
+      <div class="grp"><span>小组件着色</span><div class="seg" id="segTint">
+        <button data-v="off" aria-pressed="true">默认</button><button data-v="on" aria-pressed="false">着色</button></div></div>
+    </div>
+    <details class="tune tune-desk" open><summary>调手感（实时生效）</summary><div class="tunebody"></div></details>
+  </aside>
+
+  <div>
+    <div class="device" id="device">
+      <div class="statusbar"><span>18:01</span><span class="island"></span><span>100%</span></div>
+
+      <div class="view home" id="home">
+        <svg class="pull" id="pull" viewBox="0 0 44 44"></svg>
+        <div class="navbar" id="navbar"><div class="barbg" id="barbg"></div>
+          <div class="row"><span class="inline" id="inlineTitle">轻松熊</span>
+            <div class="btns">
+              <button class="glassbtn" id="btnRefresh" aria-label="刷新全部" data-id="refresh-all"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg></button>
+              <button class="glassbtn" id="btnSettings" aria-label="设置"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v2.6M12 18.9v2.6M4.6 4.6l1.9 1.9M17.5 17.5l1.9 1.9M2.5 12h2.6M18.9 12h2.6M4.6 19.4l1.9-1.9M17.5 6.5l1.9-1.9"/></svg></button>
+            </div></div></div>
+        <div class="scroller" id="scroller">
+          <div class="content" id="content">
+            <div class="largetitle" id="largeTitle">轻松熊</div>
+            <div class="card status" data-id="dashboard-hero">
+              <div><div class="say" id="say"></div><div class="sub" id="sub"></div></div>
+              <svg class="bear" id="bear" viewBox="0 0 44 44"></svg>
+            </div>
+            <div class="shead"><span>订阅额度</span><span id="freshness"></span></div>
+            <div class="card">
+              <div class="jars" id="jars" data-id="honey-stage"></div>
+              <div class="ruler" data-id="time-scrubber">
+                <div class="rhead"><b id="rLabel">回满预览</b><span id="rHint">按住拖动</span></div>
+                <div class="track" id="track"><div class="base"></div><div class="past" id="past"></div><div id="ticks"></div><div id="dots"></div>
+                  <div class="thumb" id="thumb"><div class="knob"></div></div></div>
+              </div>
+            </div>
+            <div id="purseWrap"></div>
+          </div>
+        </div>
+        <div class="dim" id="dim"></div>
+      </div>
+
+      <div class="detail" id="detail">
+        <div class="edge" id="edge"></div>
+        <div class="dnav"><button class="glassbtn" id="back" aria-label="返回"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><h2 id="dtitle"></h2></div>
+        <div class="scroller"><div class="content inner" id="dinner"></div></div>
+      </div>
+
+      <div class="gallery" id="gallery"></div>
+      <div class="hapchip" id="hapchip"></div>
+      <div class="toast" id="toast"></div>
+    </div>
+    <details class="tune tune-mob" style="margin-top:12px"><summary>调手感（实时生效）</summary><div class="tunebody"></div></details>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const NOW = new Date(2026, 10, 9, 18, 1, 0);
+const H = 3600, D = 86400, RANGE = 7 * D;
+
+/* ---------------- 动效：与 SwiftUI spring(response:dampingFraction:) 同公式 ---------------- */
+const MOTION = {
+  snappy: { response: 0.28, damping: 0.86, use: '按压、切换、标尺吸附' },
+  smooth: { response: 0.48, damping: 1.0, use: '布局、展开、转场' },
+  fluid:  { response: 0.70, damping: 0.72, use: '液面升降与晃动' },
+};
+const S = { speed: 1, rm: matchMedia('(prefers-reduced-motion: reduce)').matches };
+const active = new Set(); let raf = 0, last = 0;
+class Spring {
+  constructor(x, token = 'smooth') { this.x = x; this.v = 0; this.t = x; this.token = token; this.subs = []; }
+  on(f) { this.subs.push(f); f(this); return this; }
+  emit() { for (const f of this.subs) f(this); }
+  to(t, token, vel) {
+    if (token) this.token = token;
+    this.t = t; if (vel !== undefined) this.v = vel;
+    if (S.rm) { this.x = t; this.v = 0; this.emit(); return; }
+    active.add(this); kick();
+  }
+  set(x) { this.x = this.t = x; this.v = 0; active.delete(this); this.emit(); }
+  step(dt) {
+    const c = MOTION[this.token], w = 2 * Math.PI / c.response, k = w * w, d = 2 * c.damping * w;
+    const n = Math.max(1, Math.ceil(dt * 480)), h = dt / n;
+    for (let i = 0; i < n; i++) { const a = -k * (this.x - this.t) - d * this.v; this.v += a * h; this.x += this.v * h; }
+    if (Math.abs(this.x - this.t) < 1e-4 && Math.abs(this.v) < 1e-3) { this.x = this.t; this.v = 0; active.delete(this); }
+    this.emit();
+  }
+}
+function kick() { if (!raf) { last = performance.now(); raf = requestAnimationFrame(loop); } }
+function loop(ts) {
+  const dt = Math.min((ts - last) / 1000, 1 / 30) * S.speed; last = ts;
+  for (const s of [...active]) s.step(dt);
+  raf = active.size ? requestAnimationFrame(loop) : 0;   // 静止即停
+}
+
+/* ---------------- 合成数据：主看 5 小时 + 周；附加限额只进详情 ---------------- */
+const PROV = { codex: { name: 'Codex', color: 'var(--codex)' }, claude: { name: 'Claude', color: 'var(--claude)' } };
+const base = () => ({
+  codex: { h5: { rem: .72, reset: 1 * H + 59 * 60 }, wk: { rem: .46, reset: 47 * H + 59 * 60 },
+           extra: [{ name: '代码审查', rem: .81, reset: 9 * H + 59 * 60, scope: '每日' }] },
+  claude: { h5: { rem: .79, reset: 2 * H + 11 * 60 }, wk: { rem: .65, reset: 71 * H + 54 * 60 },
+            extra: [{ name: 'Opus', rem: .58, reset: 71 * H + 54 * 60, scope: '仅 Opus 模型 · 每周' }] },
+});
+const SCENES = {
+  calm: d => d,
+  watch: d => (d.claude.wk.rem = .12, d.claude.extra[0].rem = .40, d),
+  urgent: d => (d.codex.h5.rem = 0, d.codex.wk.rem = .31, d.claude.h5.rem = .04, d.claude.wk.rem = .12, d),
+  stale: d => (SCENES.watch(d), d.stale = 17, d),
+  asleep: d => (d.asleep = true, d),
+};
+const WIN = { h5: '5 小时', wk: '本周' };
+const WALLET = () => ({ ds: { cny: 128.36, gift: 28.36, top: 100 }, relay: { usd: 12.35 } });
+let wallet = WALLET();
+let state = { scene: 'watch', relay: true, data: SCENES.watch(base()), view: 'app', tint: false };
+const mains = () => Object.keys(PROV).flatMap(p => ['h5', 'wk'].map(k => ({ ...state.data[p][k], p, k, name: WIN[k] })));
+
+/* ---------------- 阈值与文案（展示层单一真身） ---------------- */
+const TH = { watch: .20, urgent: .05 };
+const isWarn = r => r <= TH.watch;
+function fmtLeft(s) {
+  s = Math.max(0, Math.round(s));
+  const d = Math.floor(s / D), h = Math.floor(s % D / H), m = Math.floor(s % H / 60);
+  if (d) return `${d}天${h}时`; if (h) return `${h}时${m}分`; return `${Math.max(m, 1)}分`;
+}
+const dayName = t => '周' + '日一二三四五六'[t.getDay()];
+function fmtAt(s) {
+  const t = new Date(NOW.getTime() + s * 1000), dd = Math.round((new Date(t).setHours(0,0,0,0) - new Date(NOW).setHours(0,0,0,0)) / 864e5);
+  const hm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+  return `${dd === 0 ? '今天' : dd === 1 ? '明天' : dayName(t)} ${hm}`;
+}
+function mood() {
+  if (state.data.asleep) return 'asleep';
+  const m = Math.min(...mains().map(w => w.rem));
+  return m <= TH.urgent ? 'urgent' : m <= TH.watch ? 'watch' : 'calm';
+}
+const tightest = () => mains().reduce((a, b) => (b.rem < a.rem || (b.rem === a.rem && b.reset < a.reset)) ? b : a);
+
+/* ---------------- 熊 ---------------- */
+function bearSVG(m) {
+  const ink = '#2b2118';
+  const eyes = {
+    calm: `<path d="M15 21q2-2.4 4 0M25 21q2-2.4 4 0" stroke="${ink}" stroke-width="1.6" fill="none" stroke-linecap="round"/>`,
+    watch: `<circle cx="17" cy="21" r="1.6" fill="${ink}"/><circle cx="27" cy="21" r="1.6" fill="${ink}"/>`,
+    urgent: `<circle cx="17" cy="20.5" r="2" fill="${ink}"/><circle cx="27" cy="20.5" r="2" fill="${ink}"/><path d="M34.5 13q2 3 0 4.5q-2-1.5 0-4.5z" fill="#64D2FF"/>`,
+    asleep: `<path d="M15 21.5h4M25 21.5h4" stroke="${ink}" stroke-width="1.6" stroke-linecap="round"/><text x="34" y="9" font-size="7" font-weight="700" fill="var(--ink-2)">z</text>`,
+  }[m];
+  const mouth = {
+    calm: `<path d="M20 28q2 1.8 4 0" stroke="${ink}" stroke-width="1.4" fill="none" stroke-linecap="round"/>`,
+    watch: `<path d="M20.2 28.2h3.6" stroke="${ink}" stroke-width="1.4" stroke-linecap="round"/>`,
+    urgent: `<ellipse cx="22" cy="28.4" rx="1.5" ry="1.8" fill="${ink}"/>`,
+    asleep: `<path d="M20.5 28.2q1.5 .8 3 0" stroke="${ink}" stroke-width="1.3" fill="none" stroke-linecap="round"/>`,
+  }[m];
+  return `<circle cx="11" cy="11" r="5.5" fill="var(--bear)"/><circle cx="33" cy="11" r="5.5" fill="var(--bear)"/>
+  <circle cx="11" cy="11" r="2.6" fill="var(--bear-muzzle)"/><circle cx="33" cy="11" r="2.6" fill="var(--bear-muzzle)"/>
+  <circle cx="22" cy="23" r="15" fill="var(--bear)"/><ellipse cx="22" cy="27.5" rx="6.5" ry="5" fill="var(--bear-muzzle)"/>
+  <ellipse cx="22" cy="25" rx="1.8" ry="1.3" fill="${ink}"/>${eyes}${mouth}`;
+}
+const bearScale = new Spring(1, 'snappy').on(s => { $('#bear').style.transform = `scale(${s.x})`; });
+let lastMood = null;
+function renderBear() {
+  const m = mood(); $('#bear').innerHTML = bearSVG(m);
+  if (lastMood && lastMood !== m) { bearScale.set(.84); bearScale.to(1, 'snappy', 4); if (m === 'urgent') haptic('warning', $('#bear')); }
+  lastMood = m;
+}
+
+/* ---------------- 双格蜜罐：罐壳是 Liquid Glass ---------------- */
+let uid = 0;
+class Jar {
+  constructor(el, w, h, r) {
+    this.w = w; this.h = h; const id = 'j' + (++uid); const m = w / 2;
+    el.classList.add('jar'); el.style.borderRadius = r + 'px';
+    el.innerHTML = `<svg viewBox="0 0 ${w} ${h}" aria-hidden="true">
+      <defs><clipPath id="${id}c"><rect width="${w}" height="${h}" rx="${r}"/></clipPath>
+      ${[0, 1].map(i => `<linearGradient id="${id}g${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0"/><stop offset="1"/></linearGradient>`).join('')}
+      <linearGradient id="${id}t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--glass-rim)"/><stop offset=".35" stop-color="var(--glass-rim)" stop-opacity="0"/></linearGradient></defs>
+      <rect width="${w}" height="${h}" rx="${r}" fill="var(--glass-in)"/>
+      <g clip-path="url(#${id}c)">
+        <path class="l0" fill="url(#${id}g0)"/><path class="l1" fill="url(#${id}g1)"/>
+        <path class="m0" fill="none" stroke="var(--sheen)" stroke-width="1.5"/><path class="m1" fill="none" stroke="var(--sheen)" stroke-width="1.5"/>
+        <line x1="${m}" y1="0" x2="${m}" y2="${h}" stroke="var(--card)" stroke-width="3"/>
+      </g>
+      <rect x=".5" y=".5" width="${w - 1}" height="${h - 1}" rx="${r - .5}" fill="none" stroke="url(#${id}t)" stroke-width="1"/>
+      <rect class="rim" x=".25" y=".25" width="${w - .5}" height="${h - .5}" rx="${r}" fill="none" stroke="var(--line)" stroke-width=".5"/></svg>
+      <div class="cells"><div class="cell"><span class="n"></span><span class="lab">5 小时</span></div><div class="cell"><span class="n"></span><span class="lab">本周</span></div></div>`;
+    this.svg = el.firstElementChild; this.cells = el.querySelectorAll('.cell');
+    this.liq = [$('.l0', el), $('.l1', el)]; this.men = [$('.m0', el), $('.m1', el)];
+    this.stops = [0, 1].map(i => this.svg.querySelectorAll(`#${id}g${i} stop`));
+    this.rimEl = $('.rim', this.svg); this.asleep = false;
+    this.lv = [0, 1].map(i => new Spring(0, 'fluid').on(s => this.draw(i, s)));
+  }
+  draw(i, s) {
+    const { w, h } = this, x0 = i ? w / 2 : 0, cw = w / 2, L = Math.max(0, Math.min(1.03, s.x));
+    const amp = S.rm ? 0 : Math.max(-9, Math.min(9, s.v * h * 0.03)), y = h - L * h, tilt = amp * .5;   // 晃动由液位速度推出
+    const top = `M${x0} ${y + tilt} Q${x0 + cw * .25} ${y - amp + tilt * .5} ${x0 + cw * .5} ${y} T${x0 + cw} ${y - tilt}`;
+    this.liq[i].setAttribute('d', `${top} L${x0 + cw} ${h + 2} L${x0} ${h + 2}Z`);
+    this.men[i].setAttribute('d', top); this.men[i].style.opacity = L > .03 ? 1 : 0;
+    this.cells[i].querySelector('.n').innerHTML = this.asleep ? '–' : `${Math.round(Math.max(0, Math.min(1, s.x)) * 100)}<small>%</small>`;
+    this.cells[i].querySelector('.lab').classList.toggle('dry', L < .16);
+  }
+  paint(i, warn) {
+    this.stops[i][0].style.stopColor = warn ? 'var(--ember-hi)' : 'var(--honey-hi)';
+    this.stops[i][1].style.stopColor = warn ? 'var(--ember-lo)' : 'var(--honey-lo)';
+    this.cells[i].querySelector('.n').classList.toggle('warn', warn);
+    this.cells[i].querySelector('.lab').classList.toggle('onwarn', warn);
+  }
+  look({ stale, asleep }) {
+    this.asleep = asleep;
+    this.svg.style.filter = stale ? 'saturate(.2)' : '';
+    for (const l of this.liq) l.style.opacity = stale ? .5 : 1;
+    this.rimEl.setAttribute('stroke-dasharray', asleep ? '4 5' : '');
+  }
+  to(i, v, animate) { animate ? this.lv[i].to(v, 'fluid') : this.lv[i].set(v); }
+}
+
+/* ---------------- 首页 ---------------- */
+const jars = {};
+function buildJars() {
+  const box = $('#jars'); box.innerHTML = '';
+  for (const p in PROV) {
+    const b = document.createElement('button'); b.className = 'jarbtn'; b.dataset.p = p; b.setAttribute('data-id', 'provider-' + p);
+    b.setAttribute('aria-label', PROV[p].name + ' 详情');
+    b.innerHTML = `<div class="jhead"><i style="background:${PROV[p].color}"></i>${PROV[p].name}<span class="tag"></span></div><div class="jw"></div>
+      <div class="under"><span></span><span></span></div>`;
+    box.appendChild(b);
+    jars[p] = { jar: new Jar($('.jw', b), 156, 220, 28), el: b };
+    pressable(b, () => openDetail(p, b));
+  }
+}
+const CLK = '<svg class="clk" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+const forecast = (w, t) => t >= w.reset ? 1 : w.rem;
+const chevron = '<svg viewBox="0 0 8 14"><path d="M1 1l6 6-6 6"/></svg>';
+function renderHome(animate = true) {
+  const d = state.data, t = scrubT.x;
+  for (const p in PROV) {
+    const { jar, el } = jars[p];
+    jar.look({ stale: !!d.stale, asleep: !!d.asleep });
+    $('.tag', el).innerHTML = d.asleep ? '<span style="color:var(--tint)">连接</span>' : chevron;
+    ['h5', 'wk'].forEach((k, i) => {
+      const w = d[p][k], lv = d.asleep ? 0 : forecast(w, t);
+      jar.paint(i, !d.asleep && isWarn(lv)); jar.to(i, lv, animate);
+      el.querySelectorAll('.under span')[i].innerHTML = d.asleep ? '未连接' : (t >= w.reset ? '<b>已回满</b>' : `${CLK}<b>${fmtLeft(w.reset - t)}</b>`);
+    });
+  }
+  $('#freshness').textContent = d.asleep ? '' : d.stale ? `${d.stale} 分钟前` : '刚刚更新';
+  renderHero(); renderBear(); renderRuler(); renderPurse();
+}
+function renderHero() {
+  const d = state.data, say = $('#say'), sub = $('#sub');
+  if (d.asleep) { say.textContent = '还没连上账户'; sub.textContent = '轻松熊先睡会儿'; return; }
+  const t = tightest(), m = mood(), who = `${PROV[t.p].name} ${t.k === 'h5' ? '5 小时' : '周额度'}`;
+  if (m === 'calm') { say.textContent = '额度都够用'; sub.textContent = `最低是 ${who} ${Math.round(t.rem * 100)}%`; }
+  else {
+    say.innerHTML = `<span class="nb">${who}</span>` + (t.rem === 0 ? `<span class="nb"><em>用完了</em></span>` : `<span class="nb">只剩 <em>${Math.round(t.rem * 100)}%</em></span>`);
+    sub.textContent = `${fmtAt(t.reset)} 回满，还要 ${fmtLeft(t.reset)}`;
+  }
+}
+function renderPurse() {
+  const box = $('#purseWrap');
+  if (state.data.asleep) { box.innerHTML = ''; return; }
+  const ic = (bg, t) => `<span class="ic" style="background:${bg}">${t}</span>`;
+  box.innerHTML = `<div class="shead"><span>余额</span></div><div class="list">
+    <button class="lrow" data-id="provider-deepseek">${ic('var(--deepseek)', 'D')}<div class="who">DeepSeek<span>赠送 ${wallet.ds.gift.toFixed(2)} · 充值 ${wallet.ds.top.toFixed(2)}</span></div>
+      <div class="amt"><small>¥</small><span id="dsAmt">${wallet.ds.cny.toFixed(2)}</span></div><svg class="chev" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6"/></svg></button>
+    ${state.relay ? `<button class="lrow" data-id="relay-card">${ic('var(--relay)', '中')}<div class="who">我的中转<span>APIKEY.FAN</span></div>
+      <div class="amt"><small>$</small><span>${wallet.relay.usd.toFixed(2)}</span></div><svg class="chev" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6"/></svg></button>`
+      : `<button class="lrow add" data-id="relay-add">${ic('var(--fill)', '<span style="color:var(--tint);font-size:20px;font-weight:400">+</span>')}<div class="who">添加中转站</div><span></span><span></span></button>`}</div>
+    <div class="foot">各窗口独立计算，比例不能相加。</div>`;
+}
+
+/* ---------------- 时间尺 ---------------- */
+const scrubT = new Spring(0, 'smooth');
+function renderRuler() {
+  const ticks = $('#ticks'), dots = $('#dots'), track = $('#track');
+  const mid0 = (24 - NOW.getHours()) * H - NOW.getMinutes() * 60;
+  let html = '';
+  for (let i = 0; i < 7; i++) {
+    const s = mid0 + i * D; if (s > RANGE - 2 * H) break;
+    const t = new Date(NOW.getTime() + s * 1000);
+    html += `<span class="mid" style="left:${s / RANGE * 100}%"></span>`;
+    if (s / RANGE < .95) html += `<span class="tick" style="left:${(s + 12 * H) / RANGE * 100}%">${dayName(t)}</span>`;
+  }
+  ticks.innerHTML = html;
+  if (state.data.asleep) { dots.innerHTML = ''; track.style.opacity = .4; return; }
+  track.style.opacity = 1;
+  const placed = [];
+  dots.innerHTML = mains().filter(w => w.reset <= RANGE).sort((a, b) => a.reset - b.reset).map(w => {
+    const x = w.reset / RANGE; let lift = 0; while (placed.some(q => Math.abs(q.x - x) < .025 && q.lift === lift)) lift++;
+    placed.push({ x, lift });
+    return `<span class="rdot" style="left:${x * 100}%;top:${10 - lift * 11}px;background:${PROV[w.p].color}" title="${PROV[w.p].name} ${w.name}"></span>`;
+  }).join('');
+}
+let crossed = '';
+scrubT.on(s => {
+  const x = Math.max(0, Math.min(1, s.x / RANGE));
+  $('#thumb').style.left = `calc(${x * 100}% + ${14 - 28 * x}px)`; $('#past').style.width = x * 100 + '%';
+  const lab = $('#rLabel'), hint = $('#rHint');
+  if (s.x < 60) { lab.textContent = '回满预览'; hint.textContent = state.data.asleep ? '连接后可用' : '按住拖动'; }
+  else { lab.textContent = fmtAt(s.x); hint.textContent = '假设之后不再使用'; }
+  if (state.data.asleep || !jars.codex) return;
+  const key = mains().filter(w => s.x >= w.reset).map(w => w.p + w.k).join();
+  if (key !== crossed) { crossed = key; renderHome(true); }
+  else for (const p in PROV) ['h5', 'wk'].forEach((k, i) => {
+    const w = state.data[p][k]; jars[p].el.querySelectorAll('.under span')[i].innerHTML = s.x >= w.reset ? '<b>已回满</b>' : `${CLK}<b>${fmtLeft(w.reset - s.x)}</b>`;
+  });
+});
+function scrubber() {
+  const track = $('#track'); let drag = false, lastSnap = null;
+  const toT = e => { const r = track.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * RANGE; };
+  const move = e => {
+    let t = toT(e), snap = null;
+    for (const w of mains()) if (w.reset <= RANGE && Math.abs(w.reset - t) < RANGE * .02) { t = w.reset; snap = w.reset; }
+    if (snap !== null && snap !== lastSnap) haptic('selection', $('#thumb .knob'));
+    lastSnap = snap; scrubT.to(t, 'snappy');
+  };
+  track.addEventListener('pointerdown', e => { if (state.data.asleep) return; drag = true; track.setPointerCapture(e.pointerId); track.style.cursor = 'grabbing'; move(e); });
+  track.addEventListener('pointermove', e => { if (drag) move(e); });
+  const end = () => { if (!drag) return; drag = false; lastSnap = null; track.style.cursor = ''; scrubT.to(0, 'smooth'); };
+  track.addEventListener('pointerup', end); track.addEventListener('pointercancel', end);
+}
+
+/* ---------------- 大标题收拢 ---------------- */
+function navCollapse() {
+  const sc = $('#scroller');
+  sc.addEventListener('scroll', () => {
+    const y = sc.scrollTop, k = Math.max(0, Math.min(1, (y - 18) / 26));
+    $('#barbg').style.opacity = k; $('#inlineTitle').style.opacity = k;
+    $('#largeTitle').style.opacity = 1 - k;
+  }, { passive: true });
+}
+
+/* ---------------- 按压 ---------------- */
+function pressable(el, onTap) {
+  const sc = new Spring(1, 'snappy').on(s => { el.style.transform = s.x === 1 ? '' : `scale(${s.x})`; });
+  let down = null;
+  el.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY }; sc.to(.965, 'snappy'); });
+  el.addEventListener('pointermove', e => { if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 10) { down = null; sc.to(1, 'snappy'); } });
+  el.addEventListener('pointerup', () => { if (down) { sc.to(1, 'snappy'); onTap(); } down = null; });
+  el.addEventListener('pointerleave', () => { down = null; sc.to(1, 'snappy'); });
+  el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(); } });
+}
+
+/* ---------------- 详情（zoom 转场 + 边缘返回） ---------------- */
+const zoom = new Spring(0, 'smooth'); let src = null;
+zoom.on(s => {
+  const det = $('#detail'), home = $('#home'), p = s.x;
+  if (p <= 0.0005 && s.t === 0) { det.style.display = 'none'; home.style.transform = ''; $('#dim').style.opacity = 0; return; }
+  det.style.display = 'block';
+  if (S.rm) { det.style.clipPath = 'none'; det.style.opacity = Math.min(1, p); $('#dinner').style.opacity = 1; return; }
+  det.style.opacity = 1;
+  const dev = $('#device').getBoundingClientRect(), r = src || { top: dev.height * .3, left: 20, right: 20, bottom: dev.height * .4 };
+  const q = Math.max(0, Math.min(1.02, p)), ins = k => (r[k] * (1 - q)).toFixed(1);
+  const rad = 28 * (1 - q) + (innerWidth > 760 ? 55 : 28) * q;
+  det.style.clipPath = `inset(${ins('top')}px ${ins('right')}px ${ins('bottom')}px ${ins('left')}px round ${rad.toFixed(1)}px)`;
+  const ip = Math.max(0, Math.min(1, (p - .25) / .55));
+  $('#dinner').style.opacity = ip; $('#dinner').style.transform = `translateY(${(1 - ip) * 10}px)`; $('.dnav').style.opacity = ip;
+  home.style.transform = `scale(${1 - .06 * Math.min(1, p)})`; $('#dim').style.opacity = Math.min(1, p) * .9;
+});
+function srcRect(el) {
+  const dev = $('#device').getBoundingClientRect(), r = el.getBoundingClientRect();
+  return { top: r.top - dev.top, left: r.left - dev.left, right: dev.right - r.right, bottom: dev.bottom - r.bottom };
+}
+function openDetail(p, el) {
+  if (state.data.asleep) { toast('连接流程沿用现有页面'); return; }
+  src = srcRect($('.jw', el)); buildDetail(p); zoom.to(1, 'smooth');
+}
+class HoneyBar {
+  constructor(el, w, h) {
+    this.w = w; const id = 'b' + (++uid), r = h / 2;
+    el.innerHTML = `<svg viewBox="0 0 ${w} ${h}" style="display:block;width:100%;height:auto"><defs><clipPath id="${id}c"><rect width="${w}" height="${h}" rx="${r}"/></clipPath>
+      <linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="0"><stop offset="0"/><stop offset="1"/></linearGradient></defs>
+      <rect width="${w}" height="${h}" rx="${r}" fill="var(--fill)"/><g clip-path="url(#${id}c)"><rect class="f" height="${h}" fill="url(#${id}g)"/></g></svg>`;
+    this.f = $('.f', el); this.stops = el.querySelectorAll('stop'); this.svg = el.firstElementChild;
+    this.sp = new Spring(0, 'fluid').on(s => this.f.setAttribute('width', Math.max(0, Math.min(1, s.x)) * this.w));
+  }
+  set(v, warn, stale, from) {
+    this.stops[0].style.stopColor = warn ? 'var(--ember-lo)' : 'var(--honey-lo)';
+    this.stops[1].style.stopColor = warn ? 'var(--ember-hi)' : 'var(--honey-hi)';
+    this.svg.style.filter = stale ? 'saturate(.2)' : ''; this.f.style.opacity = stale ? .5 : 1;
+    if (from !== undefined) { this.sp.set(from); this.sp.to(v, 'fluid'); } else this.sp.set(v);
+  }
+}
+function buildDetail(p) {
+  const d = state.data, P = d[p], main = [['h5', '5 小时'], ['wk', '本周']].map(([k, n]) => ({ ...P[k], name: n }));
+  const t = main.reduce((a, b) => b.rem < a.rem ? b : a), warn = isWarn(t.rem);
+  $('#dtitle').textContent = PROV[p].name;
+  const row = (w, minor) => `<div class="bar ${minor ? 'minor' : ''}"><div class="top"><b>${w.name}${w.scope ? `<small>${w.scope}</small>` : ''}</b>
+      <span class="v ${isWarn(w.rem) ? 'warn' : ''}">${Math.round(w.rem * 100)}<small>%</small></span></div><div class="hb"></div>
+      <div class="meta"><span>${fmtAt(w.reset)} 回满</span><span>还要 ${fmtLeft(w.reset)}</span></div></div>`;
+  $('#dinner').innerHTML = `<div class="card"><div class="dsay">${t.name}${warn ? `只剩 <em>${Math.round(t.rem * 100)}%</em>` : `还有 ${Math.round(t.rem * 100)}%`}</div>
+    <div class="dsub">${fmtAt(t.reset)} 回满${d.stale ? ` · ${d.stale} 分钟前的读数` : ''}</div></div>
+    <div class="shead"><span>订阅额度</span></div>
+    <div class="card tight" data-id="reset-timeline">${main.map(w => row(w)).join('')}</div>
+    <div class="shead"><span>附加限额</span></div>
+    <div class="card tight">${P.extra.map(w => row(w, true)).join('')}</div>
+    <div class="foot">附加限额只约束对应用途或模型，不影响上面两项。</div>`;
+  const all = [...main, ...P.extra];
+  $('#dinner').querySelectorAll('.hb').forEach((el, i) => {
+    const minor = i >= main.length, hb = new HoneyBar(el, 326, minor ? 8 : 14);
+    hb.set(all[i].rem, isWarn(all[i].rem), !!d.stale, S.rm ? undefined : 0);
+  });
+}
+function edgeBack() {
+  const edge = $('#edge'); let st = null, lx = 0, lt = 0, vx = 0;
+  edge.addEventListener('pointerdown', e => { st = e.clientX; lx = e.clientX; lt = performance.now(); vx = 0; edge.setPointerCapture(e.pointerId); active.delete(zoom); });
+  edge.addEventListener('pointermove', e => {
+    if (st === null) return; const W = $('#device').clientWidth, now = performance.now();
+    vx = (e.clientX - lx) / Math.max(1, now - lt) * 1000; lx = e.clientX; lt = now;
+    zoom.x = Math.max(0, 1 - (e.clientX - st) / W); zoom.v = 0; zoom.emit();
+  });
+  const up = () => {
+    if (st === null) return; st = null; const W = $('#device').clientWidth;
+    zoom.to(zoom.x < .65 || vx > 500 ? 0 : 1, 'smooth', -vx / W);   // 带上手指速度
+  };
+  edge.addEventListener('pointerup', up); edge.addEventListener('pointercancel', up);
+}
+
+/* ---------------- 下拉刷新 ---------------- */
+const pullY = new Spring(0, 'smooth');
+let refreshing = false, armed = false;
+pullY.on(s => {
+  $('#content').style.transform = s.x > .1 ? `translateY(${s.x}px)` : '';
+  const pv = $('#pull'), k = Math.min(1, s.x / 64);
+  pv.style.opacity = refreshing ? 1 : k; pv.style.transform = `translateY(${Math.min(s.x, 64) * .35}px) scale(${.6 + .4 * k})`;
+});
+function pullToRefresh() {
+  const sc = $('#scroller'); let y0 = null;
+  const start = y => { if (sc.scrollTop <= 0 && !refreshing && state.view === 'app') y0 = y; };
+  const move = (y, e) => {
+    if (y0 === null) return; const dy = y - y0; if (dy <= 0) { pullY.set(0); return; }
+    e.cancelable && e.preventDefault();
+    const rub = 110 * (1 - Math.exp(-dy / 160));   // 橡皮筋阻尼
+    pullY.set(rub);
+    if (rub > 64 && !armed) { armed = true; haptic('selection', $('#pull')); }
+    if (rub < 64) armed = false;
+  };
+  const end = () => { if (y0 === null) return; y0 = null; if (armed) { armed = false; doRefresh(true); } else pullY.to(0, 'smooth'); };
+  sc.addEventListener('touchstart', e => start(e.touches[0].clientY), { passive: true });
+  sc.addEventListener('touchmove', e => move(e.touches[0].clientY, e), { passive: false });
+  sc.addEventListener('touchend', end);
+  sc.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && !e.target.closest('.track,.jarbtn,button')) start(e.clientY); });
+  addEventListener('pointermove', e => { if (e.pointerType === 'mouse') move(e.clientY, e); });
+  addEventListener('pointerup', e => { if (e.pointerType === 'mouse') end(); });
+}
+function tickUsage(d, amt) {
+  for (const p in PROV) { d[p].h5.rem = Math.max(0, +(d[p].h5.rem - amt * (1 + Math.random())).toFixed(2)); d[p].wk.rem = Math.max(0, +(d[p].wk.rem - amt * .3).toFixed(2)); }
+}
+function doRefresh(fromPull) {
+  if (refreshing || state.data.asleep) return; refreshing = true;
+  $('#btnRefresh').classList.add('spin'); if (fromPull) pullY.to(52, 'smooth');
+  $('#pull').innerHTML = bearSVG('calm');
+  setTimeout(() => {
+    const before = mood(); tickUsage(state.data, .03);
+    const old = wallet.ds.cny; wallet.ds.cny = +(old - .84).toFixed(2); wallet.ds.top = +(wallet.ds.top - .84).toFixed(2);
+    state.data.stale = 0; refreshing = false; $('#btnRefresh').classList.remove('spin');
+    renderHome(true); rollNum('#dsAmt', old, wallet.ds.cny);
+    haptic('success', $('#btnRefresh')); pullY.to(0, 'smooth');
+    if (before !== mood() && mood() !== 'calm') haptic('warning', $('#bear'));
+  }, 1100 / S.speed);
+}
+function rollNum(sel, from, to) { const el = $(sel); if (!el) return; new Spring(from, 'smooth').on(x => { el.textContent = x.x.toFixed(2); }).to(to, 'smooth'); }
+
+/* ---------------- 触觉可视化 ---------------- */
+function haptic(kind, el) {
+  const dev = $('#device').getBoundingClientRect(), r = el.getBoundingClientRect(), h = document.createElement('div');
+  h.className = 'hap ' + kind; h.style.left = (r.left + r.width / 2 - dev.left) + 'px'; h.style.top = (r.top + r.height / 2 - dev.top) + 'px';
+  $('#device').appendChild(h); setTimeout(() => h.remove(), 600);
+  const chip = $('#hapchip'); chip.textContent = '触觉 · ' + { selection: '轻点', success: '成功', warning: '警示' }[kind];
+  chip.style.opacity = 1; clearTimeout(chip._t); chip._t = setTimeout(() => chip.style.opacity = 0, 900);
+  try { navigator.vibrate && navigator.vibrate(kind === 'selection' ? 6 : kind === 'success' ? [10, 40, 10] : [20, 60, 20]); } catch (e) {}
+}
+function toast(t) { const el = $('#toast'); el.textContent = t; el.style.opacity = 1; clearTimeout(el._t); el._t = setTimeout(() => el.style.opacity = 0, 1600); }
+
+/* ---------------- 小组件画廊 ---------------- */
+function renderGallery(prev) {
+  const g = $('#gallery'); if (state.view !== 'widgets') return;
+  const d = state.data, t = d.asleep ? null : tightest();
+  const rf = `<button class="rf" aria-label="刷新" data-act="wref"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg></button>`;
+  const jarSlot = (p, w, h, r) => `<div class="wj" data-p="${p}" data-w="${w}" data-h="${h}" data-r="${r}"></div>`;
+  const left = p => { const a = d[p].h5.rem <= d[p].wk.rem ? d[p].h5 : d[p].wk; return d.asleep ? '未连接' : `${a === d[p].h5 ? '5 小时' : '本周'} · <b>${fmtLeft(a.reset)}</b>后满`; };
+  const nextLine = t ? `<b>${PROV[t.p].name} ${t.name}</b> ${Math.round(t.rem * 100)}% · ${fmtLeft(t.reset)}后回满` : '未连接';
+  const lockLine = p => ['h5', 'wk'].map(k => `<div class="ln"><span>${k === 'h5' ? '5时' : '本周'}</span><div class="gauge"><i style="width:${d.asleep ? 0 : d[p][k].rem * 100}%"></i></div><b>${d.asleep ? '–' : Math.round(d[p][k].rem * 100)}</b></div>`).join('');
+  g.innerHTML = `<div class="${state.tint ? 'tinted' : ''}">
+  <h3>主屏幕 · 小号</h3><div class="wgrid">
+    <div class="w"><div class="wh"><i style="background:var(--claude)"></i>Claude${rf}</div>${jarSlot('claude', 144, 88, 18)}<div class="wsm">${left('claude')}</div></div>
+    <div class="w"><div class="wh"><i style="background:var(--relay)"></i>我的中转${rf}</div>
+      <div class="wbig" style="margin-top:14px"><small>$</small><span class="slot"><span>${wallet.relay.usd.toFixed(2)}</span></span></div>
+      <div class="wsm" style="margin-top:auto">APIKEY.FAN<br>18:01 更新</div></div>
+  </div>
+  <h3>主屏幕 · 中号</h3><div class="wgrid">
+    <div class="w m"><div class="wh">AI 额度${rf}</div>
+      <div class="wrow">${['codex', 'claude'].map(p => `<div style="min-width:0"><div class="wsm" style="margin:0 0 4px 2px"><b>${PROV[p].name}</b></div>${jarSlot(p, 160, 70, 16)}</div>`).join('')}</div>
+      <div class="wsm">${nextLine}</div></div>
+  </div>
+  <h3>主屏幕 · 大号</h3><div class="wgrid">
+    <div class="w l"><div class="wh">AI 额度${rf}</div>
+      <div class="wrow">${['codex', 'claude'].map(p => `<div style="min-width:0"><div class="wsm" style="margin:0 0 5px 2px"><b>${PROV[p].name}</b></div>${jarSlot(p, 160, 150, 24)}<div class="wsm" style="margin-top:6px;text-align:center">${left(p)}</div></div>`).join('')}</div>
+      <div style="margin-top:auto;display:grid;grid-template-columns:1fr 1fr;gap:12px;border-top:.5px solid var(--line);padding-top:10px">
+        <div><div class="wsm"><b>DeepSeek</b></div><div class="wbig" style="font-size:20px"><small>¥</small>${wallet.ds.cny.toFixed(2)}</div></div>
+        <div><div class="wsm"><b>我的中转</b></div><div class="wbig" style="font-size:20px"><small>$</small>${wallet.relay.usd.toFixed(2)}</div></div></div></div>
+  </div>
+  <h3>锁屏</h3>
+  <div class="lock">
+    <div class="lc"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="5"/>
+      <circle cx="32" cy="32" r="28" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-dasharray="${(t ? t.rem : 0) * 175.9} 175.9" transform="rotate(-90 32 32)"/></svg>
+      <span class="g">${t ? PROV[t.p].name : ''}</span><b>${t ? Math.round(t.rem * 100) : '–'}</b></div>
+    <div class="lr"><div class="t">Claude</div>${lockLine('claude')}</div>
+  </div>
+  <div class="li">${t ? `${PROV[t.p].name} ${t.name} ${Math.round(t.rem * 100)}% · ${fmtLeft(t.reset)}后回满` : '轻松熊 · 未连接'}</div>
+  </div>`;
+  g.querySelectorAll('.wj').forEach(el => {
+    const p = el.dataset.p, j = new Jar(el, +el.dataset.w, +el.dataset.h, +el.dataset.r);
+    j.look({ stale: !!d.stale, asleep: !!d.asleep });
+    ['h5', 'wk'].forEach((k, i) => {
+      const v = d.asleep ? 0 : d[p][k].rem; j.paint(i, !d.asleep && isWarn(v));
+      if (prev && !d.asleep) { j.lv[i].set(prev[p][k]); j.to(i, v, true); } else j.to(i, v, false);
+    });
+  });
+  g.querySelectorAll('[data-act="wref"]').forEach(b => b.addEventListener('click', widgetRefresh));
+}
+function widgetRefresh() {
+  if (state.data.asleep) return;
+  const prev = {}; for (const p in PROV) prev[p] = { h5: state.data[p].h5.rem, wk: state.data[p].wk.rem };
+  tickUsage(state.data, .02);
+  renderGallery(prev);   // 条目切换：液面从旧值补间到新值，数字从下推入
+  $('#gallery').querySelectorAll('.slot').forEach(s => { s.classList.remove('push'); void s.offsetWidth; if (!S.rm) s.classList.add('push'); });
+  renderHome(false);
+}
+
+/* ---------------- 调手感 ---------------- */
+function buildTune() {
+  document.querySelectorAll('.tunebody').forEach(body => {
+    body.innerHTML = Object.entries(MOTION).map(([k, m]) => `
+      <div class="row"><b>${k}</b><input type="range" min="0.12" max="1.2" step="0.01" value="${m.response}" data-k="${k}" data-f="response" aria-label="${k} response"><output>${m.response.toFixed(2)}</output></div>
+      <div class="row"><span style="color:var(--ink-2)">阻尼</span><input type="range" min="0.4" max="1.2" step="0.01" value="${m.damping}" data-k="${k}" data-f="damping" aria-label="${k} damping"><output>${m.damping.toFixed(2)}</output></div>
+      <div class="k" style="margin-top:2px">${m.use}</div>`).join('') +
+      `<div class="k">参数与 SwiftUI <code>.spring(response:dampingFraction:)</code> 一致；调好后点下面按钮复制给山泉。</div><button class="copy">复制参数</button>`;
+    body.addEventListener('input', e => {
+      const i = e.target; if (!i.dataset.k) return; MOTION[i.dataset.k][i.dataset.f] = +i.value;
+      document.querySelectorAll(`input[data-k="${i.dataset.k}"][data-f="${i.dataset.f}"]`).forEach(x => { x.value = i.value; x.nextElementSibling.textContent = (+i.value).toFixed(2); });
+    });
+    $('.copy', body).addEventListener('click', async () => {
+      const txt = Object.entries(MOTION).map(([k, m]) => `${k}: response ${m.response.toFixed(2)}, dampingFraction ${m.damping.toFixed(2)}`).join('\n');
+      try { await navigator.clipboard.writeText(txt); toast('已复制'); } catch (e) { toast(txt.replace(/\n/g, ' / ')); }
+    });
+  });
+}
+
+/* ---------------- 控制 ---------------- */
+function seg(id, fn) {
+  const el = $(id); el.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    el.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); fn(b.dataset.v);
+  });
+}
+function load(scene) {
+  state.scene = scene; state.data = SCENES[scene](base()); wallet = WALLET();
+  crossed = ''; scrubT.set(0); if (zoom.x > 0) zoom.set(0);
+  renderHome(true); renderGallery();
+}
+function setView(v) {
+  state.view = v; $('#gallery').style.display = v === 'widgets' ? 'block' : 'none';
+  $('#home').style.visibility = v === 'widgets' ? 'hidden' : ''; renderGallery();
+}
+function init() {
+  buildJars(); buildTune(); scrubber(); edgeBack(); pullToRefresh(); navCollapse();
+  $('#btnRefresh').addEventListener('click', () => doRefresh(false));
+  $('#btnSettings').addEventListener('click', () => toast('设置页沿用现有页面'));
+  $('#back').addEventListener('click', () => zoom.to(0, 'smooth'));
+  $('#purseWrap').addEventListener('click', e => { if (e.target.closest('[data-id="relay-add"]')) toast('添加中转站沿用现有流程'); });
+  seg('#segView', setView);
+  seg('#segScene', load);
+  seg('#segRelay', v => { state.relay = v === 'on'; renderPurse(); });
+  seg('#segSpeed', v => { S.speed = +v; });
+  seg('#segRM', v => { S.rm = v === 'on'; });
+  seg('#segTheme', v => { if (v === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = v; });
+  seg('#segTint', v => { state.tint = v === 'on'; renderGallery(); });
+  if (S.rm) document.querySelectorAll('#segRM button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === 'on'));
+  renderHome(false);   // 冷启动：首帧直接是缓存数据，不放入场动画
+}
+init();
+})();
+</script>

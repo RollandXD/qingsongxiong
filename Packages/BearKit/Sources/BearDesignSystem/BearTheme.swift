@@ -5,33 +5,54 @@ public enum BearTheme {
     private static func rgb(_ value: UInt32) -> Color {
         Color(red: Double((value >> 16) & 255) / 255, green: Double((value >> 8) & 255) / 255, blue: Double(value & 255) / 255)
     }
-    public static func background(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0x141615 : 0xF7F6F2) }
-    public static func surface(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0x202320 : 0xFFFFFF) }
-    public static func text(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xF4F3EF : 0x252823) }
-    public static func secondaryText(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xC3C9BE : 0x353A34) }
-    public static func accent(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xD8AA8C : 0x9F6042) }
-    public static func track(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0x353A35 : 0xE9EBE5) }
-    public static func warning(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xE4BC68 : 0x956100) }
-    public static func success(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0x6CC9AD : 0x267864) }
-    public static func danger(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xF18A8D : 0xB84044) }
+    // 纸白底：不用纯白/纯黑，取 Claude 式暖纸色；卡片比底亮一级。
+    public static func background(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0x262624 : 0xF4F2EC) }
+    public static func surface(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0x30302E : 0xFBFAF7) }
+    // 文字墨色一律实色（RenderedAccessibilityAudit 按实色像素核对比度，≥4.5）。
+    public static func text(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xF5F4EF : 0x1D1D1F) }
+    public static func secondaryText(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xB7B5AE : 0x5E5D59) }
+    /// App tint = systemOrange。
+    public static func accent(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xFF9F0A : 0xFF9500) }
+    /// 可作文字的强调墨色（systemOrange 在纸白上对比不足）。
+    public static func accentInk(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xFFB340 : 0x9A5B00) }
+    public static func track(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0x3A3A37 : 0xE8E5DC) }
+    public static func separator(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0x45453F : 0xD9D6CC) }
+    public static func warning(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xFFB340 : 0x9A5B00) }
+    public static func success(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0x30D158 : 0x1F7A3A) }
+    public static func danger(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0xFF6961 : 0xC62A21) }
+    /// 平台系列色（系统色）：0 Codex = systemGreen，1 Claude = systemBrown，2 DeepSeek = systemIndigo。
+    /// 只用于圆点、图标和液体之外的标识，不作文字墨色。
     public static func series(_ index: Int, _ scheme: ColorScheme) -> Color {
-        let light: [UInt32] = [0x267864, 0xA95E40, 0x4F6FE8]
-        let dark: [UInt32] = [0x73C4B0, 0xDCA88B, 0x91A7FF]
+        let light: [UInt32] = [0x34C759, 0xA2845E, 0x5856D6]
+        let dark: [UInt32] = [0x30D158, 0xAC8E68, 0x5E5CE6]
         let values = scheme == .dark ? dark : light
         return rgb(values[min(2, max(0, index))])
     }
-    /// 玻璃卡底纹：四角网格渐变，系列色只在一角极淡出现。
+    /// 中转站 = systemCyan。
+    public static func relay(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0x64D2FF : 0x32ADE6) }
+
+    /// 蜂蜜液体：systemYellow → systemOrange 自上而下。
+    public static func honey(_ scheme: ColorScheme) -> [Color] {
+        scheme == .dark ? [rgb(0xFFD60A), rgb(0xFF9F0A)] : [rgb(0xFFCC00), rgb(0xFF9500)]
+    }
+    /// 余烬液体（低于警示阈值）：唯一警示色 systemRed。
+    public static func ember(_ scheme: ColorScheme) -> [Color] {
+        scheme == .dark ? [rgb(0xFF6B60), rgb(0xFF453A)] : [rgb(0xFF6961), rgb(0xFF3B30)]
+    }
+    /// 浸在蜂蜜里的小字墨色。
+    public static func honeyInk(_ scheme: ColorScheme) -> Color { rgb(scheme == .dark ? 0x4A2A00 : 0x5A3A00) }
+
+    /// 旧玻璃卡底纹：新设计不再上色，保留签名，四角全透明。
     public static func meshStops(tint: Color, _ scheme: ColorScheme) -> [Color] {
-        let base = surface(scheme).opacity(0)
-        return [tint.opacity(scheme == .dark ? 0.16 : 0.10), base, base, accent(scheme).opacity(scheme == .dark ? 0.06 : 0.04)]
+        Array(repeating: surface(scheme).opacity(0), count: 4)
     }
-    /// 页面背景纸感渐变。
+    /// 页面背景：纸白实色（保留 LinearGradient 签名，两端同色）。
     public static func paper(_ scheme: ColorScheme) -> LinearGradient {
-        LinearGradient(colors: [rgb(scheme == .dark ? 0x1A1C1A : 0xFBF8F1), background(scheme)],
-                       startPoint: .top, endPoint: .bottom)
+        LinearGradient(colors: [background(scheme), background(scheme)], startPoint: .top, endPoint: .bottom)
     }
+    /// 额度主色：低于警示阈值统一转警示色，否则用平台色。阈值与 QuotaThresholds.watch 同为 20。
     public static func quotaColor(_ remaining: Double, series: Int, scheme: ColorScheme) -> Color {
-        remaining <= 0 ? danger(scheme) : remaining <= 20 ? warning(scheme) : self.series(series, scheme)
+        remaining <= 20 ? danger(scheme) : self.series(series, scheme)
     }
 }
 

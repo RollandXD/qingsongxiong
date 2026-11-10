@@ -99,7 +99,7 @@ public struct ProviderDashboardPresentation: Equatable, Sendable {
         if state.snapshot?.isAvailable == false { return "当前不可调用" }
         if let window = summaryWindow {
             if window.remaining == 0 { return "窗口已用尽" }
-            if window.remaining <= 20 { return "余量偏低" }
+            if window.remaining <= QuotaThresholds.watch { return "余量偏低" }
         }
         return "已同步"
     }

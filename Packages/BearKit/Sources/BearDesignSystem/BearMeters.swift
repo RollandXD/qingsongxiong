@@ -1,9 +1,23 @@
 import SwiftUI
 
+/// 全 App 唯一的一套物理：三个弹簧 token，参数与 HTML 原型
+/// （design/prototype-honey）的 response / dampingFraction 一一对应。
 public enum BearMotion {
-    public static let unfold = Animation.spring(duration: 0.44, bounce: 0.15)
-    public static let data = Animation.spring(duration: 0.55, bounce: 0.04)
+    /// 按压、切换、标尺吸附：快、几乎不过冲。
+    public static let snappy = Animation.spring(response: 0.28, dampingFraction: 0.86)
+    /// 布局、展开、转场：临界阻尼，不过冲。
+    public static let smooth = Animation.spring(response: 0.48, dampingFraction: 1.0)
+    /// 液面升降：欠阻尼，留一点晃动。
+    public static let fluid = Animation.spring(response: 0.70, dampingFraction: 0.72)
+    /// 与 `fluid` 同参数的解析弹簧，供需要读速度的逐帧绘制（蜜罐液面）使用。
+    public static let fluidSpring = Spring(response: 0.70, dampingRatio: 0.72)
+    /// Reduce Motion 下的交叉淡入。
     public static let quiet = Animation.easeOut(duration: 0.14)
+
+    // 旧名字保留为别名，调用点逐步迁移；不再引入新的曲线。
+    public static let unfold = smooth
+    /// 数据刷新的整体过渡用临界阻尼，避免文字与布局跟着液面一起晃。
+    public static let data = smooth
 }
 
 public struct BearCapacityBar: View {
@@ -71,6 +85,6 @@ public struct BearPressStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
             .opacity(configuration.isPressed ? 0.86 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(BearMotion.snappy, value: configuration.isPressed)
     }
 }

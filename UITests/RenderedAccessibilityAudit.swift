@@ -38,11 +38,11 @@ final class RenderedContrastTests: XCTestCase {
             }.cgImage!
         }
         let rect = CGRect(origin: .zero, size: size)
-        let ink = UIColor(red: 53 / 255.0, green: 58 / 255.0, blue: 52 / 255.0, alpha: 1)
+        let ink = UIColor(red: 94 / 255.0, green: 93 / 255.0, blue: 89 / 255.0, alpha: 1)
         let readable = try XCTUnwrap(RenderedContrast.measure(image(ink: ink, background: .white), rect: rect, screen: rect))
         XCTAssertGreaterThan(readable.ratio, 4.5)
         // 浅色卡片与深色模式的白字 token 相近，不能把背景当成另一种文字墨色。
-        let pale = UIColor(red: 244 / 255.0, green: 243 / 255.0, blue: 239 / 255.0, alpha: 1)
+        let pale = UIColor(red: 244 / 255.0, green: 242 / 255.0, blue: 236 / 255.0, alpha: 1)
         let paleResult = try XCTUnwrap(RenderedContrast.measure(image(ink: ink, background: pale), rect: rect, screen: rect))
         XCTAssertGreaterThan(paleResult.ratio, 4.5)
         let gradient = UIGraphicsImageRenderer(size: size).image { context in
@@ -65,8 +65,8 @@ private enum RenderedContrast {
     struct Result { let ratio: Double; let inkPixels: Int }
     // 与 BearTheme 的主/次文字、状态文字一致；不把图表系列色当文字墨色。
     static let inks: [[Int]] = [
-        [37, 40, 35], [53, 58, 52], [149, 97, 0], [38, 120, 100], [184, 64, 68],
-        [244, 243, 239], [195, 201, 190], [228, 188, 104], [108, 201, 173], [241, 138, 141],
+        [29, 29, 31], [94, 93, 89], [154, 91, 0], [31, 122, 58], [198, 42, 33],
+        [245, 244, 239], [183, 181, 174], [255, 179, 64], [48, 209, 88], [255, 105, 97],
     ]
     static func luminance(_ rgb: [Int]) -> Double {
         let linear = rgb.map { value -> Double in

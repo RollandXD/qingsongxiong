@@ -27,9 +27,14 @@ public struct DashboardOverviewPresentation: Equatable, Sendable {
         let balanceBlocked = providers.contains { $0.state?.connection == .connected && $0.state?.snapshot?.isAvailable == false }
         let lowest = tightest?.window.remaining ?? 100
         if !connected { mood = .asleep }
-        else if lowest <= 5 || balanceBlocked { mood = .urgent }
-        else if lowest <= 20 { mood = .watchful }
-        else { mood = .calm }
+        else if balanceBlocked { mood = .urgent }
+        else {
+            switch QuotaThresholds.level(remainingPercent: lowest) {
+            case .urgent: mood = .urgent
+            case .watch: mood = .watchful
+            case .normal: mood = .calm
+            }
+        }
     }
 
     /// 例：「Codex 5 小时 还剩 42%，19:30 重置」。
