@@ -281,9 +281,10 @@ final class DesignUITests: XCTestCase {
         attach(app, "jar-pace")
 
         tap("provider-codex", app)
-        let windowPace = app.descendants(matching: .any)["window-pace-codex-five_hour"].firstMatch
-        XCTAssertTrue(windowPace.waitForExistence(timeout: 8))
-        XCTAssertTrue(windowPace.label.contains("参考剩"), windowPace.label)
+        // 详情页整行被 children:.combine 合并，配速文案就在行的 label 里。
+        let windowRow = app.descendants(matching: .any)["window-codex-five_hour"].firstMatch
+        XCTAssertTrue(windowRow.waitForExistence(timeout: 8))
+        XCTAssertTrue(windowRow.label.contains("参考剩"), windowRow.label)
         attach(app, "window-pace")
     }
 

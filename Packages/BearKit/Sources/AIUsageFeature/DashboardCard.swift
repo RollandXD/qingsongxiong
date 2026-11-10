@@ -135,13 +135,13 @@ struct UsageWindowRow: View {
                         referenceRemaining: pace?.referenceRemainingPercent)
             if let pace {
                 // “按这条线走刚好耗完”：只说位置对比，不说“必须花完”。
-                // 标识挂在 Text 上，无障碍 label 才是这段文案本身（挂在 HStack 上会读成空）。
+                // 不单独挂标识：整行会被 children:.combine 合成一个元素，
+                // 挂在内部 Text 上的标识只会指向隐藏子元素（label 为空）。
                 Text("参考剩 " + ProviderPresentation.percent(pace.referenceRemainingPercent)
                      + " · " + pace.comparison)
                     .font(.caption2)
                     .foregroundStyle(BearTheme.secondaryText(scheme))
                     .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("window-pace-" + provider.rawValue + "-" + window.id)
             }
             HStack(alignment: .firstTextBaseline) {
                 Text("已用 " + ProviderPresentation.percent(window.window.usedPercent))

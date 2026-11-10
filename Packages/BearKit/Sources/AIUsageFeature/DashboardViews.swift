@@ -206,6 +206,7 @@ public struct AIUsageHome: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Text("恢复预览").font(.footnote.weight(.semibold))
+                    .accessibilityIdentifier("recovery-preview")
                 Spacer()
                 Text(scrub == 0 ? "现在" : Self.offsetLabel(scrub))
                     .font(.footnote).monospacedDigit().contentTransition(.opacity)
@@ -219,8 +220,6 @@ public struct AIUsageHome: View {
             .padding(16)
             .background(BearTheme.surface(scheme), in: .rect(cornerRadius: 26, style: .continuous))
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("recovery-preview")
     }
 
     static func offsetLabel(_ offset: TimeInterval) -> String {
