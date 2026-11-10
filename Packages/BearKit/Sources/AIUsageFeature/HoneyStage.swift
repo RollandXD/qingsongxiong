@@ -396,6 +396,14 @@ struct HoneyWindowRow: View {
                     .contentTransition(.numericText(value: window.remaining))
             }
             BearHoneyBar(fraction: window.fraction, warn: warn, stale: stale)
+            // “按这条线走刚好刚好耗完”：过期读数不给参考线，旧数上的线比没有更误导。
+            if let pace = stale ? nil : QuotaPaceCalculator.pace(for: window.window, now: now) {
+                Text("参考剩 " + ProviderPresentation.percent(pace.referenceRemainingPercent)
+                     + " · " + pace.comparison)
+                    .font(.caption2)
+                    .foregroundStyle(BearTheme.secondaryText(scheme))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Text(resetText).font(.caption).monospacedDigit().foregroundStyle(BearTheme.secondaryText(scheme))
         }
         .padding(.horizontal, 16).padding(.vertical, 12)

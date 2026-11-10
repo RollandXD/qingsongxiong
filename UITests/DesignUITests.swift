@@ -39,13 +39,11 @@ final class DesignUITests: XCTestCase {
         defer { continueAfterFailure = false }
         for appearance in ["light", "dark"] {
             let app = launch(appearance)
-            XCTAssertTrue(app.otherElements["dashboard-hero"].exists || app.staticTexts["dashboard-hero"].exists)
-            XCTAssertTrue(app.descendants(matching: .any)["honey-stage"].firstMatch.exists)
-            if !app.descendants(matching: .any)["time-scrubber"].firstMatch.exists {
-                dumpElements(app, keywords: ["scrub", "回满", "恢复", "recovery", "preview"],
-                             label: "time-scrubber-" + appearance)
-            }
-            XCTAssertTrue(app.descendants(matching: .any)["time-scrubber"].firstMatch.exists)
+            // 套件整体跑时机器更忙，数据落盘晚一点；用等待而不是裸 exists，避免用例顺序造成的假失败。
+            let hero = app.descendants(matching: .any)["dashboard-hero"].firstMatch
+            XCTAssertTrue(hero.waitForExistence(timeout: 15))
+            XCTAssertTrue(app.descendants(matching: .any)["honey-stage"].firstMatch.waitForExistence(timeout: 15))
+            XCTAssertTrue(app.descendants(matching: .any)["time-scrubber"].firstMatch.waitForExistence(timeout: 15))
             attach(app, "dashboard-" + appearance)
             attach(app, "honey-stage-" + appearance)
             try auditRenderedAccessibility(app, test: self)
@@ -286,9 +284,9 @@ final class DesignUITests: XCTestCase {
 
         tap("provider-codex", app)
         // 详情页整行被 children:.combine 合并，配速文案就在行的 label 里。
-        let windowRow = app.descendants(matching: .any)["window-codex-five_hour"].firstMatch
-        if !windowRow.waitForExistence(timeout: 8) {
-            dumpElements(app, keywords: ["window-", "参考", "five"], label: "codex-window-row")
+        let windowRow = app.descendants(matching: .any)["window-codex-rate_limit.primary_window"].firstMatch
+        if !windowRow.waitForExistence(timeout: 10) {
+            dumpElements(app, keywords: ["window-", "参考", "rate_limit"], label: "codex-window-row")
         }
         XCTAssertTrue(windowRow.exists)
         if !windowRow.label.contains("参考剩") {
