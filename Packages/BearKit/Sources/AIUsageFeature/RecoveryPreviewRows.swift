@@ -1,4 +1,5 @@
 import AIUsageDomain
+import AIUsagePresentation
 import SwiftUI
 
 /// 恢复预览的读数：拖动时间尺时告诉用户“到那一刻会回满多少”，不覆盖主卡的当前读数。
