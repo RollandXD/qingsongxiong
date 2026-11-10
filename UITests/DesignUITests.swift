@@ -377,7 +377,7 @@ final class DesignUITests: XCTestCase {
     }
 
     /// 断言找不到元素时把无障碍树里相关行打出来：一次就能看出是“没有这个元素”还是“名字/层级不对”。
-    private func dumpElements(_ app: XCUIApplication, matching keywords: [String], label: String) {
+    private func dumpElements(_ app: XCUIApplication, keywords: [String], label: String) {
         let lines = app.debugDescription.split(separator: "\n").map(String.init)
         let hits = lines.filter { line in keywords.contains { line.localizedCaseInsensitiveContains($0) } }
         print("BEAR_TREE_START \(label) hits=\(hits.count)")
