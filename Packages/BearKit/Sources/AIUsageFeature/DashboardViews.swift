@@ -38,37 +38,7 @@ public struct AIUsageHome: View {
     }
     public var body: some View {
         NavigationStack(path: $navigation.path) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    HoneyStatusCard(overview: overview, hero: hero)
-                    homeCardsSection
-                    recoveryPreview
-                    UsageTimelineSection(model: model, now: now, primary: dashboard.cards.compactMap { $0 }.first)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("其他账户")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(BearTheme.secondaryText(scheme))
-                            .padding(.horizontal, 16)
-                        OtherAccountsList(model: model, relay: relay, now: now) { ref in open(ref) }
-                            .padding(.horizontal, 0)
-                    }
-                }
-                .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 32)
-            }
-            .scrollEdgeEffectStyle(.soft, for: .top)
-            .background(BearTheme.background(scheme).ignoresSafeArea())
-            .navigationTitle("轻松熊")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.large)
-            #endif
-            .toolbar { homeToolbar }
-            .bearPullToRefresh(enabled: canRefresh) { await refreshAll() }
-            .navigationDestination(item: $navigation.relayID) { id in
-                if let relay { RelayDetail(id: id, model: relay) }
-            }
-            .navigationDestination(for: ProviderID.self) { provider in
-                ProviderDetail(provider: provider, model: model)
-            }
+            homeScroll
         }
         .tint(BearTheme.accentInk(scheme))
         .sensoryFeedback(.success, trigger: refreshHaptic)
@@ -106,6 +76,60 @@ public struct AIUsageHome: View {
         .alert("暂未完成", isPresented: Binding(get: { navigation.path.isEmpty && model.message != nil }, set: { if !$0 { model.message = nil } })) {
             Button("好") { model.message = nil }
         } message: { Text(model.message ?? "") }
+    }
+
+    /// 首页滚动内容连同修饰符单独成块。
+    /// 整条链塞进 body 时编译器推断超时（CI 42801375790 在 navigationDestination 处报错），
+    /// 拆成独立表达式后两侧都只处理一半的修饰符。
+    private var homeScroll: some View {
+        ScrollView {
+            homeContent
+        }
+        .scrollEdgeEffectStyle(.soft, for: .top)
+        .background(BearTheme.background(scheme).ignoresSafeArea())
+        .navigationTitle("轻松熊")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.large)
+        #endif
+        .toolbar { homeToolbar }
+        .bearPullToRefresh(enabled: canRefresh) { await refreshAll() }
+        .navigationDestination(item: $navigation.relayID) { id in
+            relayDestination(id)
+        }
+        .navigationDestination(for: ProviderID.self) { provider in
+            ProviderDetail(provider: provider, model: model)
+        }
+    }
+
+    private var homeContent: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            HoneyStatusCard(overview: overview, hero: hero)
+            homeCardsSection
+            recoveryPreview
+            UsageTimelineSection(model: model, now: now, primary: dashboard.cards.compactMap { $0 }.first)
+            otherAccountsSection
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
+        .padding(.bottom, 32)
+    }
+
+    private var otherAccountsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("其他账户")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(BearTheme.secondaryText(scheme))
+                .padding(.horizontal, 16)
+            OtherAccountsList(model: model, relay: relay, now: now) { ref in open(ref) }
+        }
+    }
+
+    /// 中转详情要等中转列表加载完才有数据源，缺数据时不弹空页面。
+    @ViewBuilder
+    private func relayDestination(_ id: UUID) -> some View {
+        if let relay {
+            RelayDetail(id: id, model: relay)
+        }
     }
 
     /// 工具栏单独成块：塞在 body 里会让整个 NavigationStack 表达式的类型推断超时。
