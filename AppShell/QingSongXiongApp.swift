@@ -137,8 +137,14 @@ final class AppComposition {
                 history: AppServices.history)
             let connector = MobileAccountConnector(repository: repository, tokenClient: tokenClient,
       browser: SystemOAuthBrowser())
+            let preferences: any DashboardPreferencesStoring = ProcessInfo.processInfo
+                .arguments.contains("--ui-testing")
+                // UI 测试下主卡选择不能跨用例残留（上一条用例选的卡会改变下一条的首页），
+                // 用内存存储：每次启动都是默认两卡，也不污染容器里的真实偏好。
+                ? MemoryDashboardPreferencesStore()
+                : FileDashboardPreferencesStore(container: try shared.containerURL())
             model = AIUsageModel(repository: repository, connector: connector,
-                preferences: FileDashboardPreferencesStore(container: try shared.containerURL()),
+                preferences: preferences,
                 historyReader: AppServices.history,
                 onDataChange: {
                     WidgetCenter.shared.reloadTimelines(ofKind: "QingSongXiong.Overview")
