@@ -106,8 +106,8 @@ public struct AIUsageHome: View {
             HoneyStatusCard(overview: overview, hero: hero)
             homeCardsSection
             recoveryPreview
-            UsageTimelineSection(model: model, now: now, primary: model.dashboard.cards.compactMap { $0 }.first)
             walletSection
+            UsageTimelineSection(model: model, now: now, primary: model.dashboard.cards.compactMap { $0 }.first)
             otherAccountsSection
         }
         .padding(.horizontal, 16)
@@ -195,14 +195,13 @@ public struct AIUsageHome: View {
             .padding(.horizontal, 16)
             VStack(alignment: .leading, spacing: 18) {
                 HomeCardsSection(model: model, relay: relay, now: now, offset: 0) { ref in open(ref) }
-                TimeScrubber(offset: $scrub, now: now, marks: scrubMarks, enabled: hasConnectedProvider)
             }
             .padding(16)
             .background(BearTheme.surface(scheme), in: .rect(cornerRadius: 26, style: .continuous))
         }
     }
 
-    /// 独立恢复预览：只预览“什么时候回满”，不改主卡的当前读数。
+    /// 独立恢复预览：时间尺与读数在同一屏，拖动时不用上下找数字。
     private var recoveryPreview: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
@@ -214,8 +213,8 @@ public struct AIUsageHome: View {
             .foregroundStyle(BearTheme.secondaryText(scheme))
             .padding(.horizontal, 16)
             VStack(alignment: .leading, spacing: 14) {
-                RecoveryPreviewRows(model: model, now: now, offset: scrub)
                 TimeScrubber(offset: $scrub, now: now, marks: scrubMarks, enabled: hasConnectedProvider)
+                RecoveryPreviewRows(model: model, now: now, offset: scrub)
             }
             .padding(16)
             .background(BearTheme.surface(scheme), in: .rect(cornerRadius: 26, style: .continuous))

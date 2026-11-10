@@ -6,6 +6,10 @@ import XCTest
 /// 再用实际像素和局部背景计算 WCAG；无法核实时继续让原生审计失败。
 @MainActor
 func auditRenderedAccessibility(_ app: XCUIApplication, test: XCTestCase) throws {
+    // 一次审计里复用同一张全屏截图：像素数据完全一样，只是不再为每个对比度问题
+    // 重新截一次图（截屏+编码是这条链最慢的一步）。一旦因滚动改变了版面就作废重拍。
+    var cached: (image: CGImage, generation: Int)?
+    var generation = 0
     try app.performAccessibilityAudit(for: [.sufficientElementDescription, .trait, .textClipped, .contrast]) { issue in
         guard issue.auditType == .contrast, let element = issue.element else {
             // 不只报 label：把 frame、标识和屏幕尺寸一起打出来，
@@ -20,8 +24,20 @@ func auditRenderedAccessibility(_ app: XCUIApplication, test: XCTestCase) throws
         }
         // 原生审计也可能返回 ScrollView 中尚未完整进入屏幕的页脚。
         // 先把真实元素滚入视口，再采完整截图；绝不裁掉越界部分或直接忽略。
-        guard revealForContrast(element, in: app, test: test),
-              let image = app.screenshot().image.cgImage,
+        let before = element.frame
+        guard revealForContrast(element, in: app, test: test) else {
+            print("BEAR_RENDERED_UNRESOLVED \(element.label) frame=\(element.frame)")
+            return false
+        }
+        if element.frame != before { generation += 1 }
+        if cached?.generation != generation {
+            guard let image = app.screenshot().image.cgImage else {
+                print("BEAR_RENDERED_UNRESOLVED \(element.label) frame=\(element.frame)")
+                return false
+            }
+            cached = (image, generation)
+        }
+        guard let image = cached?.image,
               let result = RenderedContrast.measure(image, rect: element.frame, screen: app.frame) else {
             print("BEAR_RENDERED_UNRESOLVED \(element.label) frame=\(element.frame)")
             return false

@@ -135,15 +135,13 @@ struct UsageWindowRow: View {
                         referenceRemaining: pace?.referenceRemainingPercent)
             if let pace {
                 // “按这条线走刚好耗完”：只说位置对比，不说“必须花完”。
-                HStack(spacing: 4) {
-                    Image(systemName: "slash").font(.caption2)
-                    Text("参考剩 " + ProviderPresentation.percent(pace.referenceRemainingPercent)
-                         + " · " + pace.comparison)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .font(.caption2)
-                .foregroundStyle(BearTheme.secondaryText(scheme))
-                .accessibilityIdentifier("window-pace-" + provider.rawValue + "-" + window.id)
+                // 标识挂在 Text 上，无障碍 label 才是这段文案本身（挂在 HStack 上会读成空）。
+                Text("参考剩 " + ProviderPresentation.percent(pace.referenceRemainingPercent)
+                     + " · " + pace.comparison)
+                    .font(.caption2)
+                    .foregroundStyle(BearTheme.secondaryText(scheme))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("window-pace-" + provider.rawValue + "-" + window.id)
             }
             HStack(alignment: .firstTextBaseline) {
                 Text("已用 " + ProviderPresentation.percent(window.window.usedPercent))
