@@ -256,12 +256,12 @@ struct RelayHomeTile: View {
             VStack(alignment: .leading, spacing: 6) {
                 // 多币种不能合并成一个数：逐行保留币种代码与金额，否则用户会以为只掉了一种币。
                 if balances.count > 1 {
-                    ForEach(balances) { item in
+                    ForEach(balances, id: \.currency) { item in
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            Text(item.balance.currency)
+                            Text(item.currency)
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(BearTheme.secondaryText(scheme))
-                            Text(Self.amount(item.balance.total))
+                            Text(Self.amount(item.total))
                                 .font(.system(.title3, design: .rounded).weight(.semibold))
                                 .monospacedDigit()
                                 .foregroundStyle(BearTheme.text(scheme))
@@ -296,7 +296,7 @@ struct RelayHomeTile: View {
     }
 
     /// 金额为主、币种随行；多币种时只显示第一个并在详情里看全。
-    private var balances: [BalancePresentation] {
+    private var balances: [CurrencyBalance] {
         presentation.state.snapshot?.balances ?? []
     }
 
