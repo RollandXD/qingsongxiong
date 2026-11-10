@@ -356,7 +356,7 @@ struct OtherAccountsList: View {
         case .provider(let provider):
             let dashboard = ProviderDashboardPresentation(provider: provider, state: model.states[provider], at: now)
             guard let window = dashboard.summaryWindow else { return "已连接" }
-            return "剩 " + Int(window.remaining.rounded()) + "% · " + window.shortLabel
+            return "剩 " + ProviderPresentation.percent(window.remaining) + " · " + window.shortLabel
         case .relay(let id):
             guard let state = relay?.states.first(where: { $0.id == id }) else { return "中转账户" }
             return RelayPresentation(state: state, at: now).headline
