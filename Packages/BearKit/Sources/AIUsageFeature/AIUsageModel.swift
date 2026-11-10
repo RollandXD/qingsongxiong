@@ -49,8 +49,8 @@ public final class AIUsageModel {
 
     /// 读取用户选择；坏文件或旧版本只回退到默认，不让首页打不开。
     public func loadDashboard() {
-        guard let stored = try? preferences.load() else { return }
-        guard let stored else { return }
+        // 读失败或还没有存过，都保持默认顺序：首页不能因为读偏好而打不开。
+        guard let stored = try? preferences.load(), let stored else { return }
         dashboard = stored
     }
 
@@ -75,7 +75,7 @@ public final class AIUsageModel {
     /// 中转被删除后清掉指向它的空位；其他位置保持不动。
     /// 只清理 `keeping` 里不存在的 id，所以调用方必须先确认中转列表已加载，否则会把用户的选择误清。
     public func pruneRelayCards(keeping ids: Set<UUID>) {
-        let stale = Set(dashboard.cards.compactMap(\.relayID)).subtracting(ids)
+        let stale = Set(dashboard.cards.compactMap { $0?.relayID }).subtracting(ids)
         guard !stale.isEmpty else { return }
         var next = dashboard
         for id in stale { next = next.removingRelay(id, at: Date()) }

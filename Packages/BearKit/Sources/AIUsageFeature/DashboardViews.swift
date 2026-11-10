@@ -89,8 +89,10 @@ public struct AIUsageHome: View {
         .sensoryFeedback(.success, trigger: refreshHaptic)
         .sensoryFeedback(.warning, trigger: failureHaptic)
         .sensoryFeedback(.warning, trigger: thresholdHaptic)
-        .onChange(of: overview.mood) { old, new in
-            if old != .asleep && new == .urgent && scenePhase == .active { thresholdHaptic &+= 1 }
+        .onChange(of: overview.mood) { (previous: DashboardOverviewPresentation.Mood, current: DashboardOverviewPresentation.Mood) in
+            // 显式标注类型：这个复合条件让编译器推断超时（CI 42800582234 于此处报错）。
+            guard previous != .asleep, current == .urgent, scenePhase == .active else { return }
+            thresholdHaptic &+= 1
         }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
