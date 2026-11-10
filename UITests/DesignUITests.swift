@@ -42,7 +42,10 @@ final class DesignUITests: XCTestCase {
             // 套件整体跑时机器更忙，数据落盘晚一点；用等待而不是裸 exists，避免用例顺序造成的假失败。
             let hero = app.descendants(matching: .any)["dashboard-hero"].firstMatch
             XCTAssertTrue(hero.waitForExistence(timeout: 15))
-            XCTAssertTrue(app.descendants(matching: .any)["honey-stage"].firstMatch.waitForExistence(timeout: 15))
+            let stage = app.descendants(matching: .any)["honey-stage"].firstMatch
+            let stageOK = stage.waitForExistence(timeout: 15)
+            if !stageOK { dumpScaffold(app, label: "honey-stage-" + appearance) }
+            XCTAssertTrue(stageOK, "首页蜜位")
             XCTAssertTrue(app.descendants(matching: .any)["time-scrubber"].firstMatch.waitForExistence(timeout: 15))
             attach(app, "dashboard-" + appearance)
             attach(app, "honey-stage-" + appearance)
@@ -375,6 +378,13 @@ final class DesignUITests: XCTestCase {
     }
 
     /// 断言找不到元素时把无障碍树里相关行打出来：一次就能看出是“没有这个元素”还是“名字/层级不对”。
+    /// 首屏结构快照：只打前 60 行，足够看出首页到底渲染了什么，又不会把日志冲爆。
+    private func dumpScaffold(_ app: XCUIApplication, label: String) {
+        let lines = app.debugDescription.split(separator: "\n").map(String.init)
+        print("BEAR_SCAFFOLD_START \(label) total=\(lines.count)")
+        for line in lines.prefix(60) { print("BEAR_SCAFFOLD \(line.trimmingCharacters(in: .whitespaces))") }
+        print("BEAR_SCAFFOLD_END \(label)")
+    }
     private func dumpElements(_ app: XCUIApplication, keywords: [String], label: String) {
         let lines = app.debugDescription.split(separator: "\n").map(String.init)
         let hits = lines.filter { line in keywords.contains { line.localizedCaseInsensitiveContains($0) } }
