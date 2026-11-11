@@ -24,11 +24,11 @@ simulator() {
 }
 
 ui_tests() {
+  local simulator_id result=0 recorder_pid selected
+  # 在耗时构建前拒绝无效选择；XCTest 标识不是正则，| 会导致零测试假绿灯。
+  selected="$(python3 scripts/ui_test_contract.py selection --selector "${BEAR_UI_TEST:-}")"
+  local -a selection=("$selected")
   if [[ ! -s output/simulator-id.txt ]]; then simulator; fi
-  local simulator_id result=0 recorder_pid
-  # macOS Bash 3.2 在 set -u 下不能展开空数组；默认明确选择整个 UI target。
-  local -a selection=("-only-testing:QingSongXiongUITests")
-  if [[ -n "${BEAR_UI_TEST:-}" ]]; then selection=("-only-testing:QingSongXiongUITests/${BEAR_UI_TEST}"); fi
   simulator_id="$(cat output/simulator-id.txt)"
   xcodebuild build-for-testing -project QingSongXiong.xcodeproj -scheme QingSongXiong \
     -configuration Debug -destination "platform=iOS Simulator,id=$simulator_id" \
@@ -51,6 +51,7 @@ ui_tests() {
   kill -INT "$recorder_pid" 2>/dev/null || true
   wait "$recorder_pid" || true
   trap - EXIT
+  python3 scripts/ui_test_contract.py result --log output/ui-tests.log --selector "${BEAR_UI_TEST:-}" || result=1
   if [[ ! -s output/native-motion.mp4 ]]; then
     cat output/recording.log >&2
     result=1
