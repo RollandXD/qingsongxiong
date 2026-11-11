@@ -52,7 +52,8 @@ final class DesignUITests: XCTestCase {
             let readings = codexCard.value as? String ?? ""
             XCTAssertTrue(readings.contains("5 小时剩"), readings)
             XCTAssertTrue(readings.contains("本周剩"), readings)
-            XCTAssertTrue(app.descendants(matching: .any)["time-scrubber"].firstMatch.waitForExistence(timeout: 15))
+            XCTAssertFalse(app.descendants(matching: .any)["time-scrubber"].firstMatch.exists,
+                           "恢复预览默认收起，不挤占当前读数和历史时间线")
             attach(app, "dashboard-" + appearance)
             attach(app, "honey-stage-" + appearance)
             try auditRenderedAccessibility(app, test: self)
@@ -175,14 +176,18 @@ final class DesignUITests: XCTestCase {
         // 时间尺：按住从左侧拖到约 70% 处并停留，松手后回到「现在」。
         // XCUITest 无法在手势保持期间截图，所以 motion-scrubber 抓的是保持结束后的画面。
         attach(app, "honey-stage")
+        tap("recovery-preview-toggle", app)
         let scrubber = app.descendants(matching: .any)["time-scrubber"].firstMatch
         XCTAssertTrue(scrubber.waitForExistence(timeout: 5))
+        for _ in 0..<4 where !onScreen(scrubber, in: app) { app.scrollViews.firstMatch.swipeUp() }
+        XCTAssertTrue(onScreen(scrubber, in: app))
         scrubber.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5))
             .press(forDuration: 0.1,
                    thenDragTo: scrubber.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5)),
                    withVelocity: .slow, thenHoldForDuration: 0.8)
         pause()
         attach(app, "motion-scrubber")
+        tap("recovery-preview-toggle", app)
         pause()
         app.buttons["refresh-all"].tap()
         pause()
@@ -310,15 +315,39 @@ final class DesignUITests: XCTestCase {
 
     @MainActor
     func testRecoveryPreviewIsIndependentOfCurrentReading() throws {
-        let app = launch(demoNow: "2026-11-10T02:00:00Z")
-        let preview = app.descendants(matching: .any)["recovery-preview"].firstMatch
-        for _ in 0..<5 where !preview.exists { app.scrollViews.firstMatch.swipeUp() }
-        XCTAssertTrue(preview.exists, "恢复预览区可达")
-        // 主卡与蜜罐的当前读数不随预览变化（预览只描述“何时回满”）。
-        let before = app.descendants(matching: .any)["home-card-0"].firstMatch.label
-        attach(app, "recovery-preview")
-        let after = app.descendants(matching: .any)["home-card-0"].firstMatch.label
-        XCTAssertEqual(before, after)
+        for appearance in ["light", "dark"] {
+            let app = launch(appearance)
+            let card = app.buttons["provider-codex"]
+            let before = card.value as? String
+            let scrubber = app.descendants(matching: .any)["time-scrubber"].firstMatch
+            XCTAssertFalse(scrubber.exists, "默认收起")
+            tap("recovery-preview-toggle", app)
+            XCTAssertTrue(scrubber.waitForExistence(timeout: 5))
+            for _ in 0..<4 where !onScreen(scrubber, in: app) { app.scrollViews.firstMatch.swipeUp() }
+            XCTAssertTrue(onScreen(scrubber, in: app))
+            scrubber.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5))
+                .press(forDuration: 0.1,
+                       thenDragTo: scrubber.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5)),
+                       withVelocity: .slow, thenHoldForDuration: 0.5)
+            XCTAssertEqual(before, card.value as? String, "真实拖动预览不改变主卡当前读数")
+            attach(app, "recovery-preview-" + appearance)
+            // 收起不是隐藏审计：展开态的文字也按同一原生/渲染门禁验收。
+            try auditRenderedAccessibility(app, test: self)
+            tap("recovery-preview-toggle", app)
+            XCTAssertFalse(scrubber.exists, "可以收起，归还首屏空间")
+            app.terminate()
+        }
+    }
+
+    @MainActor
+    func testOldRecoveryPreviewDoesNotInventRefill() {
+        let app = launch("dark", scenario: "stale")
+        tap("recovery-preview-toggle", app)
+        let reading = app.descendants(matching: .any)["recovery-codex-rate_limit.primary_window"].firstMatch
+        XCTAssertTrue(reading.waitForExistence(timeout: 5))
+        XCTAssertTrue(reading.label.contains("读数未确认，刷新后再预览"), reading.label)
+        XCTAssertFalse(reading.label.contains("预计此时回满"), reading.label)
+        attach(app, "recovery-old-reading")
         app.terminate()
     }
 
@@ -338,6 +367,57 @@ final class DesignUITests: XCTestCase {
         XCTAssertTrue(app.buttons["provider-codex"].waitForExistence(timeout: 10))
         attach(app, "reduce-transparency-home")
         try auditRenderedAccessibility(app, test: self)
+        app.terminate()
+    }
+
+    @MainActor
+    func testTimelineSwitchesAccountsCurrenciesRangesAndKeepsVerticalScroll() throws {
+        for appearance in ["light", "dark"] {
+            let app = launch(appearance)
+            tap("timeline-account", app)
+            let deepseek = app.buttons["timeline-account-provider-deepseek"]
+            XCTAssertTrue(deepseek.waitForExistence(timeout: 5))
+            deepseek.tap()
+            let chart = app.descendants(matching: .any)["timeline-chart"].firstMatch
+            XCTAssertTrue(chart.waitForExistence(timeout: 5))
+            XCTAssertTrue(chart.label.contains("CNY 余额"), chart.label)
+            XCTAssertFalse(app.descendants(matching: .any)["timeline-pace-note"].firstMatch.exists,
+                           "金额没有重置周期，不得画额度配速线")
+            tap("timeline-metric", app)
+            app.buttons["USD 余额"].tap()
+            XCTAssertTrue(chart.label.contains("USD 余额"), chart.label)
+            for title in ["7 天", "30 天", "24 小时"] {
+                let button = app.segmentedControls["timeline-range"].buttons[title]
+                XCTAssertTrue(button.exists)
+                button.tap()
+                XCTAssertTrue(chart.label.contains(title), chart.label)
+            }
+            tap("timeline-account", app)
+            let relay = app.buttons["timeline-account-relay-11111111-2222-3333-4444-555555555555"]
+            XCTAssertTrue(relay.waitForExistence(timeout: 5))
+            relay.tap()
+            XCTAssertTrue(chart.label.contains("USD 余额"), chart.label)
+            attach(app, "timeline-relay-" + appearance)
+            let previous = chart.frame.minY
+            chart.swipeUp()
+            XCTAssertLessThan(chart.frame.minY, previous - 10,
+                              "在图表上纵向滑动也必须能滚动首页，不能被选点手势截走")
+            app.terminate()
+        }
+    }
+
+    @MainActor
+    func testTimelineReadFailureIsVisibleAndRetryDoesNotEraseCurrentReadings() {
+        let app = launch(scenario: "history-error")
+        let before = app.buttons["provider-codex"].value as? String
+        let error = app.descendants(matching: .any)["timeline-error"].firstMatch
+        XCTAssertTrue(error.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.descendants(matching: .any)["timeline-empty"].firstMatch.exists,
+                       "读文件失败不能冒充首次安装空态")
+        tap("timeline-retry", app)
+        XCTAssertTrue(error.exists)
+        XCTAssertEqual(before, app.buttons["provider-codex"].value as? String)
+        attach(app, "timeline-read-error")
         app.terminate()
     }
 

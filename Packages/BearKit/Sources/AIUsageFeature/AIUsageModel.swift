@@ -20,6 +20,8 @@ public final class AIUsageModel {
     /// 设备本地历史（过去用量时间线的数据源）；不进快照、不上传。
     public private(set) var history = UsageHistoryArchive.empty(at: Date())
     public private(set) var historyLoaded = false
+    public private(set) var historyError: String?
+    private var historyRequest: UInt64 = 0
     private let repository: any AIUsageRepository
     private let connector: (any AIUsageAccountConnecting)?
     private let preferences: any DashboardPreferencesStoring
@@ -38,13 +40,22 @@ public final class AIUsageModel {
         self.onDataChange = onDataChange
     }
 
-    /// 读一次本地历史。文件不存在或坏了就当没有历史，不能让首页因此打不开。
+    /// 历史读取失败独立报告并可重试，不把坏文件伪装成首次安装，也不丢已加载的曲线。
     public func loadHistory() async {
-        guard let historyReader else { return }
-        let loaded = try? await historyReader.archive()
-        historyLoaded = true
-        guard let loaded else { return }
-        history = loaded
+        guard !clearing, let historyReader else { return }
+        historyRequest &+= 1
+        let request = historyRequest
+        do {
+            let loaded = try await historyReader.archive()
+            guard !clearing, request == historyRequest else { return }
+            history = loaded
+            historyLoaded = true
+            historyError = nil
+        } catch {
+            guard !clearing, request == historyRequest else { return }
+            historyLoaded = true
+            historyError = "历史记录暂不可用，当前额度和余额不受影响。请重试。"
+        }
     }
 
     /// 读取用户选择；坏文件或旧版本只回退到默认，不让首页打不开。
@@ -177,6 +188,10 @@ public final class AIUsageModel {
     public func clearLocalData() async -> Bool {
         guard !clearing else { return false }
         clearing = true
+        historyRequest &+= 1
+        history = .empty(at: Date())
+        historyError = nil
+        historyLoaded = false
         defer { clearing = false }
         var succeeded = true
         for provider in ProviderID.allCases {

@@ -29,6 +29,7 @@ public struct AIUsageHome: View {
     @State private var thresholdHaptic = 0
     @State private var now = Date.now
     @State private var scrub: TimeInterval = 0
+    @State private var previewExpanded = false
     @Environment(\.colorScheme) private var scheme
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.bearReduceMotion) private var reduceMotion
@@ -105,9 +106,10 @@ public struct AIUsageHome: View {
         VStack(alignment: .leading, spacing: 22) {
             HoneyStatusCard(overview: overview, hero: hero)
             homeCardsSection
+            UsageTimelineSection(model: model, relay: relay, now: now,
+                                 primary: model.dashboard.cards.compactMap { $0 }.first)
             recoveryPreview
             walletSection
-            UsageTimelineSection(model: model, now: now, primary: model.dashboard.cards.compactMap { $0 }.first)
             otherAccountsSection
         }
         .padding(.horizontal, 16)
@@ -201,24 +203,40 @@ public struct AIUsageHome: View {
         }
     }
 
-    /// 独立恢复预览：时间尺与读数在同一屏，拖动时不用上下找数字。
+    /// 默认收起的独立恢复预览，不改变主卡的当前读数。
     private var recoveryPreview: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("恢复预览").font(.footnote.weight(.semibold))
-                    .accessibilityIdentifier("recovery-preview")
-                Spacer()
-                Text(scrub == 0 ? "现在" : Self.offsetLabel(scrub))
-                    .font(.footnote).monospacedDigit().contentTransition(.opacity)
+            Button {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
+                    previewExpanded.toggle()
+                    if !previewExpanded { scrub = 0 }
+                }
+            } label: {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("恢复预览").font(.footnote.weight(.semibold))
+                        .accessibilityIdentifier("recovery-preview")
+                    Spacer()
+                    Text(previewExpanded ? (scrub == 0 ? "现在" : Self.offsetLabel(scrub)) : "点开查看")
+                        .font(.footnote).monospacedDigit().contentTransition(.opacity)
+                    Image(systemName: previewExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption.weight(.semibold))
+                }
+                .foregroundStyle(BearTheme.secondaryText(scheme))
+                .padding(.horizontal, 16)
+                .frame(minHeight: 44)
+                .contentShape(.rect)
             }
-            .foregroundStyle(BearTheme.secondaryText(scheme))
-            .padding(.horizontal, 16)
-            VStack(alignment: .leading, spacing: 14) {
-                TimeScrubber(offset: $scrub, now: now, marks: scrubMarks, enabled: hasConnectedProvider)
-                RecoveryPreviewRows(model: model, now: now, offset: scrub)
+            .buttonStyle(.plain)
+            .accessibilityValue(previewExpanded ? "已展开" : "已收起")
+            .accessibilityIdentifier("recovery-preview-toggle")
+            if previewExpanded {
+                VStack(alignment: .leading, spacing: 14) {
+                    TimeScrubber(offset: $scrub, now: now, marks: scrubMarks, enabled: hasConnectedProvider)
+                    RecoveryPreviewRows(model: model, now: now, offset: scrub)
+                }
+                .padding(16)
+                .background(BearTheme.surface(scheme), in: .rect(cornerRadius: 26, style: .continuous))
             }
-            .padding(16)
-            .background(BearTheme.surface(scheme), in: .rect(cornerRadius: 26, style: .continuous))
         }
     }
 

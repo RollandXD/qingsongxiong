@@ -7,18 +7,43 @@ import SwiftUI
 /// 过去用量：跨度/指标可切换，点按读数，断段与空态都说清原因。
 struct UsageTimelineSection: View {
     let model: AIUsageModel
+    let relay: RelayModel?
     let now: Date
     /// 主卡第一张决定默认看谁的历史；没有主卡就退回第一个已连接账户。
     let primary: AccountRef?
 
     @State private var range: UsageHistoryRange = .day
+    @State private var chosenAccount: AccountRef?
     @State private var chosenMetric: UsageHistoryMetric?
     @State private var selection: Date?
     @Environment(\.colorScheme) private var scheme
 
+    private var accounts: [AccountRef] {
+        ProviderID.allCases.compactMap { provider in
+            model.states[provider]?.connection == .connected ? AccountRef.provider(provider) : nil
+        } + (relay?.states.map { AccountRef.relay($0.id) } ?? [])
+    }
+
+    private var account: AccountRef? {
+        if let chosenAccount, accounts.contains(chosenAccount) { return chosenAccount }
+        if let primary, accounts.contains(primary) { return primary }
+        return accounts.first
+    }
+
+    private func name(for ref: AccountRef) -> String {
+        switch ref {
+        case .provider(let provider): ProviderPresentation.name(provider)
+        case .relay(let id): relay?.states.first { $0.id == id }?.account.displayName ?? "中转账户"
+        }
+    }
+
     private var options: [UsageHistoryMetricOption] {
-        guard let primary else { return [] }
-        return UsageHistoryOptionBuilder.options(for: model.history.metrics(for: primary))
+        guard let account else { return [] }
+        let labels: [String: String]
+        if case .provider(let provider) = account {
+            labels = Dictionary(uniqueKeysWithValues: (model.states[provider]?.snapshot?.windows ?? []).map { ($0.id, $0.label) })
+        } else { labels = [:] }
+        return UsageHistoryOptionBuilder.options(for: model.history.metrics(for: account), labels: labels)
     }
 
     private var metric: UsageHistoryMetric? {
@@ -27,9 +52,9 @@ struct UsageTimelineSection: View {
     }
 
     private var presentation: UsageTimelinePresentation? {
-        guard let primary, let metric else { return nil }
+        guard let account, let metric else { return nil }
         let label = options.first { $0.metric == metric }?.label ?? ""
-        return UsageTimelinePresentation(archive: model.history, ref: primary, metric: metric,
+        return UsageTimelinePresentation(archive: model.history, ref: account, metric: metric,
                                           range: range, now: now, metricLabel: label)
     }
 
@@ -38,6 +63,15 @@ struct UsageTimelineSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
+            if let error = model.historyError {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(error).font(.footnote).fixedSize(horizontal: false, vertical: true)
+                    Button("重试读取历史") { Task { await model.loadHistory() } }
+                        .accessibilityIdentifier("timeline-retry")
+                }
+                .foregroundStyle(BearTheme.secondaryText(scheme))
+                .accessibilityIdentifier("timeline-error")
+            }
             if let presentation {
                 chart(presentation)
                 if let note = presentation.gapNote {
@@ -47,7 +81,7 @@ struct UsageTimelineSection: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("timeline-note")
                 }
-            } else {
+            } else if model.historyError == nil {
                 Text(TimelineEmptyReason.noHistory.text)
                     .font(.footnote)
                     .foregroundStyle(BearTheme.secondaryText(scheme))
@@ -56,6 +90,7 @@ struct UsageTimelineSection: View {
             }
         }
         .padding(16)
+        .foregroundStyle(BearTheme.text(scheme))
         .background(BearTheme.surface(scheme), in: .rect(cornerRadius: 26, style: .continuous))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("usage-timeline")
@@ -65,6 +100,27 @@ struct UsageTimelineSection: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Text("过去用量").font(.footnote.weight(.semibold))
+                Spacer()
+                if let account {
+                    Menu {
+                        ForEach(accounts, id: \.self) { ref in
+                            Button(name(for: ref)) {
+                                chosenAccount = ref
+                                chosenMetric = nil
+                                selection = nil
+                            }
+                            .accessibilityIdentifier("timeline-account-" + ref.accessibilityID)
+                        }
+                    } label: {
+                        Label(name(for: account), systemImage: "person.crop.circle")
+                            .font(.footnote).fixedSize(horizontal: false, vertical: true)
+                    }
+                    .accessibilityIdentifier("timeline-account")
+                }
+            }
+            .foregroundStyle(BearTheme.secondaryText(scheme))
+            HStack(alignment: .firstTextBaseline) {
+                Text("指标").font(.caption)
                 Spacer()
                 if let metric, options.count > 1 {
                     Menu {
@@ -116,6 +172,13 @@ struct UsageTimelineSection: View {
                     .accessibilityValue(readingText(presentation))
                     .accessibilityHint("左右滑动查看每个读数")
                     .accessibilityIdentifier("timeline-chart")
+                if let reference = pacePath(presentation) {
+                    Text("虚线：均匀配速参考 · " + reference.comparison)
+                        .font(.caption2)
+                        .foregroundStyle(BearTheme.secondaryText(scheme))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("timeline-pace-note")
+                }
             }
         }
     }
@@ -165,10 +228,11 @@ struct UsageTimelineSection: View {
     /// 只裁出落在当前跨度里的那一段；余额没有“重置”，不画。
     private func pacePath(_ presentation: UsageTimelinePresentation) -> PacePath? {
         guard !presentation.isBalance, case .quota(let windowID) = metric,
-              let primary, case .provider(let provider) = primary,
-              let state = model.states[provider],
+              let account, case .provider(let provider) = account,
+              let state = model.states[provider], state.snapshot?.isAvailable != false,
               let window = state.snapshot?.windows.first(where: { $0.id == windowID }),
-              let pace = try? QuotaPaceCalculator.pace(for: window, now: now),
+              let pace = QuotaPaceCalculator.status(for: UsageWindowPresentation(window, provider: provider),
+                                                   state: state, isStale: state.isStale(at: now), now: now).pace,
               pace.periodStart < now else { return nil }
         let visibleEnd = now
         let visibleStart = now.addingTimeInterval(-range.seconds)
@@ -203,6 +267,7 @@ struct TimelineCanvas: View {
     @Binding var selection: Date?
     let accent: Color
     let reference: PacePath?
+    @Environment(\.colorScheme) private var scheme
 
     private var domain: (start: Date, end: Date) {
         (now.addingTimeInterval(-presentation.range.seconds), now)
@@ -227,8 +292,15 @@ struct TimelineCanvas: View {
             }
             .contentShape(.rect)
             .gesture(
-                DragGesture(minimumDistance: 0)
+                SpatialTapGesture().onEnded { value in
+                    selection = date(atX: value.location.x, size: size, inset: inset)
+                }
+            )
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 8)
                     .onChanged { value in
+                        // 只让横向拖动选点；纵向手势与父 ScrollView 同时识别，不截走滚动。
+                        guard abs(value.translation.width) > abs(value.translation.height) else { return }
                         selection = date(atX: value.location.x, size: size, inset: inset)
                     }
             )
@@ -282,7 +354,7 @@ struct TimelineCanvas: View {
             line.move(to: start)
             line.addLine(to: end)
         }
-        .stroke(BearTheme.secondaryText(.light).opacity(0.45),
+        .stroke(BearTheme.secondaryText(scheme),
                 style: StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
     }
 
@@ -290,7 +362,7 @@ struct TimelineCanvas: View {
         let position = CGPoint(x: x(point.at, size, inset), y: y(point.value, size, inset))
         return ZStack {
             Rectangle()
-                .fill(BearTheme.secondaryText(.light).opacity(0.25))
+                .fill(BearTheme.secondaryText(scheme).opacity(0.4))
                 .frame(width: 1)
                 .position(x: position.x, y: size.height / 2)
             Circle()
@@ -309,7 +381,7 @@ struct TimelineCanvas: View {
                 path.addLine(to: CGPoint(x: size.width - inset.trailing, y: y))
             }
         }
-        .stroke(BearTheme.secondaryText(.light).opacity(0.12), lineWidth: 0.5)
+        .stroke(BearTheme.secondaryText(scheme).opacity(0.16), lineWidth: 0.5)
     }
 
     /// 只标起止时间：轴上多几个刻度，小屏和大字下就会互相压字。
@@ -321,7 +393,7 @@ struct TimelineCanvas: View {
                 .position(x: size.width - inset.trailing - 14, y: size.height - 6)
         }
         .font(.caption2)
-        .foregroundStyle(BearTheme.secondaryText(.light).opacity(0.8))
+        .foregroundStyle(BearTheme.secondaryText(scheme))
         .allowsHitTesting(false)
     }
 }

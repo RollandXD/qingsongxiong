@@ -46,8 +46,12 @@ struct RecoveryPreviewRows: View {
     private func row(provider: ProviderID, window: UsageWindowPresentation) -> some View {
         let target = now.addingTimeInterval(offset)
         let resetsAt = window.window.resetsAt
-        let refilled = resetsAt.map { $0 <= target } ?? false
-        let remaining = refilled ? 100.0 : window.remaining
+        let dashboard = ProviderDashboardPresentation(provider: provider, state: model.states[provider], at: now)
+        let canPreview = !dashboard.isStale && dashboard.state?.failure == nil
+            && dashboard.state?.snapshot?.isAvailable != false
+        // 复用已回归的纯函数：过去的重置时刻、现在以及无效偏移都不能伪装成实测 100%。
+        let remaining = ScrubForecast.remainingPercent(window, now: now, offset: canPreview ? offset : 0)
+        let refilled = canPreview && offset > 0 && resetsAt.map { $0 > now && $0 <= target } == true
         return VStack(alignment: .leading, spacing: 2) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Circle()
@@ -63,12 +67,16 @@ struct RecoveryPreviewRows: View {
                     .monospacedDigit()
                     .layoutPriority(1)
             }
-            Text(refilled ? "已回满" : "回满于 " + (resetsAt.map { Self.time($0, at: target) } ?? "未知"))
+            Text(!canPreview ? "读数未确认，刷新后再预览"
+                 : refilled ? "预计此时回满"
+                 : resetsAt.map { $0 <= now ? "重置时间已过，等待刷新确认" : "回满于 " + Self.time($0, at: target) }
+                    ?? "未提供重置时间")
                 .font(.caption2)
                 .foregroundStyle(BearTheme.secondaryText(scheme))
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.leading, 14)
         }
+        .foregroundStyle(BearTheme.text(scheme))
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("recovery-" + provider.rawValue + "-" + window.id)
     }

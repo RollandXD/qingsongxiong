@@ -15,6 +15,8 @@ public struct DemoUsageHistoryReader: UsageHistoryReading {
 
     public func archive() async throws -> UsageHistoryArchive {
         switch scenario {
+        case "history-error":
+            throw UsageFailure.unavailable
         case "no-history":
             return .empty(at: anchor)
         case "short-history":
@@ -30,20 +32,41 @@ public struct DemoUsageHistoryReader: UsageHistoryReading {
         let step = max(interval, 300)
         var sources: [UsageHistorySource] = []
         for (index, provider) in [ProviderID.codex, .claude].enumerated() {
+            let windows: [(String, Double)] = provider == .codex
+                ? [("rate_limit.primary_window", 5 * 3_600.0), ("rate_limit.secondary_window", 7 * 86_400.0)]
+                : [("five_hour", 5 * 3_600.0), ("seven_day", 7 * 86_400.0)]
             var observations: [UsageObservation] = []
             var time = anchor.addingTimeInterval(-span)
             while time <= anchor {
-                let entries: [HistoryEntry] = [("five_hour", 5 * 3_600.0), ("weekly", 7 * 86_400.0)]
-                    .map { id, period in
-                        let remaining = Self.remaining(at: time, period: period, seed: Double(index) + 1)
-                        return HistoryEntry(metric: .quota(windowID: id), value: .percent(remaining))
-                    }
+                let entries: [HistoryEntry] = windows.map { id, period in
+                    let remaining = Self.remaining(at: time, period: period, seed: Double(index) + 1)
+                    return HistoryEntry(metric: .quota(windowID: id), value: .percent(remaining))
+                }
                 observations.append(UsageObservation(at: time, segment: 0, entries: entries))
                 time = time.addingTimeInterval(step)
             }
             sources.append(UsageHistorySource(source: .provider(provider), observations: observations))
         }
+        sources.append(balanceSource(.provider(.deepseek), span: span, step: step,
+                                     values: [("CNY", Decimal(string: "128.36")!), ("USD", 8)]))
+        sources.append(balanceSource(.relay(UUID(uuidString: "11111111-2222-3333-4444-555555555555")!),
+                                     span: span, step: step, values: [("USD", Decimal(string: "12.34567890123456789")!)]))
         return UsageHistoryArchive(sources: sources, updatedAt: anchor)
+    }
+
+    private func balanceSource(_ ref: AccountRef, span: TimeInterval, step: TimeInterval,
+                               values: [(String, Decimal)]) -> UsageHistorySource {
+        var observations: [UsageObservation] = []
+        var time = anchor.addingTimeInterval(-span)
+        while time <= anchor {
+            let elapsed = Decimal(Int(anchor.timeIntervalSince(time) / step)) / 100
+            let entries = values.map { unit, value in
+                HistoryEntry(metric: .balance(currency: unit), value: .amount(value + elapsed))
+            }
+            observations.append(UsageObservation(at: time, segment: 0, entries: entries))
+            time = time.addingTimeInterval(step)
+        }
+        return UsageHistorySource(source: ref, observations: observations)
     }
 
     /// 固定相位，不随机：同样的时间点永远得到同样的数，截图才可复现。

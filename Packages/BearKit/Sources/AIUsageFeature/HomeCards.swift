@@ -37,6 +37,8 @@ struct HomeCardsSection: View {
     let onOpen: (AccountRef) -> Void
 
     @State private var pickingSlot: Int?
+    @State private var availableWidth: CGFloat = 360
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.colorScheme) private var scheme
 
     /// 可放进主卡的候选：已连接的厂商账户 + 所有中转账户。
@@ -68,12 +70,19 @@ struct HomeCardsSection: View {
         }
     }
 
+    private var cardLayout: AnyLayout {
+        typeSize.isAccessibilitySize || availableWidth < 300
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 14))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 14))
+    }
+
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
+        cardLayout {
             ForEach(Array(0..<DashboardPreferences.slotCount), id: \.self) { slot in
                 slotView(slot)
             }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home-cards")
         .sheet(item: Binding(get: { pickingSlot.map(HomeSlot.init) }, set: { if $0 == nil { pickingSlot = nil } })) { slot in

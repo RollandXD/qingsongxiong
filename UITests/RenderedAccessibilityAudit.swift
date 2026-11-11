@@ -51,16 +51,26 @@ func auditRenderedAccessibility(_ app: XCUIApplication, test: XCTestCase) throws
     }
 }
 
-/// 最多滚动三次；仍越界、尺寸异常或没有滚动容器时保持审计失败。
+/// 内容视口不等于整块屏幕：导航栏、soft scroll edge 和底部安全区都不能拿来采文字。
+/// 额外留一行高度让文字完整进入稳定内容区，阈值仍为 4.5:1，不裁切或跳过问题。
+private func contrastViewport(screen: CGRect, navigationBar: CGRect?) -> CGRect {
+    let top = min(screen.maxY, max(screen.minY + 44, (navigationBar?.maxY ?? screen.minY) + 44))
+    let bottom = max(top, screen.maxY - 34)
+    return CGRect(x: screen.minX, y: top, width: screen.width, height: bottom - top)
+}
+
+/// 最多滚动三次；仍被遮挡、越界、尺寸异常或没有滚动容器时保持审计失败。
 @MainActor
 private func revealForContrast(_ element: XCUIElement, in app: XCUIApplication, test: XCTestCase) -> Bool {
     let original = element.frame
     for attempt in 0...3 {
         let screen = app.frame
+        let bar = app.navigationBars.firstMatch
+        let viewport = contrastViewport(screen: screen, navigationBar: bar.exists ? bar.frame : nil)
         let frame = element.frame
         guard frame.width > 2, frame.height > 2,
-              frame.width <= screen.width, frame.height <= screen.height else { return false }
-        if screen.contains(frame) {
+              frame.width <= viewport.width, frame.height <= viewport.height else { return false }
+        if viewport.contains(frame) {
             if attempt > 0 {
                 print("BEAR_AUDIT_REVEALED \(element.label) from=\(original) to=\(frame)")
                 let attachment = XCTAttachment(screenshot: app.screenshot())
@@ -72,8 +82,8 @@ private func revealForContrast(_ element: XCUIElement, in app: XCUIApplication, 
         }
         let scroll = app.scrollViews.firstMatch
         guard attempt < 3, scroll.exists else { return false }
-        if frame.maxY > screen.maxY { scroll.swipeUp() }
-        else if frame.minY < screen.minY { scroll.swipeDown() }
+        if frame.maxY > viewport.maxY { scroll.swipeUp() }
+        else if frame.minY < viewport.minY { scroll.swipeDown() }
         else { return false }
     }
     return false
@@ -81,6 +91,19 @@ private func revealForContrast(_ element: XCUIElement, in app: XCUIApplication, 
 
 @MainActor
 final class RenderedContrastTests: XCTestCase {
+    func testContrastViewportRejectsOccludedNavigationAndHomeIndicatorRegions() {
+        let screen = CGRect(x: 0, y: 0, width: 402, height: 874)
+        let bar = CGRect(x: 0, y: 62, width: 402, height: 44)
+        let viewport = contrastViewport(screen: screen, navigationBar: bar)
+        XCTAssertFalse(viewport.contains(CGRect(x: 32, y: 44, width: 102, height: 16)))
+        XCTAssertFalse(viewport.contains(CGRect(x: 32, y: 128, width: 102, height: 16)))
+        XCTAssertFalse(viewport.contains(CGRect(x: 32, y: 850, width: 102, height: 16)))
+        XCTAssertTrue(viewport.contains(CGRect(x: 32, y: 200, width: 102, height: 16)))
+        XCTAssertTrue(screen.contains(viewport))
+        XCTAssertTrue(contrastViewport(screen: screen, navigationBar: nil)
+            .contains(CGRect(x: 32, y: 48, width: 102, height: 16)))
+    }
+
     func testRenderedGateAcceptsReadableInkAndRejectsLowContrast() throws {
         let size = CGSize(width: 180, height: 36)
         func image(ink: UIColor, background: UIColor) -> CGImage {
