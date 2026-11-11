@@ -36,9 +36,9 @@ Xcode 版本与模拟器版本是两项独立事实：0.2.0 的历史验收使�
 
 ## 截图与动效影片
 
-`apple.yml` 的 `workflow_dispatch` 可指定 `ui_tests` 为 `DesignUITests/testMotionTourAtNormalSpeed` 一类完整测试标识；留空跑全部。诊断命令使用短查询，不用 `gh run watch` 长时间阻塞会话。
+`apple.yml` 的 `workflow_dispatch` 可指定 `ui_tests` 为单个 `DesignUITests/testMotionTourAtNormalSpeed`，或整个 `DesignUITests` suite；留空跑全部。**不要用 `|`、逗号或正则拼接多个标识**：`-only-testing` 不是正则入口；诊断多项时跑整个 suite。`ui_test_contract.py` 核验 XCTest 的真实执行汇总与指定方法通过记录，零测试、缺汇总或失败都拒绝。最终发布另按源码清单比对完整用例集，不能用定向诊断冒充完整绿灯。诊断命令使用短查询，不用 `gh run watch` 长时间阻塞会话。
 
-xcresult 导出截图和测试附件，经人工检查才记录视觉验收。simctl 录像显式选择 primary 显示屏，并要求实际生成文件。完整 UI 步骤预算 35 分钟、Apple job 预算 50 分钟：19 项原生回归曾全部通过，但模拟器准备与回归总耗时约 26 分钟，旧 25 分钟外层限制仍将整条流水线判为超时失败；扩大预算后必须整轮重跑，不沿用失败 run 发布。
+xcresult 导出截图和测试附件，经人工检查才记录视觉验收。simctl 录像显式选择 primary 显示屏，并要求实际生成文件。完整 UI 步骤预算 35 分钟、Apple job 预算 50 分钟；当前完整套件有 **31 项**，详见下方 0.5.0 实际结果。此前 19 项回归虽全部通过，模拟器准备与回归总耗时仍被旧 25 分钟外层限制判为失败；修改预算或测试后必须整轮重跑，不沿用失败 run 发布。
 
 用 MP4 creation_time 与 BEAR_MOTION_START/END 时间戳裁出动作片段。1× 保持真实速度，另输出明确标为 0.25× 的逐帧检查版本，绝不用慢放片冒充真实手感。`export_motion.py` 校验区间与合成标记，定向运行或失败缺少结束标记时不伪造影片；5 项 Python 测试核对裁剪合同，另 1 项在 FFmpeg/ffprobe 可用时实际验证帧数保留及四倍时间戳。导出显式使用 `-fps_mode vfr -enc_time_base demux`：simctl 原始录像的名义帧率可能只有 0.25fps，但 PTS 仍含密集动态帧，仅设置 VFR 而不保留时间基仍会丢帧。进程启动时间不等于首帧时间，不能直接用 recording.json 的 startedAt 计算偏移。媒体只使用合成数据。
 
@@ -49,6 +49,18 @@ Widget 开发预览验证密度和展示规则；真实注册、Keychain 共享�
 原生审计仍覆盖元素描述、trait、文字截断与 contrast。原生 OCR 对短中文、动态倒计时或玻璃合成层报 contrast 时，仅允许用**该元素当时的实际截图**复核：取局部边缘中位底色，识别主/次/状态文字的语义墨色，以 WCAG 公式计算至少 4.5:1。原生审计若返回可滚动内容中尚未完整入屏的元素，先最多滚动 3 次使其完整入屏，并保存 `contrast-revealed-element` 附件；仍越界、无滚动容器、墨色样本不足或不能核实就继续失败。不裁出越界文字的可见部分冒充完整复核。图表系列色不算文字墨色，其他审计类型不走此例外。
 
 `RenderedContrastTests` 用高/低对比、浅底、渐变、无可识别墨色及四边越界样本验证门禁。滚动可能销毁 SwiftUI 的旧 AX binding；重新定位仍要求标识／文字、类型与原横向槽位／尺寸一致，且只有一个候选。左右两罐同名“5 小时”不能互相替代，同槽位多处重复时不得按 y 最近者猜测；相关回归同时覆盖唯一与歧义候选。该复核是采样级补充，不代表整页 WCAG 认证，也不替代实际浅深色截图检查。审计回退会在 CI 输出 `BEAR_RENDERED_CONTRAST`，低对比与不能核实分别输出 `BEAR_RENDERED_LOW` / `BEAR_RENDERED_UNRESOLVED`，不得静默跳过。
+
+## 0.5.0 主页、历史与配速预览 1 结果（2026-11-11）
+
+[完整 CI 43014120390](https://github.com/RollandXD/qingsongxiong/actions/runs/43014120390) 为 source `7c2e1fcfd019177934edca80b4f043ae9fabe233` 的最终完整绿灯：**216 项 Swift 包测试 + 31 项原生 UI，零失败**，Release／IPA 校验通过。Swift 七个并行进程计数为 `5 + 2 + 69 + 28 + 33 + 68 + 11`；UI 为 Bootstrap 7、Design 19、Rendered 5，实际通过列表已与源码 31 个方法核对。
+
+本地 Linux 先执行 170 项可移植 Swift、14 项 Python、架构／源码凭据与 Shell 语法检查。这些快检不含 SwiftUI／UIKit／Keychain，也不替代完整原生门禁。UI 测试主卡偏好使用内存存储，避免上一用例选卡污染下一条；真实应用仍持久化。历史隔离、空样本／去重、读取失败、删除失败后重试、迟到写回、旧 schema、安全降级和 900 秒新鲜度边界都有回归。
+
+原生 UI 使用真实可见编辑按钮完成中转替换、两张余额卡、交换和移除重填；不能用启动参数直接注入选择来冒充换卡流程。历史点按／横拖选点与纵拖滚动、独立恢复预览、系统 push/back、浅深色、大字和辅助偏好仍在门禁内。原生审计不跳过无法核实的文字或放宽 4.5:1；上一 AX binding 因滚动失效时，只允许唯一匹配的重新定位，歧义候选继续失败。
+
+本轮 iPhone 16 Pro／iOS 27.2，92 张 1206×2622 合成原生截图复核；公开 78 张稳定命名截图，去除审计过程重复和原始设备／附件标识。原速 68.040 秒、0.25× 272.150 秒，各保留 1,690 帧；全片均匀 36 帧、预览 33 帧、导航 36 帧和慢放对应 12 帧复核。仅代表画面及抽样时序，不声称全帧播放、真机启动性能或 120Hz 验收。Widget 图片依然是共享布局预览。
+
+[独立 0.5 发布](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.5.0-preview.1) 的 13 个附件已逐一核对 GitHub digest，并全部无登录公开下载核验 SHA-256；0.4 release 对象、附件与 tag 保持不变。包的 SHA-256、来源和安装边界见 `verification.json`；不把后续文档提交当成包来源。本版真机账户保留、真实 APIKEY.FAN、组件宿主交互／着色、免费签名后台频率、低电量与 120Hz 仍 UNKNOWN。
 
 ## 0.3.0 设计与刷新预览 1 结果（2026-11-09）
 

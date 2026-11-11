@@ -56,6 +56,17 @@ Keychain 共享组的团队前缀优先从本 App 的安装描述文件解析，
 - `WidgetRelayReader` 与 `WidgetUsageReader` 只拿只读存储协议：可网络取数和维护进程内缓存，但不能续期或写共享快照；返回前再次确认账户代次。AppEntity 只暴露账户 ID 与名称，不暴露密钥。
 - `BearDesignSystem/EnvironmentValues.bearReduceMotion` 合并系统只读辅助功能与可写测试覆盖值；测试只能加强减弱动效，不能关闭用户启用的系统偏好。关键帧使用值捕获，不在 Sendable 闭包中读取 MainActor 隔离属性。
 
+## 主卡、历史与配速（0.5.0）
+
+- `AIUsageDomain/AccountRef` 以 `provider(ProviderID)`／`relay(UUID)` 区分来源；`DashboardPreferences` 保持两张不重复、可为空的主卡槽位，UUID 不随中转改名变化。`FileDashboardPreferencesStore` 单独持久化；删除的中转保留空位而不偷偷补成其他账号，Widget 选项不受主卡配置影响。
+- `AIUsageFeature/HomeCardSource` 按业务类型解析卡片：Codex／Claude 是订阅，DeepSeek／中转是余额。金额摘要显式舍入两位小数，历史标签保留精确 Decimal；币种不换算相加，不为金额生成虚构的百分比或配速。
+- `QuotaWindow` 可选周期元数据兼容旧快照。`QuotaPacePresentation` 用可信周期与重置时间计算 `100 × clamp((R - now) / D, 0...1)`，表示均匀用到重置时刻的参考剩余；并非基于真实用量预测。差值用百分点，未知周期、失败、900 秒新鲜度边界、重置待确认和未来恢复预览都安全降级。判断使用传入当前时钟，不能沿用画面初始化时的“新鲜”状态。
+- `AppServices.history` 是全 App 唯一注入的 `UsageHistoryRecording` actor；三家和中转仓储共享它，成功提交后追加观测，UI 重绘与 Widget Reader 不追加。`AppServices.localContainer()` 位于主 App `Application Support/QingSongXiong`，历史／偏好不进共享快照，不包含 Key、token、调用内容或服务端原文。
+- `UsageHistoryService` 复用 `AtomicRecordStore` 的版本、锁、权限与原子替换，在服务内串行化读改写并缓存归档。30 天／每来源 10,000 次观测／总计 4 MiB 有界；不能用两个各有缓存的服务实例写同一归档，否则会覆盖另一个来源。未知格式保留报错，读失败不伪装为空文件；新观测失败独立报告，不回滚已成功的额度刷新。
+- 账户／session 代次与删除 epoch 拒绝退出、改密钥、隐私清除后的迟到写回；清除失败保留重试路径，不能报告已全部清除。当前账户不串接旧 session。重复提交去重，但成功且未变化的新时间仍是有效观测；缺失快照不生成空样本。
+- `AIUsageModel.loadHistory()` 异步从 actor 读取有界缓存归档，`UsageTimelinePresentation` 再按来源／时间区间筛选；不会在每帧 UI 重绘中解码整个历史文件。展示层降采样保留端点、极值与分段边界，金额坐标转换不改写原始值。跨重置、指标消失／变更、账户／币种切换和超过 15 分钟观测缺口不连线；上涨只叫余额增加／调整，不推断充值或账单消费。
+- `UsageTimelineSection` 选点支持点按和横向拖动，UIKit representable 在 `gesture` 入口附着，delegate 开始前拒绝纵向 pan，允许父 ScrollView 工作。恢复预览默认折叠且不写回首页当前读数；导航使用系统 push/back。仅 Debug 模拟器生成合成历史，Release 不带演示入口。
+
 ## 演进
 
 首版只声明 iPhone 支持。将来可共享领域与数据核心，分别设计 iPad、Mac 的界面与平台适配。只有已出现的跨功能能力进入共享层，不预建数据库、动态插件或账号后台。

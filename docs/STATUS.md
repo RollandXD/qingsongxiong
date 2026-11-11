@@ -1,8 +1,57 @@
 # 交付状态
 
-当前已发布：**v0.4.0-preview.1（0.4.0/8）**，来源分支 **`claude/ios-honey-redesign`**。完整原生回归、Release IPA 和合成数据视觉验收已通过，公开下载已回验；**本版真机覆盖安装及真实中转余额尚未验证**，不把模拟器验收冒充真机结果。
+当前已发布：**v0.5.0-preview.1（0.5.0/9）**，来源分支 **`claude/ios-honey-redesign`**。任选两张主卡、过去用量时间线、当前／周配速及独立恢复预览已完成；完整原生回归、Release IPA、合成截图和关键动作抽帧通过。13 个附件的远端摘要与无登录公开下载已逐一回验；**本版真机覆盖安装及真实账户行为仍 UNKNOWN**。
 
-[下载与扫码入口](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.4.0-preview.1) · [机器可读验收](https://github.com/RollandXD/qingsongxiong/releases/download/v0.4.0-preview.1/verification.json)
+[下载与扫码入口](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.5.0-preview.1) · [机器可读验收](https://github.com/RollandXD/qingsongxiong/releases/download/v0.5.0-preview.1/verification.json)
+
+## 0.5.0 主页、历史与配速预览 1（2026-11-11 已发布）
+
+交付编号 **`qingsongxiong-ios-home-history-pace`**。目标：按用户批准的八步计划重排首页层级，让余额与订阅同级；补上过去观测和均匀配速，并收敛导航／预览／刷新反馈。本轮实现、自动回归、模拟器视觉复核与可下载交付由开发助手完成；下一步由用户原 SideStore 账号覆盖安装，再观察真实账户和后台。
+
+构建提交／tag：`7c2e1fcfd019177934edca80b4f043ae9fabe233`，源码树 `f0ce45a9fab922af19e4777ebfb03a5e2995dad5`。后续仅文档提交不改变构建来源，**未重打 CI IPA**。Xcode 27.1，iPhone 16 Pro 模拟器／iOS 27.2，截图 1206×2622，最低 iOS 27.0；App／Widget 都是 0.5.0/9。
+
+### 范围与完成标准
+
+- 首页「编辑」任选两张主卡，Codex／Claude／DeepSeek／中转同级；交换、移除、重新填入和偏好持久化。余额以金额和币种表达，不能作为百分比蜜罐；不改变 Widget 已有选择。
+- 过去用量：24 小时／7 天／30 天，按账户、窗口、币种查看并选点；仅成功刷新后记录，不补造历史。跨周期／账号／币种与长缺口分段，金额保留 Decimal；写入失败可重试且不冒充取数失败。
+- 当前／周窗口独立均匀配速参考，差值用百分点。未知周期、读数过期／失败、重置已过未确认或未来预览不显示当前配速判断；不能把旧读数自动当成回满。
+- 历史服务共享 actor，账户代次、迟到请求和删除隔离；退出、删除、隐私清除都覆盖历史。最多 30 天、每来源 10,000 次观测、总预算 4 MiB；达到限制裁剪，读取和清理错误不静默吞掉。
+- 轻量双窗口蜜罐和原生玻璃操作层；恢复预览默认收起并与实测分离，详情系统 push/back；静止不循环表演，大字和减少动态效果／透明度可用。
+
+| 验证 | 当前证据 |
+| --- | --- |
+| 本地 Linux 可移植 Swift 回归 | **170/170 PASS**；不包含 SwiftUI／UIKit／Keychain |
+| 架构、源码凭据、Shell／Python | PASS；**14/14** Python 测试 |
+| macOS Swift 包测试 | **216/216 PASS**，`5 + 2 + 69 + 28 + 33 + 68 + 11`；不是单进程最大值 |
+| 原生 UI 完整门禁 | **31/31 PASS，零失败**；Bootstrap 7 + Design 19 + Rendered 5，完整 run 成功 |
+| 原生换卡与金额语义 | 通过可见编辑入口替换 Claude 为中转、两张余额卡、移除重填与交换；DeepSeek 不显示伪订阅百分比 |
+| Release／待重签 IPA | App／Widget 0.5.0/9，包校验 PASS，仍需用户重签 |
+| 浅深色、详情、历史／错误、异常、大字、减少效果和组件布局 | **92 张**合成原生截图人工复核 PASS，公开 **78 张** |
+| 原速／0.25× 动效 | 同次 CI **68.040／272.150 秒**，各 **1,690 帧**；全片 36 帧取样、预览 33 帧／导航 36 帧密集取样、慢放对应 12 帧复核 PASS |
+| 发布与公开下载 | **13/13** GitHub digest 与本地一致；全部无登录公开下载再次逐文件 SHA-256 核验 PASS |
+| 旧 0.4 保护 | 发布对象、附件与 tag 前后回读不变；未覆盖、未删除 |
+| 真机覆盖、原账户／真实读数／组件选择保留、真实 APIKEY.FAN | **UNKNOWN** |
+| 系统 Widget 着色／交互、免费签名 BG 频率、低电量、120Hz 手感 | **UNKNOWN**；15 分钟只是申请，后台观察 1–2 天 |
+
+证据：[完整 CI 43014120390](https://github.com/RollandXD/qingsongxiong/actions/runs/43014120390)、[发布页](https://github.com/RollandXD/qingsongxiong/releases/tag/v0.5.0-preview.1)、随包 `verification.json`／`SHA256SUMS.txt`。IPA SHA-256：`017a0687604885379a46130f446a6333de5910e1c45e003f6b106236bfb18aa6`。原生对比度回退仍为 4.5:1，无法核实保持失败，未放宽门禁。
+
+截图只用合成账户，公开清单移除 xcresult 设备／原始附件标识。Widget 图是共享布局预览，不是系统宿主实拍。视频是截图与抽样时序复核，**不是全帧播放、真机冷启动或 120Hz 认证**；CI 自动化受控启动含初始空白，不据此推断真机启动耗时。
+
+### 失败复盘与接续
+
+- 本机 Linux 不能编译 SwiftUI。早期把 `swiftc -parse` 当成充分检查，导致漏 import、类型和参数标签问题反复占用 macOS；补 `local_typecheck.sh` 与 `local_feature_tests.sh`，先跑完整可移植领域／展示回归，再提交原生门禁。
+- 曾将用 `|` 拼接的 UI 标识误当成多个定向用例，导致「零项执行但命令成功」。`ui_test_contract.py` 现在拒绝零测试、缺汇总和指定用例未通过；发布验收另按源码列表比对实际完整执行集合，缺用例或数量不一致都失败；发布只用完整 run。
+- 原生回归修复了 UI 偏好跨用例残留、滚动时失效 AX 元素的唯一重定位、图表横拖与父层纵向滚动仲裁；没有以跳过测试或降低对比度来凑绿。
+- 最后一轮新增主卡回归发现 DeepSeek 应按余额渲染，以及配速判断沿用初始化新鲜度。已按类型解析主卡，并用当前传入时钟在 900 秒边界关闭旧参考线；原生测试覆盖真实换卡，不再只证明选择 sheet 能打开。
+- 中转原始 `12.345…` 不应直接匹配首页摘要 `12.35`。已显式限定摘要分币舍入，并回归完整 Decimal 历史／详情不被截断。本地 170 项回归先通过，再跑最终全套。
+
+### 后续、归属与恢复
+
+1. 用户同一 SideStore 账号**覆盖安装，不先卸载**，保留 Widget 扩展；先确认原账户、读数和组件选择，再配置新主卡。
+2. 历史从新版成功刷新起积累；真实后台效果观察 1–2 天，不安排额外手动无障碍测试。未知项只有获得实际证据才改状态。
+3. 旧 `v0.4.0-preview.1` 未覆盖；已实机验收的 `v0.2.0-preview.1` 仍为恢复参考。`device-gate.json` 只表示历史共享／签名验收，不更新为 0.5 已验证。
+4. 仅在独立产品 worktree、分支 `claude/ios-honey-redesign` 交付，不合并 `main`；不改旧 0.3 工作树，不覆盖助理仓库 `personal-memory-migration` revision 66 或其他计划。收尾现查助理远端已一致且 preflight ready，不再沿用旧 blocked 快照；本交付记录仍以本页和发布附件为准。
+5. 恢复引用 `backup/honey-redesign-pre-audit-8bcfe81`／`backup/honey-redesign-pre-v050` 指向本轮前 `8bcfe81`。本轮证据保存在 `/tmp/qingsongxiong-acceptance-43014120390/`，只作本机验收回执，不提交；持久公开证据在 Release。`.pi-lens-probe-home/` 保留为本地 LSP 运行态，已忽略、不进提交；未经核对无活动探针前不删除。
 
 ## 0.4.0 蜜罐预览 1（2026-11-10 已发布）
 
