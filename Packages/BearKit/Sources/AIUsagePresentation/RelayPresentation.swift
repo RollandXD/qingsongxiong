@@ -9,6 +9,9 @@ public struct RelayPresentation: Equatable, Sendable {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.minimumFractionDigits = 2; formatter.maximumFractionDigits = 2
+        // 明确展示层的分币舍入；Foundation 在不同平台对小数位上限的处理并不完全一致。
+        // 只影响 headline，fullValue 与存储中的 Decimal 保持原样。
+        formatter.roundingIncrement = 0.01
         return balance.currency + " " + (formatter.string(from: NSDecimalNumber(decimal: balance.total)) ?? NSDecimalNumber(decimal: balance.total).stringValue)
     }
     public var fullValue: String {

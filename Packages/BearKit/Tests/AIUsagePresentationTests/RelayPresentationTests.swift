@@ -14,6 +14,18 @@ import Testing
     #expect(!presentation.isStale)
     #expect(RelayPresentation(state: presentation.state, at: date.addingTimeInterval(900)).isStale)
 }
+@Test func relayRoundedHeadlineDoesNotDiscardTheOriginalDecimal() throws {
+    let date = Date(timeIntervalSince1970: 1_800_000_000)
+    let account = RelayAccount(displayName: "合成账户")
+    let original = try #require(Decimal(string: "12.34567890123456789"))
+    let snapshot = RelaySnapshot(balances: [CurrencyBalance(currency: "USD", total: original)],
+                                 isAvailable: true, fetchedAt: date)
+    let value = RelayPresentation(state: RelayState(account: account, snapshot: snapshot, updatedAt: date), at: date)
+    #expect(value.headline == "USD 12.35")
+    #expect(value.fullValue == "USD 12.34567890123456789")
+    #expect(value.state.snapshot?.balances.first?.total == original)
+}
+
 @Test func relayMissingDataDoesNotLookLikeZeroAndExplicitFalseSurvives() {
     let date = Date()
     let account = RelayAccount(displayName: "合成账户")

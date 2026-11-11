@@ -284,7 +284,8 @@ final class DesignUITests: XCTestCase {
             app.buttons["pick-relay:" + relayID].tap()
             let transfer = mainCardButton(1, identifier: "relay-" + relayID, app)
             XCTAssertTrue(transfer.waitForExistence(timeout: 5))
-            XCTAssertTrue((transfer.value as? String ?? "").contains("12.345"), "中转主卡必须读出真实金额")
+            let relayAmount = transfer.value as? String ?? ""
+            XCTAssertTrue(relayAmount.contains("USD 12.35"), "主卡按两位小数显示金额，必须保留币种：" + relayAmount)
             attach(app, "home-relay-main-" + appearance)
 
             openCardPicker(0, app)
