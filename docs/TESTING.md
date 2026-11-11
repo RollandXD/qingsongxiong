@@ -11,6 +11,15 @@ bash -n scripts/install_xcodegen.sh scripts/apple_build.sh
 
 Linux 检查验证源码边界、凭据排除和脚本语法；原生编译由 Xcode 执行。
 
+Linux 开发机已安装 Docker 与 `swift:6.2` 镜像时，推送前还应执行：
+
+```sh
+./scripts/local_typecheck.sh
+./scripts/local_feature_tests.sh
+```
+
+前者编译 Foundation／Domain／Presentation；后者原样运行全部 Domain／Presentation 测试，以及脚本中明确列出的可移植控制器、仓储和历史测试。不要仅按新增功能挑选领域测试，否则接口语义调整后，旧回归要到 CI 才暴露。它们不覆盖 SwiftUI、UIKit、Keychain、原生像素与手势，不能替代 macOS 整包和原生 UI 验收。
+
 ## macOS / CI
 
 固定 Xcode 27.1、XcodeGen 2.46.0，Swift 6 严格并发。主验收默认 iPhone 16 Pro。select_simulator.py 按机型匹配兼容的 iOS 27 运行时并实际创建设备，缺少目标机型直接报错；设备创建在编译前核验，启动在编译后执行。

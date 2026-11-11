@@ -153,21 +153,22 @@ private func honeyHero(_ dashboards: [ProviderDashboardPresentation]) -> HeroPre
         honeyWindow("g", used: 0),
         honeyWindow("h", used: 0, reset: 60),
     ].map { UsageWindowPresentation($0, provider: .claude) }
-    #expect(ScrubForecast.resetOffsets(windows, now: honeyNow) == [60, 600, 7 * 86_400])
+    #expect(ScrubForecast.resetOffsets(windows, now: honeyNow) == [60, 600, 7.0 * 86_400])
     #expect(ScrubForecast.resetOffsets(windows, now: honeyNow, horizon: 600) == [60, 600])
 }
 
 @Test func heroWarnsAboutTheTightestWindowWithRefillTime() throws {
-    let hero = honeyHero([
-        honeyDashboard(.codex, windows: [
-            try honeyWindow("rate_limit.primary_window", label: "5 小时", used: 30, reset: 7_200),
-            try honeyWindow("rate_limit.secondary_window", label: "7 天", used: 50, reset: 172_800),
-        ]),
-        honeyDashboard(.claude, windows: [
-            try honeyWindow("five_hour", used: 10, reset: 3_600),
-            try honeyWindow("seven_day", used: 88, reset: 6 * 86_400 + 9 * 3_600 + 55 * 60),
-        ]),
+    // 显式拆开算式和窗口，避免 Swift 6.2 在嵌套泛型/throws 表达式上耗尽类型推断预算。
+    let weeklyReset: TimeInterval = 554_100 // 6天9时55分；固定样本，不让编译器在混合数值算式上反复推断。
+    let codex = honeyDashboard(.codex, windows: [
+        try honeyWindow("rate_limit.primary_window", label: "5 小时", used: 30, reset: 7_200),
+        try honeyWindow("rate_limit.secondary_window", label: "7 天", used: 50, reset: 172_800),
     ])
+    let claude = honeyDashboard(.claude, windows: [
+        try honeyWindow("five_hour", used: 10, reset: 3_600),
+        try honeyWindow("seven_day", used: 88, reset: weeklyReset),
+    ])
+    let hero = honeyHero([codex, claude])
     #expect(hero.lead == "Claude 周额度")
     #expect(hero.tail == "只剩 12%")
     #expect(hero.isWarning)

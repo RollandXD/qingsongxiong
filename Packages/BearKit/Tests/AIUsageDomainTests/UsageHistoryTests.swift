@@ -78,8 +78,12 @@ private func quotaEntry(_ id: String, remaining: Double) -> HistoryEntry {
         ]),
     ], updatedAt: historyNow)
 
+    // 分段仍属于观测，旧点保留在归档；当前账户的查询不能混入另一账户的读数。
+    let observations = archive.observations(for: .provider(.codex))
+    #expect(observations.map(\.segment) == [0, 1])
     let series = archive.series(for: .provider(.codex), metric: .quota(windowID: "rate_limit.primary_window"))
-    #expect(series.map(\.segment) == [0, 1])
+    #expect(series.map(\.segment) == [1])
+    #expect(series.first?.value(for: .quota(windowID: "rate_limit.primary_window")) == .percent(88))
 }
 
 @Test func archiveDecodesFromAMinimalDocument() throws {
@@ -172,13 +176,19 @@ private func observation(_ offset: TimeInterval, segment: Int = 0, _ remaining: 
     archive = UsageHistoryReducer.beginningSegment(for: .provider(.codex), in: archive,
                                                    now: historyNow.addingTimeInterval(700))
     #expect(archive.source(.provider(.codex))?.segment == 1)
+    // 新账户还没取得读数时必须为空，不能短暂显示上一账户的指标和历史。
+    #expect(archive.series(for: .provider(.codex), metric: .quota(windowID: "five_hour")).isEmpty)
+    #expect(archive.metrics(for: .provider(.codex)).isEmpty)
     let after = UsageHistoryReducer.recording(observation(1200, 88), for: .provider(.codex),
                                               in: archive, now: historyNow.addingTimeInterval(1200))
     #expect(after.outcome == .appended)
+    let observations = after.archive.observations(for: .provider(.codex))
+    #expect(observations.map(\.segment) == [0, 1])
+    // 旧点不被删掉或改写，但当前账户只看到自己分段的 88%。
+    #expect(observations[0].value(for: .quota(windowID: "five_hour")) == .percent(80))
     let series = after.archive.series(for: .provider(.codex), metric: .quota(windowID: "five_hour"))
-    #expect(series.map(\.segment) == [0, 1])
-    // 旧点没被改写。
-    #expect(series[0].value(for: .quota(windowID: "five_hour")) == .percent(80))
+    #expect(series.map(\.segment) == [1])
+    #expect(series.first?.value(for: .quota(windowID: "five_hour")) == .percent(88))
 }
 
 @Test func beginningSegmentOnUnknownSourceStartsAtOne() {

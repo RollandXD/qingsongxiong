@@ -135,13 +135,13 @@ public struct UsageHistoryArchive: TimestampedRecord, Equatable, Sendable {
         source(ref)?.observations ?? []
     }
 
-    /// 某个指标的观测序列，保持时间升序；缺该指标的观测不补点。
+    /// 当前账户分段内某个指标的观测序列，保持时间升序；旧账户和缺失指标均不补点。
     public func series(for ref: AccountRef, metric: UsageHistoryMetric) -> [UsageObservation] {
         guard let source = self.source(ref) else { return [] }
         return source.observations.filter { $0.segment == source.segment && $0.value(for: metric) != nil }
     }
 
-    /// 该来源出现过的全部指标，按首次出现顺序（额度先后、币种先后）。
+    /// 当前账户分段出现过的全部指标，按首次出现顺序（额度先后、币种先后）。
     public func metrics(for ref: AccountRef) -> [UsageHistoryMetric] {
         var seen = Set<String>()
         var result: [UsageHistoryMetric] = []
@@ -259,7 +259,7 @@ public enum UsageHistoryReducer {
         return (replacing(observations, for: ref, in: archive, now: now), .appended)
     }
 
-    /// 账户切换：只递增分段号，旧观测原样保留（曲线断开而不是假装连续）。
+    /// 账户切换：递增分段号，旧观测原样保留于归档；当前账户查询不混入旧分段。
     public static func beginningSegment(for ref: AccountRef, in archive: UsageHistoryArchive,
                                         now: Date) -> UsageHistoryArchive {
         let observations = archive.observations(for: ref)
