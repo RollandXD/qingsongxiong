@@ -24,6 +24,13 @@ public struct HoneyJarPresentation: Equatable, Sendable {
     public var provider: ProviderID { dashboard.provider }
     public var isConnected: Bool { dashboard.state?.connection == .connected }
 
+    /// 参考线是“此刻”的提示：按传入时钟重新核实新鲜度，不能沿用展示对象初始化时的结论。
+    /// 这层不依赖 SwiftUI，时间边界与未知周期可在本地回归，而不是等一整轮原生构建。
+    public func paceReference(for window: UsageWindowPresentation, now: Date, offset: TimeInterval) -> Double? {
+        guard isConnected, offset == 0, dashboard.state?.isStale(at: now) == false else { return nil }
+        return QuotaPaceCalculator.pace(for: window.window, now: now).map { $0.referenceRemainingPercent / 100 }
+    }
+
     private enum Slot { case fiveHour, weekly }
 
     /// 识别依据：

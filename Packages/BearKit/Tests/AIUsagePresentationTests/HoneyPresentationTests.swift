@@ -210,3 +210,32 @@ private func honeyHero(_ dashboards: [ProviderDashboardPresentation]) -> HeroPre
     #expect(hero.isWarning)
     #expect(hero.subtitle == "今天 11:12 回满，还要 3时12分")
 }
+
+@Test func bothHoneyWindowsExposePaceReferencesWithoutRequiringSwiftUI() throws {
+    let windows = try [("five_hour", 18_000), ("seven_day", 604_800)].map { id, seconds in
+        try QuotaWindow(id: id, label: id, usedPercent: 20,
+                        resetsAt: honeyNow.addingTimeInterval(Double(seconds) / 2), periodSeconds: seconds)
+    }
+    let jar = HoneyJarPresentation(honeyDashboard(.claude, windows: windows))
+    let five = try #require(jar.fiveHour)
+    let week = try #require(jar.weekly)
+    #expect(jar.paceReference(for: five, now: honeyNow, offset: 0) == 0.5)
+    #expect(jar.paceReference(for: week, now: honeyNow, offset: 0) == 0.5)
+    // 同一个展示对象不重建，只推进传入时钟，也必须在 15 分钟边界关闭旧参考线。
+    #expect(jar.paceReference(for: five, now: honeyNow.addingTimeInterval(899), offset: 0) != nil)
+    #expect(jar.paceReference(for: five, now: honeyNow.addingTimeInterval(900), offset: 0) == nil)
+    #expect(jar.paceReference(for: week, now: honeyNow.addingTimeInterval(901), offset: 0) == nil)
+}
+
+@Test func forecastOffsetsAndUnknownPeriodsDoNotInventPaceLines() throws {
+    let known = try QuotaWindow(id: "five_hour", label: "5 小时", usedPercent: 20,
+                               resetsAt: honeyNow.addingTimeInterval(9_000), periodSeconds: 18_000)
+    let unknown = try honeyWindow("seven_day", used: 20, reset: 86_400)
+    let jar = HoneyJarPresentation(honeyDashboard(.claude, windows: [known, unknown]))
+    let five = try #require(jar.fiveHour)
+    let week = try #require(jar.weekly)
+    for offset in [-1.0, 0.5, 3_600, Double.infinity, Double.nan] {
+        #expect(jar.paceReference(for: five, now: honeyNow, offset: offset) == nil)
+    }
+    #expect(jar.paceReference(for: week, now: honeyNow, offset: 0) == nil)
+}
