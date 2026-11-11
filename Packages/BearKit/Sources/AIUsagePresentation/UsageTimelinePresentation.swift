@@ -98,32 +98,39 @@ public struct UsageTimelinePresentation: Equatable, Sendable {
             return
         }
 
-        let points = inRange.map { observation in
-            let sampled = observation.value(for: metric)
-            let amount: Decimal?
-            if case .amount(let value) = sampled { amount = value } else { amount = nil }
-            return TimelinePoint(at: observation.at, value: sampled?.chartValue ?? 0, exactAmount: amount)
+        // 当前账户 session 的所有观测都参与断段；缺失指标不能先被过滤，否则会跨窗口/币种缺失连线。
+        let session = archive.source(ref)?.segment
+        let observations = archive.observations(for: ref).filter {
+            $0.segment == session && $0.at >= now.addingTimeInterval(-range.seconds) && $0.at <= now
         }
-        // 按分段号切段；段内再按大间隔再切，避免把几小时的空档画成斜线。
         var bands: [TimelineBand] = []
         var currentSegment: Int?
         var currentPoints: [TimelinePoint] = []
-        for (index, observation) in inRange.enumerated() {
-            let point = points[index]
+        var previousReset: Date?
+        for observation in observations {
+            guard let entry = observation.entries.first(where: { $0.metric == metric }) else {
+                if let segment = currentSegment { bands.append(TimelineBand(segment: segment, points: currentPoints)) }
+                currentPoints = []; currentSegment = nil; previousReset = nil
+                continue
+            }
+            let amount: Decimal?
+            if case .amount(let value) = entry.value { amount = value } else { amount = nil }
+            let point = TimelinePoint(at: observation.at, value: entry.value.chartValue, exactAmount: amount)
             if let segment = currentSegment,
-               segment != observation.segment || Self.isGap(currentPoints.last, point, range: range) {
+               segment != observation.segment || previousReset != entry.resetsAt
+                || Self.isGap(currentPoints.last, point, range: range) {
                 bands.append(TimelineBand(segment: segment, points: currentPoints))
                 currentPoints = []
             }
             currentSegment = observation.segment
-            // 直接 append 到独占缓冲；不在每个点上复制上一整段数组（避免 10,000 点退化到 O(n²)）。
+            previousReset = entry.resetsAt
             currentPoints.append(point)
         }
         if let segment = currentSegment {
             bands.append(TimelineBand(segment: segment, points: currentPoints))
         }
         self.bands = bands
-        yRange = Self.range(for: points, isBalance: metric.isBalance)
+        yRange = Self.range(for: bands.flatMap(\.points), isBalance: metric.isBalance)
         emptyReason = nil
         // 点是真的就画出来；只是跨度比历史还长时补一句，不假称已经看出中长期趋势。
         let notes = [Self.note(for: bands, range: range),

@@ -83,7 +83,10 @@ final class AppComposition {
             clearLocalData: {
                 let providers = await model.clearLocalData()
                 let relays = await relay.clearLocalData()
-                return providers && relays
+                let history: Bool
+                do { try await AppServices.history.forgetAll(); history = true }
+                catch { history = false }
+                return providers && relays && history
             },
             handle: { navigation.handle(components: $0) }
         )]
@@ -142,7 +145,7 @@ final class AppComposition {
                 // UI 测试下主卡选择不能跨用例残留（上一条用例选的卡会改变下一条的首页），
                 // 用内存存储：每次启动都是默认两卡，也不污染容器里的真实偏好。
                 ? MemoryDashboardPreferencesStore()
-                : FileDashboardPreferencesStore(container: try shared.containerURL())
+                : FileDashboardPreferencesStore(container: try AppServices.localContainer())
             model = AIUsageModel(repository: repository, connector: connector,
                 preferences: preferences,
                 historyReader: AppServices.history,

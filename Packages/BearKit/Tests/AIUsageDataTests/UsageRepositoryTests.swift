@@ -259,3 +259,62 @@ private actor RotatingRenewer: UsageCredentialRenewing {
     #expect(value.failure == .rateLimited(retryAt: deadline))
     #expect(await fetcher.calls() == 1)
 }
+
+@Test func historyWriteFailureDoesNotConvertASuccessfulRefreshIntoANetworkFailure() async throws {
+    let credentials = MemoryCredentials(); let states = MemoryStates()
+    try credentials.save(ProviderCredential(accessToken: "fixture-key"), for: .deepseek)
+    let history = HistoryLifecycleProbe(failRecord: true)
+    let repository = LiveAIUsageRepository(credentials: credentials, states: states,
+        fetchers: [.deepseek: OutcomeFetcher(.success(snapshot(.deepseek)))], history: history)
+    #expect(try await repository.refresh(.deepseek) == snapshot(.deepseek))
+    #expect(try states.load(.deepseek)?.failure == nil)
+    #expect(try states.load(.deepseek)?.snapshot == snapshot(.deepseek))
+}
+
+@Test func failedSegmentChangeDoesNotAppendNewAccountToThePreviousSession() async throws {
+    let credentials = MemoryCredentials()
+    let history = HistoryLifecycleProbe(failSegment: true)
+    let repository = LiveAIUsageRepository(credentials: credentials, states: MemoryStates(),
+        fetchers: [.deepseek: OutcomeFetcher(.success(snapshot(.deepseek)))], history: history)
+    try await repository.connect(.deepseek, apiKey: "fixture-key")
+    #expect(try await repository.state(for: .deepseek).connection == .connected)
+    #expect(await history.records.isEmpty)
+}
+
+@Test func historyRemovalFailureIsReportedAndCanBeRetriedAfterCredentialsAreGone() async throws {
+    let credentials = MemoryCredentials(); let history = HistoryLifecycleProbe(failForget: true)
+    try credentials.save(ProviderCredential(accessToken: "fixture-key"), for: .deepseek)
+    let repository = LiveAIUsageRepository(credentials: credentials, states: MemoryStates(),
+        fetchers: [:], history: history)
+    await #expect(throws: UsageFailure.unavailable) { try await repository.disconnect(.deepseek) }
+    #expect(try credentials.load(.deepseek) == nil)
+    await history.allowRemoval()
+    try await repository.disconnect(.deepseek)
+    #expect(await history.forgotten == [.provider(.deepseek)])
+}
+
+@Test func disconnectDuringHistorySegmentationCannotAppendTheOldAccountAfterRemoval() async throws {
+    let history = HistoryLifecycleProbe(pause: .segment)
+    let repository = LiveAIUsageRepository(credentials: MemoryCredentials(), states: MemoryStates(),
+        fetchers: [.deepseek: OutcomeFetcher(.success(snapshot(.deepseek)))], history: history)
+    let connection = Task { try await repository.connect(.deepseek, apiKey: "fixture-key") }
+    await history.waitUntilPaused()
+    try await repository.disconnect(.deepseek)
+    await history.release()
+    await #expect(throws: CancellationError.self) { try await connection.value }
+    #expect(await history.records.isEmpty)
+    #expect(try await repository.state(for: .deepseek).connection == .disconnected)
+}
+
+@Test func disconnectDuringHistoryWriteCannotReturnAStaleSuccessfulRefresh() async throws {
+    let credentials = MemoryCredentials(); let history = HistoryLifecycleProbe(pause: .record)
+    try credentials.save(ProviderCredential(accessToken: "fixture-key"), for: .deepseek)
+    let repository = LiveAIUsageRepository(credentials: credentials, states: MemoryStates(),
+        fetchers: [.deepseek: OutcomeFetcher(.success(snapshot(.deepseek)))], history: history)
+    let refresh = Task { try await repository.refresh(.deepseek) }
+    await history.waitUntilPaused()
+    try await repository.disconnect(.deepseek)
+    await history.release()
+    await #expect(throws: CancellationError.self) { try await refresh.value }
+    #expect(try await repository.state(for: .deepseek).connection == .disconnected)
+}

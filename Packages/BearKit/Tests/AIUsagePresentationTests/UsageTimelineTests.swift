@@ -50,7 +50,7 @@ private func timeline(_ archive: UsageHistoryArchive, metric: UsageHistoryMetric
     #expect(shown.gapNote?.contains("还看不出走势") == true)
 }
 
-@Test func accountSwitchBreaksTheLineInsteadOfFakingATrend() {
+@Test func accountSwitchHidesPreviousSessionInsteadOfRevealingItsReadings() {
     let observations = [
         UsageObservation(at: timelineNow.addingTimeInterval(-2 * hour), segment: 0, entries: [quota(percent: 90)]),
         UsageObservation(at: timelineNow.addingTimeInterval(-1.9 * hour), segment: 0, entries: [quota(percent: 80)]),
@@ -58,10 +58,10 @@ private func timeline(_ archive: UsageHistoryArchive, metric: UsageHistoryMetric
         UsageObservation(at: timelineNow.addingTimeInterval(-0.9 * hour), segment: 1, entries: [quota(percent: 25)]),
     ]
     let shown = timeline(archive(observations))
-    #expect(shown.bands.count == 2, "换了账户/密钥就断开")
-    #expect(shown.bands.map(\.segment) == [0, 1])
-    #expect(shown.pointCount == 4)
-    #expect(shown.gapNote != nil, "断段要说明原因，不能让人以为掉过额度")
+    #expect(shown.bands.count == 1)
+    #expect(shown.bands.map(\.segment) == [1])
+    #expect(shown.pointCount == 2)
+    #expect(shown.bands.flatMap(\.points).map(\.value) == [30, 25], "不向新账户展示旧 session 的 90/80 读数")
 }
 
 @Test func longSilenceInsideOneSegmentAlsoBreaksTheLine() {

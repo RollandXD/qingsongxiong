@@ -40,10 +40,13 @@ public enum HistoryValue: Codable, Equatable, Sendable {
 public struct HistoryEntry: Codable, Equatable, Sendable {
     public let metric: UsageHistoryMetric
     public let value: HistoryValue
+    /// 厂商返回的该窗口重置边界；可选以兼容旧历史，变化处必须断线。
+    public let resetsAt: Date?
 
-    public init(metric: UsageHistoryMetric, value: HistoryValue) {
+    public init(metric: UsageHistoryMetric, value: HistoryValue, resetsAt: Date? = nil) {
         self.metric = metric
         self.value = value
+        self.resetsAt = resetsAt
     }
 }
 
@@ -73,9 +76,9 @@ public struct UsageHistorySource: Codable, Equatable, Sendable {
     public let segment: Int
     public var observations: [UsageObservation]
 
-    public init(source: AccountRef, observations: [UsageObservation], segment: Int = 0) {
+    public init(source: AccountRef, observations: [UsageObservation], segment: Int? = nil) {
         self.source = source
-        self.segment = segment
+        self.segment = segment ?? observations.map(\.segment).max() ?? 0
         self.observations = observations
     }
 
@@ -134,14 +137,16 @@ public struct UsageHistoryArchive: TimestampedRecord, Equatable, Sendable {
 
     /// 某个指标的观测序列，保持时间升序；缺该指标的观测不补点。
     public func series(for ref: AccountRef, metric: UsageHistoryMetric) -> [UsageObservation] {
-        self.source(ref)?.observations.filter { $0.value(for: metric) != nil } ?? []
+        guard let source = self.source(ref) else { return [] }
+        return source.observations.filter { $0.segment == source.segment && $0.value(for: metric) != nil }
     }
 
     /// 该来源出现过的全部指标，按首次出现顺序（额度先后、币种先后）。
     public func metrics(for ref: AccountRef) -> [UsageHistoryMetric] {
         var seen = Set<String>()
         var result: [UsageHistoryMetric] = []
-        for observation in observations(for: ref) {
+        let current = source(ref)?.segment
+        for observation in observations(for: ref) where observation.segment == current {
             for metric in observation.metrics where seen.insert(metric.stableKey).inserted {
                 result.append(metric)
             }
@@ -258,7 +263,8 @@ public enum UsageHistoryReducer {
     public static func beginningSegment(for ref: AccountRef, in archive: UsageHistoryArchive,
                                         now: Date) -> UsageHistoryArchive {
         let observations = archive.observations(for: ref)
-        let current = existingSegment(observations: observations, fallback: 0)
+        let current = max(archive.source(ref)?.segment ?? 0,
+                          existingSegment(observations: observations, fallback: 0))
         return replacing(observations, for: ref, in: archive, now: now, segment: current + 1)
     }
 

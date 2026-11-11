@@ -2,6 +2,9 @@ import AIUsageDomain
 import BearFoundation
 import BearPlatform
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public struct DeepSeekAdapter: Sendable {
     private let client: any HTTPClient

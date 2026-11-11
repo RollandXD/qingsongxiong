@@ -97,8 +97,11 @@ public actor LiveAIUsageRepository: AIUsageRepository, AIUsageAccountConnecting 
             throw error
         }
         // 提交成功后才开新分段：回滚过的账户不能白多一段断点。
-        try? await history.beginSegment(for: .provider(provider))
-        try? await history.record(snapshot: snapshot, for: .provider(provider))
+        if (try? await history.beginSegment(for: .provider(provider))) != nil {
+            try ensureCurrent(provider, generation)
+            try? await history.record(snapshot: snapshot, for: .provider(provider))
+            try ensureCurrent(provider, generation)
+        }
     }
 
     public func refresh(_ provider: ProviderID) async throws -> UsageSnapshot {
@@ -144,6 +147,7 @@ public actor LiveAIUsageRepository: AIUsageRepository, AIUsageAccountConnecting 
             if generations[provider, default: 0] == generation {
                 try? await history.record(snapshot: snapshot, for: .provider(provider))
             }
+            try ensureCurrent(provider, generation)
             return snapshot
         } catch {
             try ensureCurrent(provider, generation)
@@ -174,7 +178,8 @@ public actor LiveAIUsageRepository: AIUsageRepository, AIUsageAccountConnecting 
         var failure: (any Error)?
         do { try credentials.remove(provider) } catch { failure = error }
         do { try states.remove(provider) } catch { if failure == nil { failure = error } }
-        try? await history.forget(.provider(provider))
+        do { try await history.forget(.provider(provider)) }
+        catch { if failure == nil { failure = error } }
         if failure != nil { throw UsageFailure.unavailable }
     }
 

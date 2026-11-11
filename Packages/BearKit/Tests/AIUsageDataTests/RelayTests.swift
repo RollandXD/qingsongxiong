@@ -190,3 +190,78 @@ private final class RelayKeys: RelayCredentialStoring, @unchecked Sendable {
     #expect(await reader.state(account.id, refresh: false)?.failure == first.failure)
     #expect(try records.load() == saved)
 }
+
+@Test func relayHistoryFailureDoesNotEraseASuccessfulBalanceRefresh() async throws {
+    let history = HistoryLifecycleProbe(failRecord: true)
+    let repository = LiveRelayRepository(store: RelayRecords(), credentials: RelayKeys(),
+        adapter: RelayBalanceAdapter(client: RelayClient()), history: history)
+    try await repository.save(id: nil, name: "合成账户", endpoint: .balance, key: "fixture-key")
+    let id = try #require(try await repository.states().first?.id)
+    _ = try await repository.refresh(id)
+    #expect(try await repository.states().first?.failure == nil)
+    #expect(try await repository.states().first?.snapshot != nil)
+}
+
+@Test func relayDeletionFailureKeepsARetryableDirectoryInsteadOfClaimingPrivacySuccess() async throws {
+    let records = RelayRecords(); let keys = RelayKeys()
+    let history = HistoryLifecycleProbe(failForget: true)
+    let repository = LiveRelayRepository(store: records, credentials: keys,
+        adapter: RelayBalanceAdapter(client: RelayClient()), history: history)
+    try await repository.save(id: nil, name: "合成账户", endpoint: .balance, key: "fixture-key")
+    let id = try #require(try await repository.states().first?.id)
+    await #expect(throws: UsageHistoryFailure.self) { try await repository.delete(id) }
+    #expect(try await repository.states().count == 1)
+    #expect(keys.count == 0)
+    await history.allowRemoval()
+    try await repository.delete(id)
+    #expect(try await repository.states().isEmpty)
+    #expect(await history.forgotten == [.relay(id)])
+}
+
+@Test func relayClearBlocksNewSavesWhileWaitingForHistoryDeletion() async throws {
+    let history = HistoryLifecycleProbe(pause: .forget)
+    let repository = LiveRelayRepository(store: RelayRecords(), credentials: RelayKeys(),
+        adapter: RelayBalanceAdapter(client: RelayClient()), history: history)
+    try await repository.save(id: nil, name: "旧账户", endpoint: .balance, key: "fixture-key")
+    let id = try #require(try await repository.states().first?.id)
+    let clearing = Task { try await repository.clear() }
+    await history.waitUntilPaused()
+    await #expect(throws: CancellationError.self) {
+        try await repository.save(id: nil, name: "不能插队", endpoint: .balance, key: "fixture-key")
+    }
+    await #expect(throws: CancellationError.self) { try await repository.refresh(id) }
+    await history.release()
+    try await clearing.value
+    #expect(try await repository.states().isEmpty)
+}
+
+@Test func relayDeletionReReadsTheDirectoryAfterHistoryAwaitSoOtherAccountsSurvive() async throws {
+    let history = HistoryLifecycleProbe(pause: .forget)
+    let repository = LiveRelayRepository(store: RelayRecords(), credentials: RelayKeys(),
+        adapter: RelayBalanceAdapter(client: RelayClient()), history: history)
+    try await repository.save(id: nil, name: "待删除", endpoint: .balance, key: "fixture-key")
+    let first = try #require(try await repository.states().first?.id)
+    let deletion = Task { try await repository.delete(first) }
+    await history.waitUntilPaused()
+    try await repository.save(id: nil, name: "另一个", endpoint: .balance, key: "fixture-key")
+    await history.release()
+    try await deletion.value
+    #expect(try await repository.states().map(\.account.displayName) == ["另一个"])
+}
+
+@Test func relayReplacementCannotAppendHistoryAfterDeletionDuringSegmentAwait() async throws {
+    let history = HistoryLifecycleProbe(pause: .segment)
+    let repository = LiveRelayRepository(store: RelayRecords(), credentials: RelayKeys(),
+        adapter: RelayBalanceAdapter(client: RelayClient()), history: history)
+    try await repository.save(id: nil, name: "旧账户", endpoint: .balance, key: "fixture-key")
+    let id = try #require(try await repository.states().first?.id)
+    let replacement = Task {
+        try await repository.save(id: id, name: "新账户", endpoint: .balance, key: "fixture-next")
+    }
+    await history.waitUntilPaused()
+    try await repository.delete(id)
+    await history.release()
+    await #expect(throws: CancellationError.self) { try await replacement.value }
+    #expect(await history.records == [.relay(id)], "只有最初连接的记录，没有删除后的迟到记录")
+    #expect(try await repository.states().isEmpty)
+}

@@ -107,8 +107,10 @@ private func snapshot(_ windows: [(id: String, remaining: Double)], fetchedAt: D
     try await service.record(snapshot: snapshot([("five_hour", remaining: 95)],
                                                 fetchedAt: serviceNow.addingTimeInterval(60)),
                              for: .provider(.claude))
+    let observations = try await service.archive().observations(for: .provider(.claude))
+    #expect(observations.map(\.segment) == [0, 1], "旧 session 可按保留期留在存储中")
     let series = try await service.archive().series(for: .provider(.claude), metric: .quota(windowID: "five_hour"))
-    #expect(series.map(\.segment) == [0, 1])
+    #expect(series.map(\.segment) == [1], "新账户不得读出旧 session 的曲线")
 }
 
 @Test func forgettingAnAccountRemovesItsHistoryOnly() async throws {
@@ -137,16 +139,23 @@ private func snapshot(_ windows: [(id: String, remaining: Double)], fetchedAt: D
     #expect(!FileManager.default.fileExists(atPath: file.path))
 }
 
-@Test func corruptArchiveSelfHealsInsteadOfBlockingTheApp() async throws {
+@Test func corruptArchiveIsPreservedAndReportedInsteadOfSilentlyErased() async throws {
     let container = try temporaryContainer()
     let directory = container.appendingPathComponent("ai-usage-history", isDirectory: true)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-    try Data("not json".utf8).write(to: directory.appendingPathComponent("snapshot.json"))
-
+    let file = directory.appendingPathComponent("snapshot.json")
+    let original = Data("not json".utf8)
+    try original.write(to: file)
     let service = try service(container: container)
-    let archive = try await service.archive()
-    #expect(archive.sources.isEmpty)
-    // 自愈之后还能继续记录。
+    await #expect(throws: UsageHistoryFailure.self) { try await service.archive() }
+    await #expect(throws: UsageHistoryFailure.self) {
+        try await service.record(snapshot: snapshot([("five_hour", remaining: 70)], fetchedAt: serviceNow),
+                                 for: .provider(.claude))
+    }
+    #expect(try Data(contentsOf: file) == original)
+    // 只有用户明确清除才可删坏文件，之后恢复正常记录。
+    try await service.forgetAll()
+    #expect(!FileManager.default.fileExists(atPath: file.path))
     try await service.record(snapshot: snapshot([("five_hour", remaining: 70)], fetchedAt: serviceNow),
                              for: .provider(.claude))
     #expect(try await service.archive().observations(for: .provider(.claude)).count == 1)
@@ -193,6 +202,8 @@ private func snapshot(_ windows: [(id: String, remaining: Double)], fetchedAt: D
     }
     let archive = try await service.archive()
     #expect(UsageHistoryReducer.estimatedBytes(archive) <= 8_000)
+    let file = container.appendingPathComponent("ai-usage-history/snapshot.json")
+    #expect(try Data(contentsOf: file).count <= 8_000, "必须限制真实 JSON 文件，而非只看低估的内存估算")
     #expect(!archive.observations(for: .provider(.claude)).isEmpty)
 }
 

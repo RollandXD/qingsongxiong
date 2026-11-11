@@ -19,6 +19,14 @@ public protocol UsageHistoryRecording: UsageHistoryReading {
     func beginSegment(for ref: AccountRef) async throws
     /// 隐私清除：删掉某个账户的全部本地历史。
     func forget(_ ref: AccountRef) async throws
+    /// 显式清除全部本地历史；损坏或未知格式也可由用户明确删除。
+    func forgetAll() async throws
+}
+
+public extension UsageHistoryRecording {
+    func forgetAll() async throws {
+        for source in try await archive().sources { try await forget(source.source) }
+    }
 }
 
 /// 没有注入历史服务时（Widget、预览、旧测试）保持完全无副作用。
@@ -33,15 +41,28 @@ public struct DisabledUsageHistory: UsageHistoryRecording {
     }
 }
 
+/// 初始化失败必须可见，不能伪装成用户没有历史。
+public struct UnavailableUsageHistory: UsageHistoryRecording {
+    public init() {}
+    public func record(snapshot: UsageSnapshot, for ref: AccountRef) async throws { throw UsageHistoryFailure.unavailable }
+    public func record(balances: [CurrencyBalance], at date: Date, for ref: AccountRef) async throws { throw UsageHistoryFailure.unavailable }
+    public func beginSegment(for ref: AccountRef) async throws { throw UsageHistoryFailure.unavailable }
+    public func forget(_ ref: AccountRef) async throws { throw UsageHistoryFailure.unavailable }
+    public func forgetAll() async throws { throw UsageHistoryFailure.unavailable }
+    public func archive() async throws -> UsageHistoryArchive { throw UsageHistoryFailure.unavailable }
+}
+
 /// 设备本地、有界、可清除的额度/余额时间线。
 ///
-/// 只记成功提交之后的观测，不上传、不写凭据；读取失败时自愈成空归档，
-/// 而不是让首页因为一份坏文件打不开。
+/// 只记成功提交之后的观测，不上传、不写凭据；坏文件/未知版本保留并报错，
+/// 界面单独提示历史不可用，不影响当前额度或余额刷新。
 public actor UsageHistoryService: UsageHistoryRecording {
     private let store: AtomicRecordStore<UsageHistoryArchive>
     private let clock: any BearClock
     private let byteBudget: Int
     private var cached: UsageHistoryArchive?
+    private var pendingFailure: UsageHistoryFailure?
+    private var pendingArchive: UsageHistoryArchive?
 
     public init(container: URL, clock: any BearClock = SystemBearClock(),
                 byteBudget: Int = UsageHistoryArchive.maximumBytes) throws {
@@ -51,13 +72,18 @@ public actor UsageHistoryService: UsageHistoryRecording {
     }
 
     public func archive() async throws -> UsageHistoryArchive {
-        try currentArchive()
+        if let pendingArchive { try commit(pendingArchive) }
+        if let pendingFailure { throw pendingFailure }
+        return try currentArchive()
     }
 
     public func record(snapshot: UsageSnapshot, for ref: AccountRef) async throws {
         // 用快照自己的抓取时间，而不是“现在”：迟到写回也能落在正确位置。
         let entries = snapshot.windows.map { window in
-            HistoryEntry(metric: .quota(windowID: window.id), value: .percent(window.remainingPercent))
+            HistoryEntry(metric: .quota(windowID: window.id), value: .percent(window.remainingPercent),
+                         resetsAt: window.resetsAt)
+        } + snapshot.balances.map { balance in
+            HistoryEntry(metric: .balance(currency: balance.currency), value: .amount(balance.total))
         }
         try record(entries: entries, at: snapshot.fetchedAt, for: ref)
     }
@@ -81,12 +107,23 @@ public actor UsageHistoryService: UsageHistoryRecording {
         var archive = try currentArchive()
         archive = UsageHistoryReducer.forgetting(ref, in: archive, now: now)
         if archive.sources.isEmpty {
-            // 什么都没了就把文件一起删掉，不留下空壳。
-            try? store.remove()
+            do { try store.remove() }
+            catch { pendingFailure = .unavailable; throw UsageHistoryFailure.unavailable }
             cached = archive
+            pendingFailure = nil
+            pendingArchive = nil
             return
         }
         try commit(archive)
+    }
+
+    public func forgetAll() async throws {
+        // 只有用户明确清除才允许删未知/坏文件；失败保留缓存和失败状态供重试。
+        do { try store.remove() }
+        catch { pendingFailure = .unavailable; throw UsageHistoryFailure.unavailable }
+        cached = .empty(at: clock.now())
+        pendingFailure = nil
+        pendingArchive = nil
     }
 
     private func record(entries: [HistoryEntry], at date: Date, for ref: AccountRef) throws {
@@ -102,28 +139,42 @@ public actor UsageHistoryService: UsageHistoryRecording {
 
     private func commit(_ archive: UsageHistoryArchive) throws {
         do {
+            let archive = try bounded(archive)
             if try store.write(archive) { cached = archive }
             else { cached = try store.read() }
-        } catch { throw UsageHistoryFailure.unavailable }
+            pendingFailure = nil
+            pendingArchive = nil
+        } catch {
+            pendingArchive = archive
+            pendingFailure = .unavailable
+            throw UsageHistoryFailure.unavailable
+        }
     }
 
-    /// 读取失败（坏文件、权限、解码错误）时自愈为空归档并重写，绝不让界面打不开。
-    private func currentArchive() throws -> UsageHistoryArchive {
-        if let cached { return cached }
-        var rebuilt = false
-        let loaded: UsageHistoryArchive
-        do {
-            loaded = try store.read() ?? .empty(at: clock.now())
-        } catch {
-            // write 会先读旧记录做时间戳比较，坏文件不先删就永远写不进去。
-            try? store.remove()
-            loaded = .empty(at: clock.now())
-            rebuilt = true
+    /// 归约器的粗估仅用于快速预裁剪；最终按真实 JSON 字节数守预算，含信封余量。
+    private func bounded(_ archive: UsageHistoryArchive) throws -> UsageHistoryArchive {
+        var result = archive
+        var estimateBudget = byteBudget
+        while try JSONEncoder().encode(result).count + 64 > byteBudget, !result.sources.isEmpty {
+            estimateBudget = max(0, estimateBudget * 3 / 4)
+            result = UsageHistoryReducer.pruned(archive, now: clock.now(), byteBudget: estimateBudget)
         }
-        // 打开时先按保留期清一次，避免读进来的老数据继续占用预算。
-        let pruned = UsageHistoryReducer.pruned(loaded, now: clock.now(), byteBudget: byteBudget)
-        if rebuilt || pruned != loaded { _ = try? store.write(pruned) }
-        cached = pruned
+        return result
+    }
+
+    /// 缺文件才是首次使用；坏文件、未知信封/记录版本和权限错误不能吞掉或覆写。
+    private func currentArchive() throws -> UsageHistoryArchive {
+        if let pendingArchive { return pendingArchive }
+        if let cached { return cached }
+        let loaded: UsageHistoryArchive
+        do { loaded = try store.read() ?? .empty(at: clock.now()) }
+        catch { throw UsageHistoryFailure.corruptArchive }
+        guard loaded.revision == UsageHistoryArchive.schemaRevision else {
+            throw UsageHistoryFailure.corruptArchive
+        }
+        let pruned = try bounded(UsageHistoryReducer.pruned(loaded, now: clock.now(), byteBudget: byteBudget))
+        if pruned != loaded { try commit(pruned) }
+        else { cached = loaded }
         return pruned
     }
 }
