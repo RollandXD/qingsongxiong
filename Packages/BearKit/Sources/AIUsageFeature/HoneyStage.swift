@@ -13,7 +13,7 @@ extension HoneyJarPresentation {
             guard let window, isConnected else { return BearHoneyJar.Cell(level: 0, warn: false, value: nil, label: label) }
             let remaining = ScrubForecast.remainingPercent(window, now: now, offset: offset)
             // 参考线只标“此刻的均匀配速”：读数过期或已经拖到未来时不画，免得把旧线当结论。
-            let reference: Double? = (label == "本周" && offset < 60 && !dashboard.isStale)
+            let reference: Double? = (offset < 60 && !dashboard.isStale)
                 ? QuotaPaceCalculator.pace(for: window.window, now: now).map { $0.referenceRemainingPercent / 100 }
                 : nil
             return BearHoneyJar.Cell(level: remaining / 100,

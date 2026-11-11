@@ -12,7 +12,7 @@ mkdir -p "$harness/Sources/AIUsageFeature" "$harness/Sources/AIUsageData" "$harn
 for module in BearFoundation AIUsageDomain AIUsagePresentation; do
     cp -R "$root/Packages/BearKit/Sources/$module" "$harness/Sources/$module"
 done
-for file in AIUsageModel WidgetReloadPolicy; do
+for file in AIUsageModel WidgetReloadPolicy HomeCardSource; do
     cp "$root/Packages/BearKit/Sources/AIUsageFeature/$file.swift" "$harness/Sources/AIUsageFeature/"
 done
 for file in AtomicRecordStore HTTPClient; do
@@ -23,7 +23,7 @@ for file in DemoUsageRepository DemoUsageHistoryReader DemoRelayRepository Usage
     UsageStorage RelayStorage WidgetUsageReader; do
     cp "$root/Packages/BearKit/Sources/AIUsageData/$file.swift" "$harness/Sources/AIUsageData/"
 done
-for file in HistoryReadingTests PrivacyTests; do
+for file in HistoryReadingTests PrivacyTests HomeCardSourceTests; do
     cp "$root/Packages/BearKit/Tests/AIUsageFeatureTests/$file.swift" "$harness/Tests/AIUsageFeatureTests/"
 done
 # Domain/Presentation 都只依赖 Foundation，完整复制测试，避免新增领域回归只在云端才执行。

@@ -187,20 +187,7 @@ public struct AIUsageHome: View {
 
     /// 主页只保留一个主卡区：两张卡的位置由用户自己选，蜜罐与中转余额同等大小。
     private var homeCardsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("额度与余额").font(.footnote.weight(.semibold))
-                Spacer()
-                Text(freshness).font(.footnote).monospacedDigit().contentTransition(.opacity)
-            }
-            .foregroundStyle(BearTheme.secondaryText(scheme))
-            .padding(.horizontal, 16)
-            VStack(alignment: .leading, spacing: 18) {
-                HomeCardsSection(model: model, relay: relay, now: now, offset: 0) { ref in open(ref) }
-            }
-            .padding(16)
-            .background(BearTheme.surface(scheme), in: .rect(cornerRadius: 26, style: .continuous))
-        }
+        HomeCardsSection(model: model, relay: relay, now: now, offset: 0, freshness: freshness) { ref in open(ref) }
     }
 
     /// 默认收起的独立恢复预览，不改变主卡的当前读数。

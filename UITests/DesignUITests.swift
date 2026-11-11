@@ -278,6 +278,45 @@ final class DesignUITests: XCTestCase {
             XCTAssertTrue(app.descendants(matching: .any)["home-card-1"].firstMatch.exists)
             attach(app, "home-cards-" + appearance)
 
+            // 不只验“有两格”：通过可见编辑入口真正把 Claude 换成中转，再放两张余额卡。
+            let relayID = "11111111-2222-3333-4444-555555555555"
+            openCardPicker(1, app)
+            app.buttons["pick-relay:" + relayID].tap()
+            let transfer = mainCardButton(1, identifier: "relay-" + relayID, app)
+            XCTAssertTrue(transfer.waitForExistence(timeout: 5))
+            XCTAssertTrue((transfer.value as? String ?? "").contains("12.345"), "中转主卡必须读出真实金额")
+            attach(app, "home-relay-main-" + appearance)
+
+            openCardPicker(0, app)
+            app.buttons["pick-provider:deepseek"].tap()
+            let money = mainCardButton(0, identifier: "provider-deepseek", app)
+            XCTAssertTrue(money.waitForExistence(timeout: 5))
+            let amount = money.value as? String ?? ""
+            XCTAssertTrue(amount.contains("CNY"), amount)
+            XCTAssertTrue(amount.contains("128.36"), amount)
+            XCTAssertFalse(amount.contains("5 小时剩"), "DeepSeek 余额主卡不能伪装成额度蜜罐")
+            XCTAssertTrue(mainCardButton(1, identifier: "relay-" + relayID, app).exists)
+            attach(app, "home-balance-pair-" + appearance)
+            try auditRenderedAccessibility(app, test: self)
+            money.tap()
+            XCTAssertTrue(app.navigationBars["DeepSeek"].waitForExistence(timeout: 5))
+            goBack(app)
+
+            // 空位可重新填充；交换后两个目标仍独立，不重复、不把删除当“零余额”。
+            openCardPicker(0, app)
+            app.buttons["home-card-remove"].tap()
+            let empty = app.buttons["home-card-empty-0"]
+            XCTAssertTrue(empty.waitForExistence(timeout: 5))
+            attach(app, "home-empty-slot-" + appearance)
+            empty.tap()
+            app.buttons["pick-provider:claude"].tap()
+            XCTAssertTrue(mainCardButton(0, identifier: "provider-claude", app).waitForExistence(timeout: 5))
+            app.buttons["home-cards-edit"].tap()
+            app.buttons["home-cards-swap"].tap()
+            XCTAssertTrue(mainCardButton(0, identifier: "relay-" + relayID, app).waitForExistence(timeout: 5))
+            XCTAssertTrue(mainCardButton(1, identifier: "provider-claude", app).exists)
+            attach(app, "home-swapped-cards-" + appearance)
+
             let timeline = app.descendants(matching: .any)["usage-timeline"].firstMatch
             XCTAssertTrue(timeline.exists, "时间线存在")
             // exists 不够：ScrollView 里的 VStack 是即时渲染，没滚到也会返回 true，
@@ -446,6 +485,21 @@ final class DesignUITests: XCTestCase {
         XCTAssertEqual(before, app.buttons["provider-codex"].value as? String)
         attach(app, "timeline-read-error")
         app.terminate()
+    }
+
+    @MainActor
+    private func openCardPicker(_ slot: Int, _ app: XCUIApplication) {
+        tap("home-cards-edit", app)
+        let edit = app.buttons["home-card-edit-" + String(slot)]
+        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        edit.tap()
+        XCTAssertTrue(app.navigationBars["选择卡片"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    private func mainCardButton(_ slot: Int, identifier: String, _ app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any)["home-card-" + String(slot)].firstMatch
+            .descendants(matching: .button).matching(identifier: identifier).firstMatch
     }
 
     @MainActor

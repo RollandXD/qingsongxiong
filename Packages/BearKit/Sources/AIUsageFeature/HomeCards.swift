@@ -4,36 +4,13 @@ import BearDesignSystem
 import Foundation
 import SwiftUI
 
-/// 首页主卡：厂商蜜罐与中转余额平级占据同样大小的位置，谁都不是“次要卡片”。
-enum HomeCardSource: Equatable {
-    case provider(HoneyJarPresentation)
-    case relay(RelayPresentation)
-    /// 用户选了这个账户但还没连接：卡要留着，否则首次安装首页无可点之处。
-    case unconnected(ProviderID)
-
-    var ref: AccountRef {
-        switch self {
-        case .provider(let jar): .provider(jar.provider)
-        case .relay(let presentation): .relay(presentation.state.id)
-        case .unconnected(let provider): .provider(provider)
-        }
-    }
-
-    var isConnected: Bool {
-        switch self {
-        case .provider(let jar): jar.isConnected
-        case .relay(let presentation): presentation.state.snapshot != nil
-        case .unconnected: false
-        }
-    }
-}
-
 /// 两张主卡 + 空位选择。位置固定两名，用户自己决定放谁。
 struct HomeCardsSection: View {
     let model: AIUsageModel
     let relay: RelayModel?
     let now: Date
     let offset: TimeInterval
+    let freshness: String
     let onOpen: (AccountRef) -> Void
 
     @State private var pickingSlot: Int?
@@ -49,18 +26,7 @@ struct HomeCardsSection: View {
     }
 
     private func source(for ref: AccountRef?) -> HomeCardSource? {
-        guard let ref else { return nil }
-        switch ref {
-        case .provider(let provider):
-            // 未连接也照样占位：点进去就是连接入口，不会出现“首页什么都不能点”。
-            guard let state = model.states[provider], state.connection == .connected else {
-                return .unconnected(provider)
-            }
-            return .provider(HoneyJarPresentation(ProviderDashboardPresentation(provider: provider, state: state, at: now)))
-        case .relay(let id):
-            guard let state = relay?.states.first(where: { $0.id == id }) else { return nil }
-            return .relay(RelayPresentation(state: state, at: now))
-        }
+        HomeCardSource.resolve(ref, states: model.states, relays: relay?.states ?? [], at: now)
     }
 
     private func name(for ref: AccountRef) -> String {
@@ -77,14 +43,40 @@ struct HomeCardsSection: View {
     }
 
     var body: some View {
-        cardLayout {
-            ForEach(Array(0..<DashboardPreferences.slotCount), id: \.self) { slot in
-                slotView(slot)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("额度与余额").font(.footnote.weight(.semibold))
+                Spacer(minLength: 4)
+                Text(freshness).font(.footnote).monospacedDigit().contentTransition(.opacity)
+                    .fixedSize(horizontal: false, vertical: true)
+                Menu {
+                    ForEach(Array(0..<DashboardPreferences.slotCount), id: \.self) { slot in
+                        Button("更换第 \(slot + 1) 张卡") { pickingSlot = slot }
+                            .accessibilityIdentifier("home-card-edit-" + String(slot))
+                    }
+                    Button("交换两张卡") { model.swapCards() }
+                        .accessibilityIdentifier("home-cards-swap")
+                } label: {
+                    Text("编辑").font(.footnote.weight(.semibold))
+                        .foregroundStyle(BearTheme.accentInk(scheme))
+                        .frame(minWidth: 44, minHeight: 44)
+                }
+                .accessibilityIdentifier("home-cards-edit")
+                .accessibilityLabel("编辑首页主卡")
             }
+            .foregroundStyle(BearTheme.secondaryText(scheme))
+            .padding(.horizontal, 16)
+            cardLayout {
+                ForEach(Array(0..<DashboardPreferences.slotCount), id: \.self) { slot in
+                    slotView(slot)
+                }
+            }
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
+            .padding(16)
+            .background(BearTheme.surface(scheme), in: .rect(cornerRadius: 26, style: .continuous))
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("home-cards")
         }
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("home-cards")
         .sheet(item: Binding(get: { pickingSlot.map(HomeSlot.init) }, set: { if $0 == nil { pickingSlot = nil } })) { slot in
             HomeCardPicker(candidates: candidates, current: model.dashboard.ref(atSlot: slot.id),
                            name: name) { ref in
@@ -137,9 +129,11 @@ struct HomeCardsSection: View {
         case .provider(let jar):
             HoneyJarCard(jar: jar, now: now, offset: offset)
                 .frame(maxWidth: .infinity)
+        case .providerBalance(let presentation):
+            ProviderBalanceHomeTile(presentation: presentation)
         case .relay(let presentation):
             RelayHomeTile(presentation: presentation)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, minHeight: 260, alignment: .leading)
         case .unconnected(let provider):
             UnconnectedProviderTile(provider: provider)
                 .frame(maxWidth: .infinity)
@@ -149,6 +143,10 @@ struct HomeCardsSection: View {
     private func accessibilityValue(_ source: HomeCardSource) -> String {
         switch source {
         case .provider(let jar): jar.accessibilitySummary
+        case .providerBalance(let presentation):
+            (presentation.balances.isEmpty ? "暂无余额读数" : presentation.balances.map {
+                ProviderPresentation.money($0.balance.total, currency: $0.balance.currency)
+            }.joined(separator: "，")) + "，" + presentation.status
         case .relay(let presentation): presentation.headline + "，" + presentation.status
         case .unconnected(let provider): ProviderPresentation.name(provider) + " 未连接"
         }
@@ -370,6 +368,7 @@ struct HomeCardPicker: View {
                         if current != nil {
                             Section {
                                 Button(role: .destructive) { onClear() } label: { Text("移出首页") }
+                                    .accessibilityIdentifier("home-card-remove")
                             }
                         }
                     }
