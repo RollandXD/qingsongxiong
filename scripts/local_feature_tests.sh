@@ -7,7 +7,8 @@ harness="$(mktemp -d "${TMPDIR:-/tmp}/bear-feature-tests.XXXXXX")"
 trap 'rm -rf "$harness"' EXIT
 command -v docker >/dev/null || { printf '%s\n' '需要已安装的 Docker 和 swift:6.2 镜像。' >&2; exit 2; }
 mkdir -p "$harness/Sources/AIUsageFeature" "$harness/Sources/AIUsageData" \
-    "$harness/Tests/AIUsageFeatureTests" "$harness/Tests/AIUsageDataTests"
+    "$harness/Tests/AIUsageFeatureTests" "$harness/Tests/AIUsageDataTests" \
+    "$harness/Tests/AIUsagePresentationTests"
 for module in BearFoundation AIUsageDomain AIUsagePresentation; do
     cp -R "$root/Packages/BearKit/Sources/$module" "$harness/Sources/$module"
 done
@@ -20,6 +21,10 @@ done
 for file in HistoryReadingTests PrivacyTests; do
     cp "$root/Packages/BearKit/Tests/AIUsageFeatureTests/$file.swift" "$harness/Tests/AIUsageFeatureTests/"
 done
+# 此处只跑历史/配速相关测试；Xcode 的整包测试仍由 macOS CI 执行。
+for file in UsageTimelineTests QuotaPaceTests; do
+    cp "$root/Packages/BearKit/Tests/AIUsagePresentationTests/$file.swift" "$harness/Tests/AIUsagePresentationTests/"
+done
 cp "$root/Packages/BearKit/Tests/AIUsageDataTests/DemoUsageHistoryReaderTests.swift" "$harness/Tests/AIUsageDataTests/"
 cat > "$harness/Package.swift" <<'SWIFT'
 // swift-tools-version:6.0
@@ -30,6 +35,7 @@ let package = Package(name: "BearPortableFeatureTests", targets: [
     .target(name: "AIUsagePresentation", dependencies: ["AIUsageDomain"]),
     .target(name: "AIUsageFeature", dependencies: ["AIUsageDomain", "AIUsagePresentation"]),
     .target(name: "AIUsageData", dependencies: ["AIUsageDomain"]),
+    .testTarget(name: "AIUsagePresentationTests", dependencies: ["AIUsagePresentation", "AIUsageDomain"]),
     .testTarget(name: "AIUsageFeatureTests", dependencies: ["AIUsageFeature", "AIUsageDomain"]),
     .testTarget(name: "AIUsageDataTests", dependencies: ["AIUsageData", "AIUsageDomain"]),
 ])

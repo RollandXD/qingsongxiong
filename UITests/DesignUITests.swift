@@ -397,6 +397,15 @@ final class DesignUITests: XCTestCase {
             XCTAssertTrue(relay.waitForExistence(timeout: 5))
             relay.tap()
             XCTAssertTrue(chart.label.contains("USD 余额"), chart.label)
+            // 菜单在图表上方：切完账户时图表可能仍在屏幕底部外面。
+            // 必须先把完整图表滚进稳定视口，再从它的真实位置验证纵向手势。
+            for _ in 0..<6 {
+                let frame = chart.frame
+                if frame.minY < 160 { app.scrollViews.firstMatch.swipeDown() }
+                else if frame.maxY > app.frame.maxY - 40 { app.scrollViews.firstMatch.swipeUp() }
+                else { break }
+            }
+            XCTAssertTrue(onScreen(chart, in: app), "先完整露出图表，不能向屏幕外坐标发手势")
             attach(app, "timeline-relay-" + appearance)
             let previous = chart.frame.minY
             chart.swipeUp()

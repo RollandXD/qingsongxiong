@@ -24,29 +24,30 @@ func auditRenderedAccessibility(_ app: XCUIApplication, test: XCTestCase) throws
         }
         // 原生审计也可能返回 ScrollView 中尚未完整进入屏幕的页脚。
         // 先把真实元素滚入视口，再采完整截图；绝不裁掉越界部分或直接忽略。
+        let label = element.label
         let before = element.frame
-        guard revealForContrast(element, in: app, test: test) else {
-            print("BEAR_RENDERED_UNRESOLVED \(element.label) frame=\(element.frame)")
+        guard let frame = revealForContrast(element, in: app, test: test) else {
+            print("BEAR_RENDERED_UNRESOLVED \(label) frame=\(before)")
             return false
         }
-        if element.frame != before { generation += 1 }
+        if frame != before { generation += 1 }
         if cached?.generation != generation {
             guard let image = app.screenshot().image.cgImage else {
-                print("BEAR_RENDERED_UNRESOLVED \(element.label) frame=\(element.frame)")
+                print("BEAR_RENDERED_UNRESOLVED \(label) frame=\(frame)")
                 return false
             }
             cached = (image, generation)
         }
         guard let image = cached?.image,
-              let result = RenderedContrast.measure(image, rect: element.frame, screen: app.frame) else {
-            print("BEAR_RENDERED_UNRESOLVED \(element.label) frame=\(element.frame)")
+              let result = RenderedContrast.measure(image, rect: frame, screen: app.frame) else {
+            print("BEAR_RENDERED_UNRESOLVED \(label) frame=\(frame)")
             return false
         }
         guard result.ratio >= 4.5 else {
-            print("BEAR_RENDERED_LOW \(result.ratio) \(element.label)")
+            print("BEAR_RENDERED_LOW \(result.ratio) \(label)")
             return false
         }
-        print("BEAR_RENDERED_CONTRAST \(result.ratio) inkPixels=\(result.inkPixels) \(element.label)")
+        print("BEAR_RENDERED_CONTRAST \(result.ratio) inkPixels=\(result.inkPixels) \(label)")
         return true
     }
 }
@@ -59,34 +60,65 @@ private func contrastViewport(screen: CGRect, navigationBar: CGRect?) -> CGRect 
     return CGRect(x: screen.minX, y: top, width: screen.width, height: bottom - top)
 }
 
-/// 最多滚动三次；仍被遮挡、越界、尺寸异常或没有滚动容器时保持审计失败。
+/// 固定导航标题不能靠滚动“滚入正文”；只有完整位于导航栏和屏幕内才允许原位采样。
+private func fixedChromeViewport(frame: CGRect, screen: CGRect, navigationBar: CGRect?,
+                                 isNavigationElement: Bool) -> CGRect? {
+    guard isNavigationElement, let navigationBar, screen.contains(frame), navigationBar.contains(frame) else { return nil }
+    return navigationBar.intersection(screen)
+}
+
+/// 最多滚动三次；滚动后重新定位唯一元素，不继续持有 SwiftUI 已销毁的 AX binding。
+/// 固定 chrome 原位采实际像素；其余仍要求进入无遮挡正文区，失败不跳过。
 @MainActor
-private func revealForContrast(_ element: XCUIElement, in app: XCUIApplication, test: XCTestCase) -> Bool {
+private func revealForContrast(_ element: XCUIElement, in app: XCUIApplication, test: XCTestCase) -> CGRect? {
     let original = element.frame
+    let label = element.label
+    let identifier = element.identifier
+    let type = element.elementType
     for attempt in 0...3 {
+        let current: XCUIElement
+        if attempt == 0 {
+            current = element
+        } else {
+            let predicate = identifier.isEmpty
+                ? NSPredicate(format: "label == %@", label)
+                : NSPredicate(format: "identifier == %@", identifier)
+            let matches = app.descendants(matching: type).matching(predicate)
+            guard matches.count == 1 else { return nil }
+            current = matches.firstMatch
+        }
+        guard current.exists else { return nil }
         let screen = app.frame
         let bar = app.navigationBars.firstMatch
-        let viewport = contrastViewport(screen: screen, navigationBar: bar.exists ? bar.frame : nil)
-        let frame = element.frame
+        let navigationFrame = bar.exists ? bar.frame : nil
+        let frame = current.frame
+        let predicate = identifier.isEmpty
+            ? NSPredicate(format: "label == %@", label)
+            : NSPredicate(format: "identifier == %@", identifier)
+        let inNavigation = bar.exists && bar.descendants(matching: type).matching(predicate)
+            .allElementsBoundByIndex.contains { $0.frame == frame }
+        let viewport = fixedChromeViewport(frame: frame, screen: screen, navigationBar: navigationFrame,
+                                           isNavigationElement: inNavigation)
+            ?? contrastViewport(screen: screen, navigationBar: navigationFrame)
         guard frame.width > 2, frame.height > 2,
-              frame.width <= viewport.width, frame.height <= viewport.height else { return false }
+              frame.width <= viewport.width, frame.height <= viewport.height else { return nil }
         if viewport.contains(frame) {
             if attempt > 0 {
-                print("BEAR_AUDIT_REVEALED \(element.label) from=\(original) to=\(frame)")
+                print("BEAR_AUDIT_REVEALED \(label) from=\(original) to=\(frame)")
                 let attachment = XCTAttachment(screenshot: app.screenshot())
                 attachment.name = "contrast-revealed-element"
                 attachment.lifetime = .keepAlways
                 test.add(attachment)
             }
-            return true
+            return frame
         }
         let scroll = app.scrollViews.firstMatch
-        guard attempt < 3, scroll.exists else { return false }
+        guard attempt < 3, scroll.exists else { return nil }
         if frame.maxY > viewport.maxY { scroll.swipeUp() }
         else if frame.minY < viewport.minY { scroll.swipeDown() }
-        else { return false }
+        else { return nil }
     }
-    return false
+    return nil
 }
 
 @MainActor
@@ -104,6 +136,22 @@ final class RenderedContrastTests: XCTestCase {
             .contains(CGRect(x: 32, y: 48, width: 102, height: 16)))
     }
 
+    func testFixedNavigationTitleIsSampledInPlaceWithoutAcceptingOccludedBodyText() {
+        let screen = CGRect(x: 0, y: 0, width: 402, height: 874)
+        let bar = CGRect(x: 0, y: 62, width: 402, height: 44)
+        let title = CGRect(x: 175, y: 74, width: 51, height: 21)
+        XCTAssertNotNil(fixedChromeViewport(frame: title, screen: screen, navigationBar: bar,
+                                            isNavigationElement: true))
+        XCTAssertNil(fixedChromeViewport(frame: title, screen: screen, navigationBar: bar,
+                                         isNavigationElement: false), "正文即使滚到同一位置也不能冒充导航标题")
+        XCTAssertNil(fixedChromeViewport(frame: CGRect(x: 32, y: 128, width: 102, height: 16),
+                                         screen: screen, navigationBar: bar, isNavigationElement: true))
+        XCTAssertNil(fixedChromeViewport(frame: CGRect(x: 175, y: 99, width: 51, height: 21),
+                                         screen: screen, navigationBar: bar, isNavigationElement: true))
+        XCTAssertNil(fixedChromeViewport(frame: CGRect(x: -2, y: 74, width: 51, height: 21),
+                                         screen: screen, navigationBar: bar, isNavigationElement: true))
+    }
+
     func testRenderedGateAcceptsReadableInkAndRejectsLowContrast() throws {
         let size = CGSize(width: 180, height: 36)
         func image(ink: UIColor, background: UIColor) -> CGImage {
@@ -116,6 +164,11 @@ final class RenderedContrastTests: XCTestCase {
         }
         let rect = CGRect(origin: .zero, size: size)
         let ink = UIColor(red: 94 / 255.0, green: 93 / 255.0, blue: 89 / 255.0, alpha: 1)
+        // 原生导航标题的 UIColor.label 是纯黑/白，也必须按实际像素通过 4.5:1。
+        let nativeTitle = try XCTUnwrap(RenderedContrast.measure(image(ink: .black, background: .white), rect: rect, screen: rect))
+        XCTAssertGreaterThan(nativeTitle.ratio, 4.5)
+        let nativeDarkTitle = try XCTUnwrap(RenderedContrast.measure(image(ink: .white, background: .black), rect: rect, screen: rect))
+        XCTAssertGreaterThan(nativeDarkTitle.ratio, 4.5)
         let readable = try XCTUnwrap(RenderedContrast.measure(image(ink: ink, background: .white), rect: rect, screen: rect))
         XCTAssertGreaterThan(readable.ratio, 4.5)
         // 浅色卡片与深色模式的白字 token 相近，不能把背景当成另一种文字墨色。
@@ -146,8 +199,9 @@ final class RenderedContrastTests: XCTestCase {
 
 private enum RenderedContrast {
     struct Result { let ratio: Double; let inkPixels: Int }
-    // 与 BearTheme 的主/次文字、状态文字一致；不把图表系列色当文字墨色。
+    // 与 BearTheme 和原生导航 label 一致；不把图表系列色当文字墨色。
     static let inks: [[Int]] = [
+        [0, 0, 0], [255, 255, 255],
         [29, 29, 31], [94, 93, 89], [154, 91, 0], [31, 122, 58], [198, 42, 33],
         [245, 244, 239], [183, 181, 174], [255, 179, 64], [48, 209, 88], [255, 105, 97],
     ]

@@ -130,6 +130,8 @@ public final class AIUsageModel {
         catch is CancellationError { return }
         catch { if reportFailure && revisions[provider, default: 0] == revision { message = Self.explanation(error) } }
         let reloaded = await reload(provider, revision: revision)
+        // 成功提交后立即读回历史，详情刷新和下拉刷新不必等下一个五分钟 tick。
+        if succeeded && reloaded { await loadHistory() }
         if revisions[provider, default: 0] == revision {
             let verified = succeeded && reloaded
             if verified { verifiedRefresh.insert(provider) }
@@ -158,6 +160,8 @@ public final class AIUsageModel {
             try await connector.connect(provider, apiKey: key)
             guard revisions[provider, default: 0] == revision else { return false }
             await reload(provider, revision: revision)
+            await loadHistory()
+            guard revisions[provider, default: 0] == revision else { return false }
             publishChange(force: true)
             return true
         } catch is CancellationError { return false }
@@ -170,6 +174,7 @@ public final class AIUsageModel {
     @discardableResult
     public func disconnect(_ provider: ProviderID) async -> Bool {
         revisions[provider, default: 0] &+= 1
+        historyRequest &+= 1
         refreshing.remove(provider)
         refreshFeedback[provider] = nil
         animatedRefresh.remove(provider)
@@ -178,6 +183,9 @@ public final class AIUsageModel {
         await connector?.cancel(provider)
         do {
             try await repository.disconnect(provider)
+            historyRequest &+= 1
+            history = UsageHistoryArchive(sources: history.sources.filter { $0.source != .provider(provider) },
+                                          updatedAt: Date())
             states[provider] = .disconnected(provider, at: Date())
             if !clearing { publishChange(force: true) }
             return true

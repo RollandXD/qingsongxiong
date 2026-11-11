@@ -35,7 +35,7 @@ private func timeline(_ archive: UsageHistoryArchive, metric: UsageHistoryMetric
 
 @Test func pointsInsideRangeKeepOrderAndUseZeroToHundred() throws {
     let points = [3, 2, 1].map { offset in
-        UsageObservation(at: timelineNow.addingTimeInterval(-Double(offset) * hour),
+        UsageObservation(at: timelineNow.addingTimeInterval(-Double(offset) * 600),
                          segment: 0, entries: [quota(percent: Double(offset) * 10)])
     }
     let shown = timeline(archive(points))
@@ -46,7 +46,7 @@ private func timeline(_ archive: UsageHistoryArchive, metric: UsageHistoryMetric
     #expect(shown.yRange == 0...100)
     #expect(shown.unitLabel == "%")
     #expect(shown.emptyReason == nil)
-    // 只有 3 小时历史，看 24 小时跨度时要提醒“还看不出全天的走势”。
+    // 只有半小时历史，看 24 小时跨度时要提醒“还看不出全天的走势”。
     #expect(shown.gapNote?.contains("还看不出走势") == true)
 }
 
@@ -72,7 +72,21 @@ private func timeline(_ archive: UsageHistoryArchive, metric: UsageHistoryMetric
     ]
     let shown = timeline(archive(observations), range: .week)
     #expect(shown.bands.count == 2)
-    #expect(shown.gapNote != nil)
+    #expect(shown.gapNote?.contains("采样缺口") == true)
+    #expect(Set(shown.bands.map(\.id)).count == 2,
+            "同一分段的两条断线也必须有独立 SwiftUI 身份，不能随机丢线")
+}
+
+@Test func tenThousandDenseReadingsKeepOneOrderedBand() {
+    let observations = (0..<10_000).map { index in
+        UsageObservation(at: timelineNow.addingTimeInterval(-Double(9_999 - index) * 180),
+                         segment: 0, entries: [quota(percent: Double(index % 101))])
+    }
+    let shown = timeline(archive(observations), range: .month)
+    #expect(shown.pointCount == 10_000)
+    #expect(shown.bands.count == 1)
+    #expect(shown.bands.first?.points.first?.at == observations.first?.at)
+    #expect(shown.bands.first?.points.last?.at == timelineNow)
 }
 
 @Test func denseReadingsStayInOneBand() {
@@ -135,6 +149,33 @@ private func timeline(_ archive: UsageHistoryArchive, metric: UsageHistoryMetric
     let range = try #require(shown.yRange)
     #expect(range.upperBound >= 12.5)
     #expect(range.lowerBound <= 9.25, "金额图要框住真实区间，不能像百分比那样固定 0–100")
+}
+
+@Test func fifteenMinuteGapBoundaryDoesNotChangeWithZoom() {
+    for range in UsageHistoryRange.allCases {
+        for seconds in [900.0, 901.0] {
+            let observations = [
+                UsageObservation(at: timelineNow.addingTimeInterval(-seconds), segment: 0, entries: [quota(percent: 60)]),
+                UsageObservation(at: timelineNow, segment: 0, entries: [quota(percent: 50)])
+            ]
+            let shown = timeline(archive(observations), range: range)
+            #expect(shown.bands.count == (seconds > 900 ? 2 : 1))
+        }
+    }
+}
+
+@Test func negativeBalancesUseAValidNegativeScaleAndKeepExactDecimalReadings() throws {
+    let values = [Decimal(string: "-12.34567890123456789")!, Decimal(string: "-8.125")!]
+    let observations = values.enumerated().map { index, value in
+        UsageObservation(at: timelineNow.addingTimeInterval(-Double(1 - index) * 300), segment: 0,
+                         entries: [HistoryEntry(metric: .balance(currency: "USD"), value: .amount(value))])
+    }
+    let shown = timeline(archive(observations), metric: .balance(currency: "USD"))
+    let bounds = try #require(shown.yRange)
+    #expect(bounds.lowerBound < -12.34567890123456789)
+    #expect(bounds.upperBound > -8.125)
+    #expect(shown.bands.first?.points.first?.fullValue == "-12.34567890123456789")
+    #expect(shown.bands.first?.points.last?.exactAmount == values.last)
 }
 
 @Test func metricOptionsComeFromHistoryNotFromHardcodedProviders() {

@@ -70,6 +70,7 @@ struct UsageTimelineSection: View {
                         .accessibilityIdentifier("timeline-retry")
                 }
                 .foregroundStyle(BearTheme.secondaryText(scheme))
+                .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("timeline-error")
             }
             if let presentation {
@@ -170,7 +171,16 @@ struct UsageTimelineSection: View {
                     .accessibilityElement()
                     .accessibilityLabel("过去\(range.label)的" + presentation.metricLabel + "走势")
                     .accessibilityValue(readingText(presentation))
-                    .accessibilityHint("左右滑动查看每个读数")
+                    .accessibilityHint("上下轻扫切换历史读数；横向拖动也可选点")
+                    .accessibilityAdjustableAction { direction in
+                        let points = presentation.bands.flatMap(\.points)
+                        let current = selectedPoint(presentation)?.at ?? points.last?.at ?? now
+                        switch direction {
+                        case .increment: selection = points.first { $0.at > current }?.at ?? current
+                        case .decrement: selection = points.last { $0.at < current }?.at ?? current
+                        @unknown default: break
+                        }
+                    }
                     .accessibilityIdentifier("timeline-chart")
                 if let reference = pacePath(presentation) {
                     Text("虚线：均匀配速参考 · " + reference.comparison)
@@ -187,21 +197,25 @@ struct UsageTimelineSection: View {
     @ViewBuilder
     private func reading(_ presentation: UsageTimelinePresentation) -> some View {
         let point = selectedPoint(presentation) ?? presentation.bands.last?.points.last
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             if let point {
-                Text(format(point.value, isBalance: presentation.isBalance))
-                    .font(.title3.weight(.semibold))
-                    .monospacedDigit()
-                    .contentTransition(.numericText())
-                Text(presentation.isBalance ? presentation.unitLabel : "%")
-                    .font(.footnote)
-                    .foregroundStyle(BearTheme.secondaryText(scheme))
-                Spacer()
-                Text(selection == nil ? "最新" : point.at.formatted(date: .abbreviated, time: .shortened))
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(point.fullValue)
+                        .font(.title3.weight(.semibold))
+                        .monospacedDigit()
+                        .fixedSize(horizontal: false, vertical: true)
+                        .contentTransition(.numericText())
+                    Text(presentation.isBalance ? presentation.unitLabel : "%")
+                        .font(.footnote)
+                        .foregroundStyle(BearTheme.secondaryText(scheme))
+                }
+                Text((selection == nil ? "最新 · " : "") + point.at.formatted(date: .abbreviated, time: .shortened))
                     .font(.caption)
                     .foregroundStyle(BearTheme.secondaryText(scheme))
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .accessibilityElement(children: .combine)
         .accessibilityIdentifier("timeline-reading")
     }
 
@@ -209,7 +223,7 @@ struct UsageTimelineSection: View {
         let point = selectedPoint(presentation) ?? presentation.bands.last?.points.last
         guard let point else { return "没有读数" }
         let unit = presentation.isBalance ? presentation.unitLabel : "%"
-        return format(point.value, isBalance: presentation.isBalance) + unit
+        return point.fullValue + unit + "，" + point.at.formatted(date: .abbreviated, time: .shortened)
     }
 
     private func selectedPoint(_ presentation: UsageTimelinePresentation) -> TimelinePoint? {
@@ -217,11 +231,6 @@ struct UsageTimelineSection: View {
         return presentation.bands.flatMap(\.points).min {
             abs($0.at.timeIntervalSince(selection)) < abs($1.at.timeIntervalSince(selection))
         }
-    }
-
-    private func format(_ value: Double, isBalance: Bool) -> String {
-        if isBalance { return value.formatted(.number.precision(.fractionLength(2))) }
-        return value.formatted(.number.precision(.fractionLength(value < 10 ? 1 : 0)))
     }
 
     /// 配速参考线：从窗口开始时的 100% 匀速降到重置时刻的 0%。

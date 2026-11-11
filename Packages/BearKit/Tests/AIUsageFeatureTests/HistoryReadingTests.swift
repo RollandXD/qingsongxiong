@@ -4,9 +4,14 @@ import Foundation
 import Testing
 
 private actor FeatureHistoryRepository: AIUsageRepository {
+    private let refreshSucceeds: Bool
+    init(refreshSucceeds: Bool = false) { self.refreshSucceeds = refreshSucceeds }
     func state(for provider: ProviderID) async throws -> ProviderState { .disconnected(provider, at: Date()) }
     func cachedSnapshot(for provider: ProviderID) async throws -> UsageSnapshot? { nil }
-    func refresh(_ provider: ProviderID) async throws -> UsageSnapshot { throw UsageFailure.unavailable }
+    func refresh(_ provider: ProviderID) async throws -> UsageSnapshot {
+        guard refreshSucceeds else { throw UsageFailure.unavailable }
+        return UsageSnapshot(provider: provider, windows: [], balances: [], isAvailable: true, fetchedAt: Date())
+    }
     func disconnect(_ provider: ProviderID) async throws {}
 }
 
@@ -35,6 +40,7 @@ private actor HistoryReaderProbe: UsageHistoryReading {
         if fails { throw UsageFailure.unavailable }
         return captured
     }
+    func setArchive(_ archive: UsageHistoryArchive) { value = archive; failure = false }
     func waitUntilReading() async {
         if pending == nil { await withCheckedContinuation { started = $0 } }
     }
@@ -91,4 +97,31 @@ private actor HistoryReaderProbe: UsageHistoryReading {
     await older.value
     #expect(model.history.updatedAt == Date(timeIntervalSince1970: 200))
     #expect(model.historyError == nil)
+}
+
+@Test @MainActor func successfulRefreshReloadsHistoryBeforeReturning() async {
+    let reader = HistoryReaderProbe()
+    let model = AIUsageModel(repository: FeatureHistoryRepository(refreshSucceeds: true),
+                             connector: nil, historyReader: reader)
+    await reader.configure(failure: false, at: 300)
+    await model.refresh(.codex)
+    #expect(model.historyLoaded)
+    #expect(model.history.updatedAt == Date(timeIntervalSince1970: 300),
+            "成功刷新立即读回历史，不能等五分钟或重启才更新图")
+}
+
+@Test @MainActor func disconnectImmediatelyDropsOnlyThatProvidersInMemoryHistory() async {
+    let reader = HistoryReaderProbe()
+    let sources = [ProviderID.codex, .claude].map { provider in
+        UsageHistorySource(source: .provider(provider), observations: [
+            UsageObservation(at: Date(), segment: 0,
+                             entries: [HistoryEntry(metric: .quota(windowID: "window"), value: .percent(50))])
+        ])
+    }
+    await reader.setArchive(UsageHistoryArchive(sources: sources, updatedAt: Date()))
+    let model = AIUsageModel(repository: FeatureHistoryRepository(), connector: nil, historyReader: reader)
+    await model.loadHistory()
+    #expect(model.history.sources.count == 2)
+    #expect(await model.disconnect(.codex))
+    #expect(model.history.sources.map(\.source) == [.provider(.claude)])
 }

@@ -5,7 +5,12 @@ import Foundation
 public struct TimelineBand: Equatable, Sendable, Identifiable {
     public let segment: Int
     public let points: [TimelinePoint]
-    public var id: Int { segment }
+    /// 同一账号分段内也可能有多次采样缺口，不能把 segment 单独当 SwiftUI 身份。
+    public struct ID: Hashable, Sendable {
+        let segment: Int
+        let firstReading: Date?
+    }
+    public var id: ID { ID(segment: segment, firstReading: points.first?.at) }
 
     public init(segment: Int, points: [TimelinePoint]) {
         self.segment = segment
@@ -17,11 +22,19 @@ public struct TimelinePoint: Equatable, Sendable, Identifiable {
     public let at: Date
     /// 百分比（0–100）或金额；两者不混在同一张图里，由指标决定。
     public let value: Double
+    /// 绘图用 Double，金额读数始终保留原始 Decimal，不把浮点舍入当原数。
+    public let exactAmount: Decimal?
     public var id: Date { at }
 
-    public init(at: Date, value: Double) {
+    public init(at: Date, value: Double, exactAmount: Decimal? = nil) {
         self.at = at
         self.value = value
+        self.exactAmount = exactAmount
+    }
+
+    public var fullValue: String {
+        if let exactAmount { return NSDecimalNumber(decimal: exactAmount).stringValue }
+        return value.formatted(.number.precision(.fractionLength(value < 10 ? 1 : 0)))
     }
 }
 
@@ -61,8 +74,8 @@ public struct UsageTimelinePresentation: Equatable, Sendable {
     public var pointCount: Int { bands.reduce(0) { $0 + $1.points.count } }
     public var isEmpty: Bool { pointCount == 0 }
 
-    /// 相邻两点间隔超过这个倍数（相对跨度）就认为中间断过读数，不再画成直接连线。
-    static let gapFactor: Double = 3
+    /// 前台五分钟观测节奏下，连续超过十五分钟无读数就留缺口；不随缩放变成假连线。
+    static let maximumContinuousInterval: TimeInterval = 15 * 60
 
     public init(archive: UsageHistoryArchive, ref: AccountRef, metric: UsageHistoryMetric,
                 range: UsageHistoryRange, now: Date, metricLabel: String) {
@@ -85,26 +98,39 @@ public struct UsageTimelinePresentation: Equatable, Sendable {
             return
         }
 
-        let points = inRange.map { TimelinePoint(at: $0.at, value: $0.value(for: metric)?.chartValue ?? 0) }
+        let points = inRange.map { observation in
+            let sampled = observation.value(for: metric)
+            let amount: Decimal?
+            if case .amount(let value) = sampled { amount = value } else { amount = nil }
+            return TimelinePoint(at: observation.at, value: sampled?.chartValue ?? 0, exactAmount: amount)
+        }
         // 按分段号切段；段内再按大间隔再切，避免把几小时的空档画成斜线。
         var bands: [TimelineBand] = []
+        var currentSegment: Int?
+        var currentPoints: [TimelinePoint] = []
         for (index, observation) in inRange.enumerated() {
             let point = points[index]
-            if var last = bands.last, last.segment == observation.segment, !Self.isGap(last.points.last, point, range: range) {
-                last = TimelineBand(segment: last.segment, points: last.points + [point])
-                bands[bands.count - 1] = last
-            } else {
-                bands.append(TimelineBand(segment: observation.segment, points: [point]))
+            if let segment = currentSegment,
+               segment != observation.segment || Self.isGap(currentPoints.last, point, range: range) {
+                bands.append(TimelineBand(segment: segment, points: currentPoints))
+                currentPoints = []
             }
+            currentSegment = observation.segment
+            // 直接 append 到独占缓冲；不在每个点上复制上一整段数组（避免 10,000 点退化到 O(n²)）。
+            currentPoints.append(point)
         }
-        self.bands = bands.filter { !$0.points.isEmpty }
+        if let segment = currentSegment {
+            bands.append(TimelineBand(segment: segment, points: currentPoints))
+        }
+        self.bands = bands
         yRange = Self.range(for: points, isBalance: metric.isBalance)
         emptyReason = nil
         // 点是真的就画出来；只是跨度比历史还长时补一句，不假称已经看出中长期趋势。
-        gapNote = Self.note(for: bands, range: range)
-            ?? (range.isMeaningful(historyAge: historyAge) ? nil
-                : "历史只有 \(Self.duration(historyAge))，" +
-                  "\(range.label)这个跨度还看不出走势。")
+        let notes = [Self.note(for: bands, range: range),
+                     range.isMeaningful(historyAge: historyAge) ? nil
+                        : "历史只有 \(Self.duration(historyAge))，\(range.label)这个跨度还看不出走势。"]
+            .compactMap { $0 }
+        gapNote = notes.isEmpty ? nil : notes.joined(separator: " ")
     }
 
     /// 用“x 小时/x 天”描述历史长度，避免把秒数直接摆在界面上。
@@ -122,21 +148,21 @@ public struct UsageTimelinePresentation: Equatable, Sendable {
 
     static func isGap(_ previous: TimelinePoint?, _ next: TimelinePoint, range: UsageHistoryRange) -> Bool {
         guard let previous else { return false }
-        let threshold = range.seconds / 24 * gapFactor
-        return next.at.timeIntervalSince(previous.at) > threshold
+        return next.at.timeIntervalSince(previous.at) > maximumContinuousInterval
     }
 
     /// 百分比固定 0–100 才有可比性；金额按实际最大值留一点余量。
     static func range(for points: [TimelinePoint], isBalance: Bool) -> ClosedRange<Double>? {
         guard let maxValue = points.map(\.value).max(), let minValue = points.map(\.value).min() else { return nil }
         if !isBalance { return 0...100 }
-        let span = max(maxValue - minValue, max(maxValue * 0.1, 0.01))
-        return max(0, minValue - span * 0.1)...(maxValue + span * 0.1)
+        let span = max(maxValue - minValue, max(max(abs(maxValue), abs(minValue)) * 0.1, 0.01))
+        // 余额可以为负；不能把下界截到 0，否则全负区间会构造反向 ClosedRange 并崩溃。
+        return (minValue - span * 0.1)...(maxValue + span * 0.1)
     }
 
     static func note(for bands: [TimelineBand], range: UsageHistoryRange) -> String? {
         guard bands.count > 1 else { return nil }
-        return "曲线分成 \(bands.count) 段：换个账户或密钥后读数不连续，所以不连成一条。"
+        return "曲线分成 \(bands.count) 段：采样缺口或账户、密钥、周期变化处保留断线，不补齐未知读数。"
     }
 }
 
