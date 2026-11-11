@@ -17,6 +17,8 @@
 
 AppShell 是组合根：将仓储注入功能页面，创建功能注册表与全局导航。`architecture.json` 和 `check_architecture.py` 同时核对源码 import 与 Swift Package 依赖。
 
+`AIUsageFeature` 的 iOS 历史图表用 `UIGestureRecognizerRepresentable` 接入 UIKit 方向识别：在 pan 开始前拒绝纵向手势，交回父 ScrollView；横向拖动仍可选点。UIKit 仅在 iOS 条件编译，不下沉到领域／展示／数据层，也不导入组件共享视图。不能用 `DragGesture.onChanged` 中直接 return 代替方向仲裁——那时可能已经截走滚动。
+
 Widget 依赖领域、AIUsagePresentation、平台与数据层的受限读取能力和通用设计资源。`WidgetUsageReader` 使用未过期凭据独立取数，不轮换 refresh token、不写共享快照；凭据过期时提示打开 App。读取完成后再次检查账户 sessionID，防止退出后的迟到结果重新显示。
 
 Widget 读取器仅持有 `UsageCredentialReading`、`UsageStateReading`，这两个协议没有保存或删除能力；主 App 仓储持有扩展了写入能力的 Store 协议。选择较新的组件读数时，仍保留同一账户另一份状态中的有效 Retry-After 期限。

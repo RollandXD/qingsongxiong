@@ -3,6 +3,9 @@ import AIUsagePresentation
 import BearDesignSystem
 import Foundation
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 /// 过去用量：跨度/指标可切换，点按读数，断段与空态都说清原因。
 struct UsageTimelineSection: View {
@@ -260,6 +263,43 @@ struct UsageTimelineSection: View {
     }
 }
 
+#if os(iOS)
+/// 必须在识别前拒绝纵向拖动：SwiftUI DragGesture 的 onChanged 已在抢到手势之后，
+/// 即使不更新 selection，也无法把那次拖动还给父 ScrollView。
+private struct TimelineHorizontalPan: UIGestureRecognizerRepresentable {
+    let select: (CGPoint) -> Void
+
+    func makeUIGestureRecognizer(context: Context) -> TimelinePanRecognizer {
+        let recognizer = TimelinePanRecognizer()
+        recognizer.maximumNumberOfTouches = 1
+        recognizer.delegate = recognizer
+        return recognizer
+    }
+
+    func updateUIGestureRecognizer(_ recognizer: TimelinePanRecognizer, context: Context) {}
+
+    func handleUIGestureRecognizerAction(_ recognizer: TimelinePanRecognizer, context: Context) {
+        guard recognizer.state == .began || recognizer.state == .changed else { return }
+        // UIKit 的 backing view 不保证等于图表边界；使用 SwiftUI 的本地坐标转换。
+        select(context.converter.localLocation)
+    }
+}
+
+/// recognizer 自己持有 delegate 行为，没有全局单例或跨视图的手势状态。
+private final class TimelinePanRecognizer: UIPanGestureRecognizer, UIGestureRecognizerDelegate {
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        let speed = velocity(in: view)
+        return abs(speed.x) > abs(speed.y)
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        // ScrollView 的原生 pan 仍可识别；垂直起手已由 ShouldBegin 拒绝，绝不改历史选点。
+        otherGestureRecognizer is UIPanGestureRecognizer
+    }
+}
+#endif
+
 /// 参考线的两个端点与说明；`nil` 表示这个指标/窗口不该画参考线。
 struct PacePath: Equatable {
     let start: Date
@@ -305,14 +345,19 @@ struct TimelineCanvas: View {
                     selection = date(atX: value.location.x, size: size, inset: inset)
                 }
             )
+            #if os(iOS)
+            .simultaneousGesture(TimelineHorizontalPan { location in
+                selection = date(atX: location.x, size: size, inset: inset)
+            })
+            #else
             .simultaneousGesture(
                 DragGesture(minimumDistance: 8)
                     .onChanged { value in
-                        // 只让横向拖动选点；纵向手势与父 ScrollView 同时识别，不截走滚动。
                         guard abs(value.translation.width) > abs(value.translation.height) else { return }
                         selection = date(atX: value.location.x, size: size, inset: inset)
                     }
             )
+            #endif
         }
     }
 

@@ -80,6 +80,14 @@ private func contrastRevealDrag(frame: CGRect, viewport: CGRect) -> (start: CGPo
     return (start, CGPoint(x: start.x, y: start.y + distance))
 }
 
+/// 同名文字跨平台重复时，只允许按滚动不改变的横向槽位和字框尺寸重新绑定。
+/// 不按“最近的 y”猜：滚动正会改变 y；相同槽位仍有多个候选时必须继续失败。
+private func sameContrastTextSlot(_ frame: CGRect, original: CGRect) -> Bool {
+    abs(frame.minX - original.minX) <= 1
+        && abs(frame.width - original.width) <= 1
+        && abs(frame.height - original.height) <= 1
+}
+
 /// 最多滚动三次；滚动后重新定位唯一元素，不继续持有 SwiftUI 已销毁的 AX binding。
 /// 固定 chrome 原位采实际像素；其余仍要求进入无遮挡正文区，失败不跳过。
 @MainActor
@@ -97,9 +105,14 @@ private func revealForContrast(_ element: XCUIElement, in app: XCUIApplication, 
             let predicate = identifier.isEmpty
                 ? NSPredicate(format: "label == %@", label)
                 : NSPredicate(format: "identifier == %@", identifier)
-            let matches = app.descendants(matching: type).matching(predicate)
-            guard matches.count == 1 else { return nil }
-            current = matches.firstMatch
+            let matches = app.descendants(matching: type).matching(predicate).allElementsBoundByIndex
+            let candidates = matches.filter { sameContrastTextSlot($0.frame, original: original) }
+            guard candidates.count == 1 else {
+                print("BEAR_AUDIT_REBIND_UNRESOLVED \(label) id=\(identifier)"
+                    + " matches=\(matches.count) sameSlot=\(candidates.count) original=\(original)")
+                return nil
+            }
+            current = candidates[0]
         }
         guard current.exists else { return nil }
         let screen = app.frame
@@ -190,6 +203,24 @@ final class RenderedContrastTests: XCTestCase {
             XCTAssertTrue(viewport.contains(drag.end))
         }
         XCTAssertNil(contrastRevealDrag(frame: CGRect(x: 32, y: 250, width: 90, height: 15), viewport: viewport))
+    }
+
+    func testContrastRebindingDistinguishesSameNamedColumnsWithoutGuessingVerticalPosition() {
+        let original = CGRect(x: 54.98, y: 66.67, width: 35, height: 14.33)
+        let leftAfterScroll = original.offsetBy(dx: 0, dy: 117)
+        let rightAfterScroll = original.offsetBy(dx: 176, dy: 117)
+        XCTAssertTrue(sameContrastTextSlot(leftAfterScroll, original: original))
+        XCTAssertFalse(sameContrastTextSlot(rightAfterScroll, original: original))
+        XCTAssertFalse(sameContrastTextSlot(CGRect(x: 54.98, y: 200, width: 50, height: 20),
+                                             original: original))
+        let distinctColumns = [leftAfterScroll, rightAfterScroll].filter {
+            sameContrastTextSlot($0, original: original)
+        }
+        XCTAssertEqual(distinctColumns.count, 1)
+        let ambiguousRows = [leftAfterScroll, leftAfterScroll.offsetBy(dx: 0, dy: 90)].filter {
+            sameContrastTextSlot($0, original: original)
+        }
+        XCTAssertEqual(ambiguousRows.count, 2, "同槽位重复不能挑最近的字框当成原元素")
     }
 
     func testRenderedGateAcceptsReadableInkAndRejectsLowContrast() throws {

@@ -418,14 +418,17 @@ final class DesignUITests: XCTestCase {
 
             // 初始位置可能已经到页底，继续上滑本来就不会移动，不能据此断言手势被截走。
             // 先在图表内下滑验证滚动，并给反向上滑留出真实余量；两方向都保留位移门槛。
+            let chosenReading = reading.label
             let beforeDown = chart.frame.minY
             chart.swipeDown()
             XCTAssertGreaterThan(chart.frame.minY, beforeDown + 10,
                                  "图表上的纵向下滑必须带动首页，不能被横向选点截走")
+            XCTAssertEqual(reading.label, chosenReading, "纵向滚动不能偷偷改掉历史选点")
             let beforeUp = chart.frame.minY
             chart.swipeUp()
             XCTAssertLessThan(chart.frame.minY, beforeUp - 10,
                               "已有滚动余量时，图表上的纵向上滑也必须带动首页")
+            XCTAssertEqual(reading.label, chosenReading, "反向纵向滚动也不能改掉历史选点")
             app.terminate()
         }
     }

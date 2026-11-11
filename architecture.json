@@ -6,5 +6,5 @@
   "AIUsageData": ["Foundation", "FoundationNetworking", "CoreFoundation", "AIUsageDomain", "BearFoundation", "BearPlatform"],
   "AIUsagePresentation": ["Foundation", "AIUsageDomain"],
   "AIUsageAuth": ["Foundation", "CoreFoundation", "CryptoKit", "Security", "Network", "AIUsageData", "AIUsageDomain", "BearFoundation", "BearPlatform"],
-  "AIUsageFeature": ["Foundation", "SwiftUI", "Observation", "AIUsageDomain", "AIUsagePresentation", "BearDesignSystem"]
+  "AIUsageFeature": ["Foundation", "SwiftUI", "UIKit", "Observation", "AIUsageDomain", "AIUsagePresentation", "BearDesignSystem"]
 }
