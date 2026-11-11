@@ -26,11 +26,10 @@ func auditRenderedAccessibility(_ app: XCUIApplication, test: XCTestCase) throws
         // 先把真实元素滚入视口，再采完整截图；绝不裁掉越界部分或直接忽略。
         let label = element.label
         let before = element.frame
-        guard let frame = revealForContrast(element, in: app, test: test) else {
+        guard let frame = revealForContrast(element, in: app, test: test, didScroll: { generation += 1 }) else {
             print("BEAR_RENDERED_UNRESOLVED \(label) frame=\(before)")
             return false
         }
-        if frame != before { generation += 1 }
         if cached?.generation != generation {
             guard let image = app.screenshot().image.cgImage else {
                 print("BEAR_RENDERED_UNRESOLVED \(label) frame=\(frame)")
@@ -67,10 +66,25 @@ private func fixedChromeViewport(frame: CGRect, screen: CGRect, navigationBar: C
     return navigationBar.intersection(screen)
 }
 
+/// 小幅、限距的露出动作；起点在左侧内容边缘，避开图表和时间尺的交互区域。
+/// 整屏 swipe 容易把顶部短文字一下甩到底部，又反向甩回去，三次也无法稳定采样。
+private func contrastRevealDrag(frame: CGRect, viewport: CGRect) -> (start: CGPoint, end: CGPoint)? {
+    guard viewport.height > 72, !viewport.contains(frame) else { return nil }
+    let distance: CGFloat
+    if frame.minY < viewport.minY {
+        distance = min(viewport.height / 3, viewport.minY - frame.minY + 24)
+    } else if frame.maxY > viewport.maxY {
+        distance = -min(viewport.height / 3, frame.maxY - viewport.maxY + 24)
+    } else { return nil }
+    let start = CGPoint(x: viewport.minX + 8, y: viewport.midY)
+    return (start, CGPoint(x: start.x, y: start.y + distance))
+}
+
 /// 最多滚动三次；滚动后重新定位唯一元素，不继续持有 SwiftUI 已销毁的 AX binding。
 /// 固定 chrome 原位采实际像素；其余仍要求进入无遮挡正文区，失败不跳过。
 @MainActor
-private func revealForContrast(_ element: XCUIElement, in app: XCUIApplication, test: XCTestCase) -> CGRect? {
+private func revealForContrast(_ element: XCUIElement, in app: XCUIApplication, test: XCTestCase,
+                               didScroll: () -> Void) -> CGRect? {
     let original = element.frame
     let label = element.label
     let identifier = element.identifier
@@ -113,10 +127,17 @@ private func revealForContrast(_ element: XCUIElement, in app: XCUIApplication, 
             return frame
         }
         let scroll = app.scrollViews.firstMatch
-        guard attempt < 3, scroll.exists else { return nil }
-        if frame.maxY > viewport.maxY { scroll.swipeUp() }
-        else if frame.minY < viewport.minY { scroll.swipeDown() }
-        else { return nil }
+        guard attempt < 3, scroll.exists,
+              let drag = contrastRevealDrag(frame: frame, viewport: viewport) else { return nil }
+        print("BEAR_AUDIT_SCROLL \(label) attempt=\(attempt) frame=\(frame) target=\(viewport)")
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        func coordinate(_ point: CGPoint) -> XCUICoordinate {
+            origin.withOffset(CGVector(dx: point.x - screen.minX, dy: point.y - screen.minY))
+        }
+        // 即使下一次定位失败，滚动也已改变全屏像素；必须作废此前截图缓存。
+        didScroll()
+        coordinate(drag.start).press(forDuration: 0.01, thenDragTo: coordinate(drag.end),
+                                     withVelocity: .slow, thenHoldForDuration: 0.2)
     }
     return nil
 }
@@ -150,6 +171,25 @@ final class RenderedContrastTests: XCTestCase {
                                          screen: screen, navigationBar: bar, isNavigationElement: true))
         XCTAssertNil(fixedChromeViewport(frame: CGRect(x: -2, y: 74, width: 51, height: 21),
                                          screen: screen, navigationBar: bar, isNavigationElement: true))
+    }
+
+    func testContrastRevealDragIsBoundedAndKeepsTheSameUnobscuredViewportRequirement() throws {
+        let viewport = CGRect(x: 0, y: 150, width: 402, height: 690)
+        let above = try XCTUnwrap(contrastRevealDrag(frame: CGRect(x: 57, y: 103, width: 48, height: 15),
+                                                     viewport: viewport))
+        XCTAssertEqual(above.start.x, 8, "避开图表的中部手势区域")
+        XCTAssertEqual(above.end.y - above.start.y, 71, accuracy: 0.1, "仅补足 47pt 遮挡与24pt留白，不整屏反甩")
+        let below = try XCTUnwrap(contrastRevealDrag(frame: CGRect(x: 32, y: 850, width: 90, height: 15),
+                                                     viewport: viewport))
+        XCTAssertLessThan(below.end.y, below.start.y)
+        let distant = try XCTUnwrap(contrastRevealDrag(frame: CGRect(x: 32, y: -600, width: 90, height: 15),
+                                                       viewport: viewport))
+        XCTAssertLessThanOrEqual(abs(distant.end.y - distant.start.y), viewport.height / 3)
+        for drag in [above, below, distant] {
+            XCTAssertTrue(viewport.contains(drag.start))
+            XCTAssertTrue(viewport.contains(drag.end))
+        }
+        XCTAssertNil(contrastRevealDrag(frame: CGRect(x: 32, y: 250, width: 90, height: 15), viewport: viewport))
     }
 
     func testRenderedGateAcceptsReadableInkAndRejectsLowContrast() throws {

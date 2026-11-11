@@ -407,10 +407,25 @@ final class DesignUITests: XCTestCase {
             }
             XCTAssertTrue(onScreen(chart, in: app), "先完整露出图表，不能向屏幕外坐标发手势")
             attach(app, "timeline-relay-" + appearance)
-            let previous = chart.frame.minY
+            let reading = app.descendants(matching: .any)["timeline-reading"].firstMatch
+            let latest = reading.label
+            chart.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
+                .press(forDuration: 0.05,
+                       thenDragTo: chart.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)),
+                       withVelocity: .slow, thenHoldForDuration: 0.2)
+            XCTAssertNotEqual(reading.label, latest, "横向拖动必须真正选到历史读数")
+            attach(app, "timeline-selection-" + appearance)
+
+            // 初始位置可能已经到页底，继续上滑本来就不会移动，不能据此断言手势被截走。
+            // 先在图表内下滑验证滚动，并给反向上滑留出真实余量；两方向都保留位移门槛。
+            let beforeDown = chart.frame.minY
+            chart.swipeDown()
+            XCTAssertGreaterThan(chart.frame.minY, beforeDown + 10,
+                                 "图表上的纵向下滑必须带动首页，不能被横向选点截走")
+            let beforeUp = chart.frame.minY
             chart.swipeUp()
-            XCTAssertLessThan(chart.frame.minY, previous - 10,
-                              "在图表上纵向滑动也必须能滚动首页，不能被选点手势截走")
+            XCTAssertLessThan(chart.frame.minY, beforeUp - 10,
+                              "已有滚动余量时，图表上的纵向上滑也必须带动首页")
             app.terminate()
         }
     }
