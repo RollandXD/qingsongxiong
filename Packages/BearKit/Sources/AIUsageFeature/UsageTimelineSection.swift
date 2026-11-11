@@ -346,7 +346,7 @@ struct TimelineCanvas: View {
                 }
             )
             #if os(iOS)
-            .simultaneousGesture(TimelineHorizontalPan { location in
+            .gesture(TimelineHorizontalPan { location in
                 selection = date(atX: location.x, size: size, inset: inset)
             })
             #else
